@@ -47,6 +47,12 @@ DEFAULT_MEL_UPPER_HZ = 7600.0
 # Energy gate: minimum RMS for a window to count as "active".
 DEFAULT_RMS_GATE_THRESHOLD = 0.015
 
+# Window / hop sizes in samples.  Change DEFAULT_WINDOW_SIZE_SAMPLES here to test
+# a larger window (e.g. 16_000 = 1.0 s @ 16 kHz).  The hop stays at half the window.
+# NOTE: Changing this requires rebuilding the TFLite model and updating AudioConstants.kt.
+DEFAULT_WINDOW_SIZE_SAMPLES = 8_000   # 0.5 s @ 16 kHz
+DEFAULT_HOP_SIZE_SAMPLES = DEFAULT_WINDOW_SIZE_SAMPLES // 2  # 0.25 s
+
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -93,10 +99,10 @@ def parse_cli_args() -> argparse.Namespace:
     parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--sample-rate", type=int, default=16_000)
-    parser.add_argument("--window-size", type=int, default=8_000,
+    parser.add_argument("--window-size", type=int, default=DEFAULT_WINDOW_SIZE_SAMPLES,
                         help="Window length in samples (default 8000 = 0.5 s @ 16 kHz).")
-    parser.add_argument("--hop-size", type=int, default=4_000,
-                        help="Hop between windows in samples (default 4000 = 0.25 s).")
+    parser.add_argument("--hop-size", type=int, default=DEFAULT_HOP_SIZE_SAMPLES,
+                        help="Hop between windows in samples (default = window-size / 2).")
     parser.add_argument(
         "--rms-gate-threshold", type=float, default=DEFAULT_RMS_GATE_THRESHOLD,
         help="Min RMS for a window to be kept as its file label (TARGET/JUNK). "
@@ -340,11 +346,8 @@ def create_training_windows(
                     skipped_counts[record.class_label] += 1
                     continue
 
-            # Peak-normalize the window.
-            max_abs = float(np.max(np.abs(window)))
-            if max_abs > 1e-6:
-                window = window / max_abs
-
+            # Fixed-scale: WAV samples already converted with /32768.0 — no per-window
+            # peak normalization so amplitude information is preserved for the model.
             features.append(window.astype(np.float32))
             labels.append(labels_to_index[record.class_label])
             kept_counts[record.class_label] += 1
@@ -388,9 +391,6 @@ def collect_negative_ambient_windows(
                 tail[: len(window)] = window
                 window = tail
 
-            max_abs = float(np.max(np.abs(window)))
-            if max_abs > 1e-6:
-                window = window / max_abs
             features.append(window.astype(np.float32))
 
     if not features:
@@ -419,15 +419,16 @@ def synthesize_ambient_noise_windows(
         white = rng.normal(0.0, 1.0, window_size).astype(np.float32)
         brown = np.cumsum(rng.normal(0.0, 0.08, window_size)).astype(np.float32)
 
-        white /= np.max(np.abs(white)) + 1e-8
-        brown /= np.max(np.abs(brown)) + 1e-8
-
         w = float(rng.uniform(0.35, 0.8))
         mixed = w * white + (1.0 - w) * brown
-        mx = float(np.max(np.abs(mixed)))
-        if mx > 1e-6:
-            mixed /= mx
-        windows[i] = mixed
+
+        # Scale to a realistic ambient RMS (0.05–0.15 of full scale) so the model
+        # sees amplitude as a useful feature; peak normalization would destroy this.
+        target_rms = float(rng.uniform(0.05, 0.15))
+        rms = float(np.sqrt(np.mean(mixed ** 2)))
+        if rms > 1e-8:
+            mixed = mixed * (target_rms / rms)
+        windows[i] = np.clip(mixed, -1.0, 1.0).astype(np.float32)
 
     return windows
 
@@ -538,12 +539,13 @@ def augment_training_data(x: "np.ndarray", y: "np.ndarray", seed: int = 42):
         aug_x.append(shifted[np.newaxis, :])
         aug_y.append(np.array([y[i]], dtype=y.dtype))
 
-        # Additive Gaussian noise (SNR ~25 dB)
+        # Additive Gaussian noise (SNR ~25 dB); clip to [-1, 1] to avoid
+        # going out of range without destroying relative amplitude.
         noise_scale = float(rng.uniform(0.01, 0.04))
-        noisy = x[i] + rng.normal(0, noise_scale, window_size).astype(np.float32)
-        mx = float(np.max(np.abs(noisy)))
-        if mx > 1e-6:
-            noisy = noisy / mx
+        noisy = np.clip(
+            x[i] + rng.normal(0, noise_scale, window_size).astype(np.float32),
+            -1.0, 1.0,
+        )
         aug_x.append(noisy[np.newaxis, :])
         aug_y.append(np.array([y[i]], dtype=y.dtype))
 

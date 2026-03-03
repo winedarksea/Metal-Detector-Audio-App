@@ -59,8 +59,7 @@
 - [ ] Post-train compare: previous vs new metrics; user chooses keep or revert.
 
 ## 7) Quality & Accuracy Improvements
-- [ ] **Data Collection:** Add environmental metadata fields (`soil_type`, `moisture`, `detector_model`).
 - [ ] **Data Collection:** Create specific capture flow for "Hard Negatives" (handling noise, cable bumps, ground mineralization) to prevent "Energy = Target" bias.
-- [ ] **Inference:** Investigate increasing window size (0.5s -> 1.0s) to capture full swing dynamics.
-- [ ] **Signal Processing:** Switch from "Per-Window Peak Normalization" to "Fixed-Scale Normalization" (Int16 / 32768.0). Peak norm destroys amplitude information, making silence look like loud signal.
+- [ ] **Inference:** Investigate increasing window size (0.5s -> 1.0s) to capture full swing dynamics. (Parameter centralized: change `DEFAULT_WINDOW_SIZE_SAMPLES` in `train_starter_model.py` and `INFERENCE_WINDOW_SIZE_SAMPLES` in `AudioConstants.kt`.)
+- [x] **Signal Processing:** Switch from "Per-Window Peak Normalization" to "Fixed-Scale Normalization" (Int16 / 32768.0). Removed per-block peak norm from `SharedAudioPipeline`, removed per-window peak norm from training windows and augmentation, synthetic ambient now uses RMS-scaled amplitude.
 - [ ] **Training:** Revisit `cleanup_csv.py` logic; ensure "Mixed" (Target+Junk) samples don't pollute the `TARGET` class if the Junk signal is dominant.

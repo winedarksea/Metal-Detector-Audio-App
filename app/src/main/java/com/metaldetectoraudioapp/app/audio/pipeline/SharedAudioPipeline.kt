@@ -21,7 +21,6 @@ class SharedAudioPipeline(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) : FrameStreamingPipeline {
 
-    private val normalizationProcessor = AudioNormalizationProcessor()
     private val bandLimitFilter = BandLimitFilter(inputSource.sampleRateHz)
     private val framer = SlidingAudioFramer(frameSizeSamples, hopSizeSamples)
     private val passthroughPlayer = AudioPassthroughPlayer(inputSource.sampleRateHz)
@@ -62,7 +61,9 @@ class SharedAudioPipeline(
                     floatBuffer[index] = pcmBuffer[index] / 32768f
                 }
 
-                normalizationProcessor.normalizeInPlace(floatBuffer)
+                // Fixed-scale: /32768f above already puts samples in [-1, 1].
+                // Per-block peak normalization is intentionally omitted — it destroys
+                // amplitude information and creates a train/inference mismatch.
                 bandLimitFilter.processInPlace(floatBuffer)
 
                 val rms = calculateRms(floatBuffer)

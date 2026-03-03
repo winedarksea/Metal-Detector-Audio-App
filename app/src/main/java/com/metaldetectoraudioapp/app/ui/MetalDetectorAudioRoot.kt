@@ -37,20 +37,6 @@ fun MetalDetectorAudioRoot(
     hasMicrophonePermission: Boolean,
     onRequestMicrophonePermission: () -> Unit
 ) {
-    if (!hasMicrophonePermission) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("Microphone permission is required to run inference and recording.")
-            Button(onClick = onRequestMicrophonePermission, modifier = Modifier.padding(top = 12.dp)) {
-                Text("Grant Microphone Permission")
-            }
-        }
-        return
-    }
-
     val navController = rememberNavController()
     val inferenceViewModel: InferenceViewModel = viewModel()
     val recordingViewModel: RecordingViewModel = viewModel()
@@ -82,28 +68,43 @@ fun MetalDetectorAudioRoot(
             }
         }
     ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = AppDestination.INFERENCE.route,
-            modifier = Modifier.padding(padding)
-        ) {
-            composable(AppDestination.INFERENCE.route) {
-                InferenceScreen(
-                    viewModel = inferenceViewModel,
-                    contentPadding = PaddingValues(16.dp)
-                )
+        if (!hasMicrophonePermission) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Microphone permission is required.")
+                Button(onClick = onRequestMicrophonePermission, modifier = Modifier.padding(top = 12.dp)) {
+                    Text("Grant Permission")
+                }
             }
-            composable(AppDestination.RECORD.route) {
-                RecordingScreen(
-                    viewModel = recordingViewModel,
-                    contentPadding = PaddingValues(16.dp)
-                )
-            }
-            composable(AppDestination.REVIEW.route) {
-                ReviewScreen(
-                    viewModel = reviewViewModel,
-                    contentPadding = PaddingValues(16.dp)
-                )
+        } else {
+            NavHost(
+                navController = navController,
+                startDestination = AppDestination.INFERENCE.route,
+                modifier = Modifier.padding(padding)
+            ) {
+                composable(AppDestination.INFERENCE.route) {
+                    InferenceScreen(
+                        viewModel = inferenceViewModel,
+                        contentPadding = PaddingValues(16.dp)
+                    )
+                }
+                composable(AppDestination.RECORD.route) {
+                    RecordingScreen(
+                        viewModel = recordingViewModel,
+                        contentPadding = PaddingValues(16.dp)
+                    )
+                }
+                composable(AppDestination.REVIEW.route) {
+                    ReviewScreen(
+                        viewModel = reviewViewModel,
+                        contentPadding = PaddingValues(16.dp)
+                    )
+                }
             }
         }
     }

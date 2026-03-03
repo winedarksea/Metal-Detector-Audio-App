@@ -24,7 +24,7 @@ class InferenceController(
         InferenceUiState(
             modelName = modelMetadata.modelName,
             modelVersion = modelMetadata.modelVersion,
-            threshold = modelMetadata.recommendedThreshold
+            threshold = 0.55f
         )
     )
     val uiState: StateFlow<InferenceUiState> = _uiState
@@ -81,13 +81,25 @@ class InferenceController(
         if (!_uiState.value.isRunning) {
             return
         }
+
+        // Optimization: Manual downsampling to avoid GC pressure from Sequence/chunked/map
+        // inside the high-frequency audio callback.
+        val rawSamples = frame.samples
+        val chunkSize = 80
+        val previewSize = 120
+        val newPoints = ArrayList<Float>(previewSize)
+
+        for (i in 0 until (previewSize * chunkSize) step chunkSize) {
+            if (i + chunkSize > rawSamples.size) break
+            var sum = 0f
+            for (j in 0 until chunkSize) {
+                sum += rawSamples[i + j]
+            }
+            newPoints.add(sum / chunkSize)
+        }
+
         _uiState.value = _uiState.value.copy(
-            waveformPreviewPoints = frame.samples
-                .asSequence()
-                .chunked(80)
-                .map { chunk -> chunk.average().toFloat() }
-                .take(120)
-                .toList()
+            waveformPreviewPoints = newPoints
         )
 
         if (inferenceInFlight) {

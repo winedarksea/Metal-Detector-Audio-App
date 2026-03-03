@@ -39,10 +39,12 @@ class FallbackHeuristicClassifier(
             "AMBIENT" to ambientScore
         )
 
-        val winner = scoreMap.maxByOrNull { it.value } ?: ("AMBIENT" to 1f)
+        val winner = scoreMap.maxByOrNull { it.value }
+        val topLabel = winner?.key ?: "AMBIENT"
+        val topScore = winner?.value ?: 1f
         return InferenceResult(
-            topLabel = winner.key,
-            topScore = winner.value,
+            topLabel = topLabel,
+            topScore = topScore,
             perLabelScores = scoreMap,
             inferenceTimeMs = 0
         )

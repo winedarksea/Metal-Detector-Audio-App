@@ -26,11 +26,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.screen.LabelPickerField
 import com.metaldetectoraudioapp.desktop.viewmodel.DesktopReviewViewModel
 import java.awt.Desktop
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
+
+private val SOIL_TYPE_OPTIONS = listOf(
+    "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
+)
+private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
 
 @Composable
 fun DesktopReviewScreen(
@@ -110,6 +116,9 @@ fun DesktopReviewScreen(
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
                 onRelabelClass = { viewModel.relabelClass(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
+                onRelabelEnvironment = { soil, moist, model ->
+                    viewModel.relabelEnvironment(recording, soil, moist, model)
+                },
                 onDelete = { viewModel.delete(recording.recordingId) },
             )
         }
@@ -125,6 +134,7 @@ private fun DesktopRecordingReviewCard(
     onRelabelTargets: (String) -> Unit,
     onRelabelClass: (ClassLabel) -> Unit,
     onRelabelNotes: (String) -> Unit,
+    onRelabelEnvironment: (soilType: String, moisture: String, detectorModel: String) -> Unit,
     onDelete: () -> Unit,
 ) {
     var targetInput by remember(recording.recordingId) {
@@ -133,6 +143,15 @@ private fun DesktopRecordingReviewCard(
     var notesInput by remember(recording.recordingId) {
         mutableStateOf(recording.notes.orEmpty())
     }
+    var soilTypeInput by remember(recording.recordingId) {
+        mutableStateOf(recording.soilType.orEmpty())
+    }
+    var moistureInput by remember(recording.recordingId) {
+        mutableStateOf(recording.moisture.orEmpty())
+    }
+    var detectorModelInput by remember(recording.recordingId) {
+        mutableStateOf(recording.detectorModel.orEmpty())
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -140,10 +159,9 @@ private fun DesktopRecordingReviewCard(
             Text("Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | Duration: ${recording.durationMs} ms")
             Text("Depth: ${recording.depthInches ?: "N/A"} | Mixed: ${recording.mixedFlag}")
 
-            OutlinedTextField(
+            LabelPickerField(
                 value = targetInput,
                 onValueChange = { targetInput = it },
-                label = { Text("target_names") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -186,6 +204,38 @@ private fun DesktopRecordingReviewCard(
                     onCheckedChange = onToggleInclude
                 )
                 Text("include_in_training")
+            }
+
+            // Environment fields
+            OutlinedTextField(
+                value = soilTypeInput,
+                onValueChange = { soilTypeInput = it },
+                label = { Text("soil_type") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text("moisture")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MOISTURE_OPTIONS.forEach { option ->
+                    FilterChip(
+                        selected = moistureInput == option,
+                        onClick = { moistureInput = if (moistureInput == option) "" else option },
+                        label = { Text(option) }
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = detectorModelInput,
+                onValueChange = { detectorModelInput = it },
+                label = { Text("detector_model") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Button(onClick = {
+                onRelabelEnvironment(soilTypeInput, moistureInput, detectorModelInput)
+            }) {
+                Text("Apply Environment")
             }
         }
     }

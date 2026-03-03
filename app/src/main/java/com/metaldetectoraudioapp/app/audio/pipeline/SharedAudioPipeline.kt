@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.app.audio.pipeline
 
+import android.media.AudioDeviceInfo
 import com.metaldetectoraudioapp.app.audio.AudioConstants
 import com.metaldetectoraudioapp.app.audio.source.AudioInputSource
 import com.metaldetectoraudioapp.app.audio.source.AudioPassthroughPlayer
@@ -28,7 +29,7 @@ class SharedAudioPipeline(
     private var readLoopJob: Job? = null
 
     private val _signalStatusFlow = MutableStateFlow(AudioSignalStatus())
-    val signalStatusFlow: StateFlow<AudioSignalStatus> = _signalStatusFlow
+    override val signalStatusFlow: StateFlow<AudioSignalStatus> = _signalStatusFlow
 
     @Volatile
     private var isPassthroughEnabled = false
@@ -36,6 +37,14 @@ class SharedAudioPipeline(
     override fun setPassthroughEnabled(enabled: Boolean) {
         isPassthroughEnabled = enabled
         passthroughPlayer.setEnabled(enabled)
+    }
+
+    override fun setInputDevice(device: AudioDeviceInfo?) {
+        inputSource.setPreferredDevice(device)
+    }
+
+    override fun setOutputDevice(device: AudioDeviceInfo?) {
+        passthroughPlayer.setPreferredDevice(device)
     }
 
     override fun start(onFrame: (AudioPipelineFrame) -> Unit) {

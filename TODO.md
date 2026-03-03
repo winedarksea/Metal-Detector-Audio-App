@@ -62,4 +62,5 @@
 - [ ] **Data Collection:** Create specific capture flow for "Hard Negatives" (handling noise, cable bumps, ground mineralization) to prevent "Energy = Target" bias.
 - [ ] **Inference:** Investigate increasing window size (0.5s -> 1.0s) to capture full swing dynamics. (Parameter centralized: change `DEFAULT_WINDOW_SIZE_SAMPLES` in `train_starter_model.py` and `INFERENCE_WINDOW_SIZE_SAMPLES` in `AudioConstants.kt`.)
 - [x] **Signal Processing:** Switch from "Per-Window Peak Normalization" to "Fixed-Scale Normalization" (Int16 / 32768.0). Removed per-block peak norm from `SharedAudioPipeline`, removed per-window peak norm from training windows and augmentation, synthetic ambient now uses RMS-scaled amplitude.
+- [ ] **Model Architecture:** Evaluate **DS-CNN** (Depthwise Separable CNN) or YAMNet to replace the current vanilla CNN. This reduces ops by ~8x, allowing for a deeper network (more accuracy) at the same latency.
 - [ ] **Training:** Revisit `cleanup_csv.py` logic; ensure "Mixed" (Target+Junk) samples don't pollute the `TARGET` class if the Junk signal is dominant.

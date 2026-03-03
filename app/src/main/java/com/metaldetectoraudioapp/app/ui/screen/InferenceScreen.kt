@@ -1,9 +1,12 @@
 package com.metaldetectoraudioapp.app.ui.screen
 
+import android.media.AudioDeviceInfo
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
@@ -26,6 +31,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
 import com.metaldetectoraudioapp.app.ui.InferenceViewModel
@@ -51,6 +60,10 @@ fun InferenceScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val passthroughEnabled by viewModel.passthroughEnabled.collectAsStateWithLifecycle()
+    val inputDevices by viewModel.deviceManager.inputDevices.collectAsStateWithLifecycle()
+    val outputDevices by viewModel.deviceManager.outputDevices.collectAsStateWithLifecycle()
+    val selectedInputDevice by viewModel.selectedInputDevice.collectAsStateWithLifecycle()
+    val selectedOutputDevice by viewModel.selectedOutputDevice.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
@@ -110,6 +123,22 @@ fun InferenceScreen(
                         Switch(
                             checked = passthroughEnabled,
                             onCheckedChange = { viewModel.setPassthroughEnabled(it) }
+                        )
+                    }
+
+                    AudioDevicePicker(
+                        label = "Input Device",
+                        devices = inputDevices,
+                        selectedDevice = selectedInputDevice,
+                        onDeviceSelected = viewModel::setInputDevice
+                    )
+
+                    if (passthroughEnabled) {
+                        AudioDevicePicker(
+                            label = "Output Device",
+                            devices = outputDevices,
+                            selectedDevice = selectedOutputDevice,
+                            onDeviceSelected = viewModel::setOutputDevice
                         )
                     }
                 }
@@ -272,6 +301,52 @@ private fun RecentDetectionsCard(detections: List<RecentDetection>) {
                         formatRelativeTime(det.timestampMs),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioDevicePicker(
+    label: String,
+    devices: List<AudioDeviceInfo>,
+    selectedDevice: AudioDeviceInfo?,
+    onDeviceSelected: (AudioDeviceInfo?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayName = selectedDevice?.let { AudioDeviceManager.deviceDisplayName(it) } ?: "Default"
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Box {
+            Text(
+                displayName,
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.bodySmall
+            )
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text("Default") },
+                    onClick = {
+                        onDeviceSelected(null)
+                        expanded = false
+                    }
+                )
+                devices.forEach { device ->
+                    DropdownMenuItem(
+                        text = { Text(AudioDeviceManager.deviceDisplayName(device)) },
+                        onClick = {
+                            onDeviceSelected(device)
+                            expanded = false
+                        }
                     )
                 }
             }

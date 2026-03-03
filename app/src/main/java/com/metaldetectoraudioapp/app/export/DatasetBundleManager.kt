@@ -97,7 +97,10 @@ class DatasetBundleManager(
                     gpsLatitude = metadata.gpsLatitude,
                     gpsLongitude = metadata.gpsLongitude,
                     mixedFlag = metadata.mixedFlag,
-                    includeInTraining = metadata.includeInTraining
+                    includeInTraining = metadata.includeInTraining,
+                    soilType = metadata.soilType,
+                    moisture = metadata.moisture,
+                    detectorModel = metadata.detectorModel
                 )
             )
 

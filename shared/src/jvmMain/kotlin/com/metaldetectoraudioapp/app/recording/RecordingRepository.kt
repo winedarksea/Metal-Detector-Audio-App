@@ -46,7 +46,10 @@ class RecordingRepository(
             mixedFlag = labelDraft.mixedFlag,
             includeInTraining = labelDraft.includeInTraining,
             createdEpochMs = System.currentTimeMillis(),
-            durationMs = capturedRecording.durationMs
+            durationMs = capturedRecording.durationMs,
+            soilType = labelDraft.soilType,
+            moisture = labelDraft.moisture,
+            detectorModel = labelDraft.detectorModel
         )
 
         val allRecordings = loadAllMutable()

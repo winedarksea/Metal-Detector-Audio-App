@@ -21,12 +21,18 @@ A small CNN trained directly on mel spectrograms with **energy-gated windowing**
 (silent windows from TARGET/JUNK files are discarded) and **data augmentation**
 (time-shift + noise injection) reaches much higher accuracy with the same data.
 
-### Future: pretrained audio model (YAMNet)
+### Future Improvements
 
-For even better results, consider using [YAMNet](https://tfhub.dev/google/yamnet/1)
-(MobileNet pretrained on AudioSet) as a feature extractor.  YAMNet produces
+#### 1. Depthwise Separable CNN (DS-CNN)
+The current model uses standard `Conv2D` layers. Switching to **Depthwise Separable Convolutions**
+(as used in MobileNet) would reduce multiply-accumulate operations (MACs) by ~8-9x.
+This efficiency gain allows for a deeper network (e.g., 6 layers + residual connections)
+to improve accuracy without increasing inference latency.
+
+#### 2. Pretrained audio model (YAMNet)
+For maximum robustness, consider using YAMNet
+(MobileNet pretrained on AudioSet) as a feature extractor. YAMNet produces
 1024-dim audio embeddings that can be classified with a simple Dense head.
-This requires `tensorflow_hub` and internet access for model download.
 
 ## Rebuild command
 

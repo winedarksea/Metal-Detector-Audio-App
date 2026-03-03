@@ -138,7 +138,7 @@ fun LabelPickerField(
                         entries = entries.toMutableList().also { it.removeAt(index) }
                         onValueChange(serializeEntries(entries))
                     }) {
-                        Text("×")
+                        Text("\u00D7")
                     }
                 }
             }

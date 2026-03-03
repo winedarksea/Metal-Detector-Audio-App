@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.app.audio.source
 
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -15,13 +16,17 @@ class MicrophoneAudioInputSource(
     private val minBufferSize = AudioRecord.getMinBufferSize(sampleRateHz, channelConfig, encoding)
     private val audioRecordBufferSize = max(minBufferSize, AudioConstants.INFERENCE_CAPTURE_BLOCK_SIZE * 4)
 
-    private val audioRecord = AudioRecord(
-        MediaRecorder.AudioSource.MIC,
-        sampleRateHz,
-        channelConfig,
-        encoding,
-        audioRecordBufferSize
-    )
+    private val audioRecord = AudioRecord.Builder()
+        .setAudioSource(MediaRecorder.AudioSource.MIC)
+        .setAudioFormat(
+            AudioFormat.Builder()
+                .setSampleRate(sampleRateHz)
+                .setChannelMask(channelConfig)
+                .setEncoding(encoding)
+                .build()
+        )
+        .setBufferSizeInBytes(audioRecordBufferSize)
+        .build()
 
     override fun start() {
         if (audioRecord.state == AudioRecord.STATE_INITIALIZED) {
@@ -45,5 +50,9 @@ class MicrophoneAudioInputSource(
 
     override fun release() {
         audioRecord.release()
+    }
+
+    override fun setPreferredDevice(device: AudioDeviceInfo?) {
+        audioRecord.preferredDevice = device
     }
 }

@@ -101,6 +101,18 @@ class DesktopRecordingViewModel(
         updateDraft(_uiState.value.draft.copy(includeInTraining = value))
     }
 
+    fun updateSoilType(value: String) {
+        updateDraft(_uiState.value.draft.copy(soilType = value))
+    }
+
+    fun updateMoisture(value: String) {
+        updateDraft(_uiState.value.draft.copy(moisture = value))
+    }
+
+    fun updateDetectorModel(value: String) {
+        updateDraft(_uiState.value.draft.copy(detectorModel = value))
+    }
+
     fun saveRecording() {
         val captured = lastCapturedRecording
         if (captured == null) {
@@ -142,7 +154,10 @@ class DesktopRecordingViewModel(
                 gpsLatitude = null,
                 gpsLongitude = null,
                 mixedFlag = draft.mixedFlag,
-                includeInTraining = draft.includeInTraining
+                includeInTraining = draft.includeInTraining,
+                soilType = draft.soilType.ifBlank { null },
+                moisture = draft.moisture.ifBlank { null },
+                detectorModel = draft.detectorModel.ifBlank { null }
             )
         )
 

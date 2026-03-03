@@ -80,6 +80,22 @@ class DesktopReviewViewModel(
         refresh()
     }
 
+    fun relabelEnvironment(
+        recording: RecordingMetadata,
+        soilType: String,
+        moisture: String,
+        detectorModel: String
+    ) {
+        recordingRepository.updateRecording(
+            recording.copy(
+                soilType = soilType.ifBlank { null },
+                moisture = moisture.ifBlank { null },
+                detectorModel = detectorModel.ifBlank { null }
+            )
+        )
+        refresh()
+    }
+
     fun delete(recordingId: String) {
         recordingRepository.deleteRecording(recordingId)
         refresh()

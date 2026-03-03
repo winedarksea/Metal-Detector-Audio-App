@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.app.inference
 
+import android.media.AudioDeviceInfo
 import android.util.Log
 import com.metaldetectoraudioapp.app.audio.pipeline.AudioPipelineFrame
 import com.metaldetectoraudioapp.app.audio.pipeline.FrameStreamingPipeline
@@ -46,6 +47,14 @@ class InferenceController(
 
     fun setPassthroughEnabled(enabled: Boolean) {
         audioPipeline.setPassthroughEnabled(enabled)
+    }
+
+    fun setInputDevice(device: AudioDeviceInfo?) {
+        audioPipeline.setInputDevice(device)
+    }
+
+    fun setOutputDevice(device: AudioDeviceInfo?) {
+        audioPipeline.setOutputDevice(device)
     }
 
     fun start() {

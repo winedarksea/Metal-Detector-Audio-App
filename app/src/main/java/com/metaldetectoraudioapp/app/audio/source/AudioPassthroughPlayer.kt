@@ -1,9 +1,9 @@
 package com.metaldetectoraudioapp.app.audio.source
 
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioTrack
-import kotlin.math.max
 
 class AudioPassthroughPlayer(sampleRateHz: Int) {
     private val channelConfig = AudioFormat.CHANNEL_OUT_MONO
@@ -24,7 +24,8 @@ class AudioPassthroughPlayer(sampleRateHz: Int) {
                 .setChannelMask(channelConfig)
                 .build()
         )
-        .setBufferSizeInBytes(max(minBuffer, sampleRateHz / 2))
+        .setBufferSizeInBytes(minBuffer)
+        .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
         .build()
 
     private var isActive = false
@@ -40,6 +41,10 @@ class AudioPassthroughPlayer(sampleRateHz: Int) {
             track.pause()
             track.flush()
         }
+    }
+
+    fun setPreferredDevice(device: AudioDeviceInfo?) {
+        track.preferredDevice = device
     }
 
     fun write(pcmSamples: ShortArray, sampleCount: Int) {

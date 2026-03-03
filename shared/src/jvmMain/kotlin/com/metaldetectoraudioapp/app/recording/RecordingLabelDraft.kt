@@ -12,5 +12,8 @@ data class RecordingLabelDraft(
     val gpsLatitude: Double?,
     val gpsLongitude: Double?,
     val mixedFlag: Boolean,
-    val includeInTraining: Boolean
+    val includeInTraining: Boolean,
+    val soilType: String? = null,
+    val moisture: String? = null,
+    val detectorModel: String? = null
 )

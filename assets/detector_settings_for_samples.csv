@@ -1,0 +1,19 @@
+Metal Detector settings used for audio recordings,,,
+,,,
+Search Mode,All Terrain High Conductors,,
+Sensitivity ,23,,
+Frequency,Multi=IQ+,,
+Audio Themes,,Normal,
+,Profile,Medium,
+,Threshold level,0,
+,Pitch,8,
+Target Tones,2-region all tones,,
+Ferrous Tones,Ferrous Volume,8,Supposedly this does not impact the number of targets detected
+,Stabiliser,5, Supposedly this does not impact the number of targets detected
+,Stabiliser Filter,On,
+Ferrous Limits,Upper,0,
+,Lower,0,
+Discriminantion,,0 to 5,Need to change this to get some targets
+Recovery Speed,,4,
+Ground balance,,6,
+Noise Cancel,,-3,Varies

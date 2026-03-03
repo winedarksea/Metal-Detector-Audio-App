@@ -1,0 +1,18 @@
+{
+  "model_name": "starter_model",
+  "model_version": "0.3.0-dry-run",
+  "dry_run": true,
+  "sample_count": 60,
+  "training_file_count": 60,
+  "output_class_file_counts": {
+    "TARGET": 46,
+    "JUNK": 14,
+    "AMBIENT": 0
+  },
+  "class_file_counts": {
+    "TARGET": 46,
+    "JUNK": 14,
+    "AMBIENT": 0
+  },
+  "timestamp_utc": "2026-03-03T01:48:14.142593+00:00"
+}

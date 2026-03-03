@@ -1,0 +1,209 @@
+package com.metaldetectoraudioapp.app.ui.screen
+
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.metaldetectoraudioapp.app.ui.RecordingViewModel
+import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.SweepPattern
+
+@Composable
+fun RecordingScreen(
+    viewModel: RecordingViewModel,
+    contentPadding: PaddingValues
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.captureCurrentLocation()
+        } else {
+            viewModel.onLocationPermissionDenied()
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.padding(contentPadding),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Capture", style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = viewModel::startRecording, enabled = !uiState.isRecording) {
+                            Text("Start")
+                        }
+                        Button(onClick = viewModel::stopRecording, enabled = uiState.isRecording) {
+                            Text("Stop")
+                        }
+                        Button(
+                            onClick = {
+                                if (uiState.isPlayingPreview) {
+                                    viewModel.stopPreview()
+                                } else {
+                                    viewModel.playPreview()
+                                }
+                            },
+                            enabled = uiState.pendingAudioFile != null
+                        ) {
+                            Text(if (uiState.isPlayingPreview) "Stop Preview" else "Play Preview")
+                        }
+                    }
+                    Text("Duration: ${uiState.pendingDurationMs} ms")
+                }
+            }
+        }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Labels", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(
+                        value = uiState.draft.targetNameInput,
+                        onValueChange = viewModel::updateTargetNames,
+                        label = { Text("target_name (comma separated for mixed)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = uiState.draft.depthInches,
+                        onValueChange = viewModel::updateDepthInches,
+                        label = { Text("depth_inches (optional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = uiState.draft.notesInput,
+                        onValueChange = viewModel::updateNotes,
+                        label = { Text("notes (optional, short)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 3
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val latitude = uiState.draft.gpsLatitude
+                        val longitude = uiState.draft.gpsLongitude
+                        Button(
+                            onClick = {
+                                val hasLocationPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_FINE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                                if (hasLocationPermission) {
+                                    viewModel.captureCurrentLocation()
+                                } else {
+                                    locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                                }
+                            }
+                        ) {
+                            Text("Use Current GPS")
+                        }
+                        Text(
+                            text = if (latitude == null || longitude == null) {
+                                "GPS: not set"
+                            } else {
+                                "GPS: %.6f, %.6f".format(latitude, longitude)
+                            }
+                        )
+                    }
+
+                    Text("class_label")
+                    EnumChips(
+                        selectedLabel = uiState.draft.classLabel,
+                        labels = ClassLabel.entries,
+                        toText = { it.name },
+                        onSelect = viewModel::updateClassLabel
+                    )
+
+                    Text("pattern")
+                    EnumChips(
+                        selectedLabel = uiState.draft.pattern,
+                        labels = SweepPattern.entries,
+                        toText = { it.name },
+                        onSelect = viewModel::updatePattern
+                    )
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = uiState.draft.mixedFlag,
+                            onCheckedChange = viewModel::updateMixedFlag
+                        )
+                        Text("mixed_flag")
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = uiState.draft.includeInTraining,
+                            onCheckedChange = viewModel::updateIncludeInTraining,
+                            enabled = !uiState.draft.mixedFlag
+                        )
+                        Text("include_in_training")
+                    }
+
+                    Button(onClick = viewModel::saveRecording, enabled = uiState.pendingAudioFile != null) {
+                        Text("Save Recording")
+                    }
+                }
+            }
+        }
+
+        uiState.saveResultMessage?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.primary) }
+        }
+
+        uiState.errorMessage?.let { error ->
+            item { Text(error, color = MaterialTheme.colorScheme.error) }
+        }
+    }
+}
+
+@Composable
+private fun <T> EnumChips(
+    selectedLabel: T,
+    labels: List<T>,
+    toText: (T) -> String,
+    onSelect: (T) -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        labels.forEach { entry ->
+            FilterChip(
+                selected = selectedLabel == entry,
+                onClick = { onSelect(entry) },
+                label = { Text(toText(entry)) }
+            )
+        }
+    }
+}

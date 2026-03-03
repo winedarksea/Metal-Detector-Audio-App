@@ -1,0 +1,37 @@
+{
+  "model_name": "starter_model",
+  "model_version": "0.3.0-dry-run",
+  "labels": [
+    "TARGET",
+    "JUNK",
+    "AMBIENT"
+  ],
+  "input": {
+    "sample_rate_hz": 16000,
+    "window_size_samples": 8000,
+    "hop_size_samples": 4000,
+    "expects_normalized_audio": true
+  },
+  "inference": {
+    "ambient_strategy": "explicit_class",
+    "recommended_threshold": 0.55
+  },
+  "training": {
+    "train_and_validation_share_examples": true,
+    "energy_gate_rms_threshold": 0.015,
+    "class_file_counts": {
+      "TARGET": 46,
+      "JUNK": 14,
+      "AMBIENT": 0
+    },
+    "synthetic_ambient": {
+      "enabled": true,
+      "ratio": 0.35,
+      "noise_types": [
+        "white",
+        "brownian"
+      ]
+    }
+  },
+  "timestamp_utc": "2026-03-03T01:48:14.142875+00:00"
+}

@@ -13,3 +13,5 @@
 
 ### Testing & Benchmarking
 - **Shared Fixtures:** Extract common test utilities (synthetic signal generators, stub storage) into a shared helper module if reused across 3+ files.
+
+Note: OpenJDK@21 is needed for builds and conda env `gpu311` for tensorflow

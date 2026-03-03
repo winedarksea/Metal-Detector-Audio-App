@@ -18,7 +18,10 @@ data class RecordingMetadata(
     val mixedFlag: Boolean,
     val includeInTraining: Boolean,
     val createdEpochMs: Long,
-    val durationMs: Long
+    val durationMs: Long,
+    val soilType: String? = null,
+    val moisture: String? = null,
+    val detectorModel: String? = null
 ) {
     fun toJson(): JSONObject {
         return JSONObject()
@@ -35,6 +38,9 @@ data class RecordingMetadata(
             .put("include_in_training", includeInTraining)
             .put("created_epoch_ms", createdEpochMs)
             .put("duration_ms", durationMs)
+            .put("soil_type", soilType ?: JSONObject.NULL)
+            .put("moisture", moisture ?: JSONObject.NULL)
+            .put("detector_model", detectorModel ?: JSONObject.NULL)
     }
 
     companion object {
@@ -67,7 +73,10 @@ data class RecordingMetadata(
                 mixedFlag = json.optBoolean("mixed_flag", false),
                 includeInTraining = json.optBoolean("include_in_training", false),
                 createdEpochMs = json.optLong("created_epoch_ms", 0L),
-                durationMs = json.optLong("duration_ms", 0L)
+                durationMs = json.optLong("duration_ms", 0L),
+                soilType = json.optString("soil_type").takeIf { it.isNotBlank() && it != "null" },
+                moisture = json.optString("moisture").takeIf { it.isNotBlank() && it != "null" },
+                detectorModel = json.optString("detector_model").takeIf { it.isNotBlank() && it != "null" }
             )
         }
     }

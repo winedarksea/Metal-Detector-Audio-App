@@ -62,7 +62,15 @@ android {
 val validateStarterTrainingInputs by tasks.registering(Exec::class) {
     group = "verification"
     description = "Validates labels and WAV consistency before building."
-    commandLine("python3", "${rootDir}/scripts/train_starter_model.py", "--dry-run")
+    // CWD must be rootDir so the script's default relative paths resolve correctly.
+    workingDir = rootDir
+    commandLine(
+        "python3",
+        "${rootDir}/scripts/train_starter_model.py",
+        "--assets-dir", "${rootDir}/assets",
+        "--labels-csv", "${rootDir}/assets/cleaned_labels.csv",
+        "--dry-run",
+    )
 }
 
 tasks.named("preBuild").configure {

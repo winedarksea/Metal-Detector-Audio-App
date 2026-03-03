@@ -13,6 +13,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +33,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.ReviewViewModel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+
+private val SOIL_TYPE_OPTIONS = listOf(
+    "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
+)
+private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
 
 @Composable
 fun ReviewScreen(
@@ -93,6 +101,9 @@ fun ReviewScreen(
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
                 onRelabelClass = { viewModel.relabelClass(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
+                onRelabelEnvironment = { soil, moist, model ->
+                    viewModel.relabelEnvironment(recording, soil, moist, model)
+                },
                 onDelete = { viewModel.delete(recording.recordingId) }
             )
         }
@@ -108,6 +119,7 @@ private fun RecordingReviewCard(
     onRelabelTargets: (String) -> Unit,
     onRelabelClass: (ClassLabel) -> Unit,
     onRelabelNotes: (String) -> Unit,
+    onRelabelEnvironment: (soilType: String, moisture: String, detectorModel: String) -> Unit,
     onDelete: () -> Unit
 ) {
     var targetInput by remember(recording.recordingId) {
@@ -115,6 +127,15 @@ private fun RecordingReviewCard(
     }
     var notesInput by remember(recording.recordingId) {
         mutableStateOf(recording.notes.orEmpty())
+    }
+    var soilTypeInput by remember(recording.recordingId) {
+        mutableStateOf(recording.soilType.orEmpty())
+    }
+    var moistureInput by remember(recording.recordingId) {
+        mutableStateOf(recording.moisture.orEmpty())
+    }
+    var detectorModelInput by remember(recording.recordingId) {
+        mutableStateOf(recording.detectorModel.orEmpty())
     }
     val latitude = recording.gpsLatitude
     val longitude = recording.gpsLongitude
@@ -134,10 +155,9 @@ private fun RecordingReviewCard(
                 }"
             )
 
-            OutlinedTextField(
+            LabelPickerField(
                 value = targetInput,
                 onValueChange = { targetInput = it },
-                label = { Text("target_name list") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -180,6 +200,88 @@ private fun RecordingReviewCard(
                     onCheckedChange = onToggleInclude
                 )
                 Text("include_in_training")
+            }
+
+            // Environment fields
+            ReviewSuggestiveTextField(
+                label = "soil_type",
+                value = soilTypeInput,
+                suggestions = SOIL_TYPE_OPTIONS,
+                onValueChange = { soilTypeInput = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text("moisture")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MOISTURE_OPTIONS.forEach { option ->
+                    FilterChip(
+                        selected = moistureInput == option,
+                        onClick = { moistureInput = if (moistureInput == option) "" else option },
+                        label = { Text(option) }
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = detectorModelInput,
+                onValueChange = { detectorModelInput = it },
+                label = { Text("detector_model") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Button(onClick = {
+                onRelabelEnvironment(soilTypeInput, moistureInput, detectorModelInput)
+            }) {
+                Text("Apply Environment")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReviewSuggestiveTextField(
+    label: String,
+    value: String,
+    suggestions: List<String>,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val filtered = suggestions.filter { it.startsWith(value, ignoreCase = true) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded && filtered.isNotEmpty(),
+        onExpandedChange = { expanded = it },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {
+                onValueChange(it)
+                expanded = true
+            },
+            label = { Text(label) },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded && filtered.isNotEmpty())
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+        )
+        if (filtered.isNotEmpty()) {
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                filtered.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            onValueChange(option)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }

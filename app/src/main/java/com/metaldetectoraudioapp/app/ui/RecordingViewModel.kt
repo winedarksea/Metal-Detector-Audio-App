@@ -88,6 +88,18 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         updateDraft(_uiState.value.draft.copy(includeInTraining = value))
     }
 
+    fun updateSoilType(value: String) {
+        updateDraft(_uiState.value.draft.copy(soilType = value))
+    }
+
+    fun updateMoisture(value: String) {
+        updateDraft(_uiState.value.draft.copy(moisture = value))
+    }
+
+    fun updateDetectorModel(value: String) {
+        updateDraft(_uiState.value.draft.copy(detectorModel = value))
+    }
+
     fun captureCurrentLocation() {
         val location = locationProvider.readLatestKnownLocation()
         if (location == null) {
@@ -170,7 +182,10 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                     gpsLatitude = draft.gpsLatitude,
                     gpsLongitude = draft.gpsLongitude,
                     mixedFlag = draft.mixedFlag,
-                    includeInTraining = draft.includeInTraining
+                    includeInTraining = draft.includeInTraining,
+                    soilType = draft.soilType.ifBlank { null },
+                    moisture = draft.moisture.ifBlank { null },
+                    detectorModel = draft.detectorModel.ifBlank { null }
                 )
             )
 

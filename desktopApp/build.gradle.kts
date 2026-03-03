@@ -5,6 +5,8 @@ plugins {
     id("org.jetbrains.compose")
 }
 
+val desktopModelResources = layout.buildDirectory.dir("desktopModelResources")
+
 kotlin {
     jvm("desktop") {
         compilations.all {
@@ -16,6 +18,7 @@ kotlin {
 
     sourceSets {
         val desktopMain by getting {
+            resources.srcDir(desktopModelResources)
             dependencies {
                 implementation(project(":shared"))
                 implementation(compose.desktop.currentOs)
@@ -56,7 +59,7 @@ tasks.register<Copy>("copyModelAssets") {
     from("${rootDir}/models") {
         include("starter_model_cnn.onnx", "starter_model_metadata.json")
     }
-    into(layout.buildDirectory.dir("resources/desktopMain"))
+    into(desktopModelResources)
 }
 
 tasks.named("desktopProcessResources") {

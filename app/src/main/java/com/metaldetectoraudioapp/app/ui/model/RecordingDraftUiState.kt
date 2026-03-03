@@ -9,5 +9,8 @@ data class RecordingDraftUiState(
     val gpsLatitude: Double? = null,
     val gpsLongitude: Double? = null,
     val mixedFlag: Boolean = false,
-    val includeInTraining: Boolean = true
+    val includeInTraining: Boolean = true,
+    val soilType: String = "",
+    val moisture: String = "",
+    val detectorModel: String = ""
 )

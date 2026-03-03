@@ -1,20 +1,36 @@
 package com.metaldetectoraudioapp.desktop
 
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.dp
+import com.metaldetectoraudioapp.app.DesktopAppContainer
 import com.metaldetectoraudioapp.app.audio.source.DesktopPassthroughPlayer
 import com.metaldetectoraudioapp.app.inference.DesktopInferenceControllerFactory
 import com.metaldetectoraudioapp.app.ui.SharedInferenceViewModel
 import com.metaldetectoraudioapp.app.ui.screen.SharedInferenceScreen
 import com.metaldetectoraudioapp.app.ui.theme.MetalDetectorAudioTheme
+import com.metaldetectoraudioapp.desktop.ui.screen.DesktopRecordingScreen
+import com.metaldetectoraudioapp.desktop.ui.screen.DesktopReviewScreen
+import com.metaldetectoraudioapp.desktop.viewmodel.DesktopRecordingViewModel
+import com.metaldetectoraudioapp.desktop.viewmodel.DesktopReviewViewModel
+import java.io.File
+
+private enum class DesktopDestination(val label: String) {
+    INFERENCE("Detect"),
+    RECORD("Record"),
+    REVIEW("Review")
+}
 
 fun main() = application {
     val windowState = rememberWindowState(width = 480.dp, height = 820.dp)
@@ -24,33 +40,87 @@ fun main() = application {
         title = "Metal Detector Audio",
         state = windowState,
     ) {
+        val appContainer = remember { DesktopAppContainer() }
         val passthroughPlayer = remember { DesktopPassthroughPlayer() }
-        val viewModel = remember {
+        val inferenceViewModel = remember {
             val controller = DesktopInferenceControllerFactory.create(
                 passthroughSink = passthroughPlayer,
             )
             SharedInferenceViewModel(controller)
         }
+        val recordingViewModel = remember {
+            DesktopRecordingViewModel(
+                recordingRepository = appContainer.recordingRepository,
+                recordingSessionCacheDirectoryPath = File(
+                    appContainer.appDataDirectory,
+                    "cache"
+                ).absolutePath
+            )
+        }
+        val reviewViewModel = remember {
+            DesktopReviewViewModel(
+                recordingRepository = appContainer.recordingRepository,
+                bundleManager = appContainer.datasetBundleManager
+            )
+        }
+        var selectedDestination by remember { mutableStateOf(DesktopDestination.INFERENCE) }
 
         DisposableEffect(Unit) {
             onDispose {
-                viewModel.close()
+                inferenceViewModel.close()
+                recordingViewModel.close()
+                reviewViewModel.close()
                 passthroughPlayer.release()
             }
         }
 
-        val uiState by viewModel.uiState.collectAsState()
-        val passthroughEnabled by viewModel.passthroughEnabled.collectAsState()
+        val inferenceUiState by inferenceViewModel.uiState.collectAsState()
+        val passthroughEnabled by inferenceViewModel.passthroughEnabled.collectAsState()
+        val destinations = DesktopDestination.entries
 
         MetalDetectorAudioTheme {
-            SharedInferenceScreen(
-                uiState = uiState,
-                passthroughEnabled = passthroughEnabled,
-                onStart = viewModel::start,
-                onStop = viewModel::stop,
-                onThresholdChange = viewModel::updateThreshold,
-                onPassthroughChange = viewModel::setPassthroughEnabled,
-            )
+            Scaffold(
+                bottomBar = {
+                    NavigationBar {
+                        destinations.forEach { destination ->
+                            NavigationBarItem(
+                                selected = selectedDestination == destination,
+                                onClick = { selectedDestination = destination },
+                                icon = {},
+                                label = { Text(destination.label) }
+                            )
+                        }
+                    }
+                }
+            ) { contentPadding ->
+                when (selectedDestination) {
+                    DesktopDestination.INFERENCE -> {
+                        SharedInferenceScreen(
+                            uiState = inferenceUiState,
+                            passthroughEnabled = passthroughEnabled,
+                            onStart = inferenceViewModel::start,
+                            onStop = inferenceViewModel::stop,
+                            onThresholdChange = inferenceViewModel::updateThreshold,
+                            onPassthroughChange = inferenceViewModel::setPassthroughEnabled,
+                            contentPadding = contentPadding
+                        )
+                    }
+
+                    DesktopDestination.RECORD -> {
+                        DesktopRecordingScreen(
+                            viewModel = recordingViewModel,
+                            contentPadding = contentPadding
+                        )
+                    }
+
+                    DesktopDestination.REVIEW -> {
+                        DesktopReviewScreen(
+                            viewModel = reviewViewModel,
+                            contentPadding = contentPadding
+                        )
+                    }
+                }
+            }
         }
     }
 }

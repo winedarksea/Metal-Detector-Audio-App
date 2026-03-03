@@ -85,15 +85,17 @@ class InferenceController(
         // Optimization: Manual downsampling to avoid GC pressure from Sequence/chunked/map
         // inside the high-frequency audio callback.
         val rawSamples = frame.samples
-        val chunkSize = 80
         val previewSize = 120
+        // Calculate chunk size dynamically to fit the actual frame size
+        val chunkSize = (rawSamples.size / previewSize).coerceAtLeast(1)
         val newPoints = ArrayList<Float>(previewSize)
 
-        for (i in 0 until (previewSize * chunkSize) step chunkSize) {
-            if (i + chunkSize > rawSamples.size) break
+        for (i in 0 until previewSize) {
+            val offset = i * chunkSize
+            if (offset + chunkSize > rawSamples.size) break
             var sum = 0f
             for (j in 0 until chunkSize) {
-                sum += rawSamples[i + j]
+                sum += rawSamples[offset + j]
             }
             newPoints.add(sum / chunkSize)
         }

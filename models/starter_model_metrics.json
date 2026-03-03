@@ -1,18 +1,35 @@
 {
   "model_name": "starter_model",
-  "model_version": "0.3.0-dry-run",
-  "dry_run": true,
+  "model_version": "0.3.0",
   "sample_count": 60,
-  "training_file_count": 60,
-  "output_class_file_counts": {
-    "TARGET": 46,
-    "JUNK": 14,
+  "window_count_before_augmentation": 2844,
+  "window_count_after_augmentation": 8532,
+  "class_window_counts": {
+    "TARGET": 1557,
+    "JUNK": 550,
+    "AMBIENT": 737
+  },
+  "skipped_silent_windows": {
+    "TARGET": 0,
+    "JUNK": 0,
     "AMBIENT": 0
   },
-  "class_file_counts": {
-    "TARGET": 46,
-    "JUNK": 14,
-    "AMBIENT": 0
+  "excluded_class_file_counts": {},
+  "ambient_window_count_from_files": 0,
+  "synthetic_ambient_window_count": 737,
+  "recommended_threshold": 0.55,
+  "threshold_calibration_metrics": {
+    "strategy": "explicit_ambient_class",
+    "ambient_windows_from_files": 0,
+    "synthetic_ambient_window_count": 737
   },
-  "timestamp_utc": "2026-03-03T03:54:56.546157+00:00"
+  "metrics": {
+    "loss": 0.29688194394111633,
+    "accuracy": 0.8737693428993225,
+    "train_loss": 0.30678674578666687,
+    "train_accuracy": 0.8613455295562744,
+    "val_loss": 0.29688194394111633,
+    "val_accuracy": 0.8737693428993225
+  },
+  "timestamp_utc": "2026-03-03T05:32:36.800707+00:00"
 }

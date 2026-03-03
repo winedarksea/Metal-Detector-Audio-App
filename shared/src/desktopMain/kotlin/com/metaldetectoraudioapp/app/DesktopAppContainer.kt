@@ -8,14 +8,14 @@ import java.io.File
  * Desktop dependency container. Uses the user home directory for file storage.
  */
 class DesktopAppContainer {
-    private val appDataDir = File(
+    val appDataDirectory = File(
         System.getProperty("user.home"),
         ".metaldetector-audio"
     ).also { it.mkdirs() }
 
-    val recordingRepository = RecordingRepository(appDataDir)
+    val recordingRepository = RecordingRepository(appDataDirectory)
     val datasetBundleManager = DatasetBundleManager(
         recordingRepository,
-        File(appDataDir, "cache").also { it.mkdirs() }
+        File(appDataDirectory, "cache").also { it.mkdirs() }
     )
 }

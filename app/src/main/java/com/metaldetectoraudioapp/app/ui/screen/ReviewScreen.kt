@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -45,6 +46,7 @@ fun ReviewScreen(
     contentPadding: PaddingValues
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip")
@@ -70,6 +72,19 @@ fun ReviewScreen(
         modifier = Modifier.padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Dataset Storage", style = MaterialTheme.typography.titleMedium)
+                    Text("${context.filesDir.absolutePath}/dataset")
+                    Text(
+                        "Android app data is private storage. Use Export Bundle to move labels/WAVs off-device.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { exportLauncher.launch("detector_dataset_${System.currentTimeMillis()}.zip") }) {

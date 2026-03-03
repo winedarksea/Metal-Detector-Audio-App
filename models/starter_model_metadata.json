@@ -1,6 +1,6 @@
 {
   "model_name": "starter_model",
-  "model_version": "0.3.0-dry-run",
+  "model_version": "0.3.0",
   "labels": [
     "TARGET",
     "JUNK",
@@ -18,11 +18,31 @@
   },
   "training": {
     "train_and_validation_share_examples": true,
+    "backbone": "mel_cnn",
+    "epochs": 20,
+    "batch_size": 8,
     "energy_gate_rms_threshold": 0.015,
-    "class_file_counts": {
-      "TARGET": 46,
-      "JUNK": 14,
+    "class_window_counts": {
+      "TARGET": 1557,
+      "JUNK": 550,
+      "AMBIENT": 737
+    },
+    "skipped_silent_windows": {
+      "TARGET": 0,
+      "JUNK": 0,
       "AMBIENT": 0
+    },
+    "excluded_class_file_counts": {},
+    "ambient_window_count_from_files": 0,
+    "synthetic_ambient_window_count": 737,
+    "augmented_total_windows": 8532,
+    "mel_spectrogram": {
+      "stft_frame_length": 256,
+      "stft_frame_step": 128,
+      "fft_length": 256,
+      "num_mel_bins": 40,
+      "lower_edge_hertz": 80.0,
+      "upper_edge_hertz": 7600.0
     },
     "synthetic_ambient": {
       "enabled": true,
@@ -33,5 +53,5 @@
       ]
     }
   },
-  "timestamp_utc": "2026-03-03T03:54:56.546628+00:00"
+  "timestamp_utc": "2026-03-03T05:32:36.800707+00:00"
 }

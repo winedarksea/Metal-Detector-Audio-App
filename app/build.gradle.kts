@@ -78,6 +78,9 @@ tasks.named("preBuild").configure {
 }
 
 dependencies {
+    // MDC Android – provides XML resource themes like Theme.Material3.DayNight.NoActionBar
+    implementation("com.google.android.material:material:1.12.0")
+
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")

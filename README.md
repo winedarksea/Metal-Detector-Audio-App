@@ -61,10 +61,35 @@ Android-first, minimal on-device audio app for metal detector signals with two c
 ## Project layout
 
 - `app/` Android app (Jetpack Compose + TFLite runtime)
+- `desktopApp/` Kotlin Multiplatform desktop app (Compose Desktop)
 - `assets/` source WAV + label CSV
 - `models/` generated model artifacts
 - `scripts/train_starter_model.py` starter-model training pipeline
 - `tests/` python validation tests for build-time model script
+
+## Data Labeling navigation and storage
+
+### Desktop (`desktopApp`)
+- Bottom navigation includes `Detect`, `Record`, and `Review`.
+- Use `Record` for `Start -> Stop -> Label -> Save`.
+- Use `Review` for playback, relabeling, include/exclude toggles, delete, and bundle export/import.
+- Local dataset path:
+  - `~/.metaldetector-audio/dataset/audio/*.wav`
+  - `~/.metaldetector-audio/dataset/recordings_metadata.json`
+
+### Android (`app`)
+- Bottom navigation includes `Detect`, `Record`, and `Review`.
+- Use `Record` for capture + labeling, then `Review` for export/import.
+- Local dataset path (private app storage):
+  - `<filesDir>/dataset/audio/*.wav`
+  - `<filesDir>/dataset/recordings_metadata.json`
+  - Typical absolute path: `/data/user/0/<package-name>/files/dataset/...`
+- Because Android app storage is private, use `Review -> Export Bundle` to move data off-device for training.
+
+### Bundle format (Desktop + Android)
+- `audio/*.wav`
+- `metadata/recordings_metadata.json`
+- `metadata/split_manifest.json`
 
 ## Starter model commands
 
@@ -113,7 +138,13 @@ Desktop KMP build (from repo root):
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew :desktopApp:desktopJar
 ```
 
+Run locally
+```bash
+JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew :desktopApp:run
+```
+
 ## Notes
 
+- `desktop/` (Python tkinter app) is an inference-only test harness and does not include Record/Review data-labeling UI.
 - Current `assets/` has no real recorded `AMBIENT` WAV files; synthetic ambient windows are used to balance the starter model.
 - Initial release intentionally skips on-device fine-tuning UI/engine. Dataset capture + export is implemented so training can run off-device and ship new model artifacts.

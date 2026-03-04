@@ -12,5 +12,6 @@ data class ModelMetadata(
     val modelVersion: String,
     val labels: List<String>,
     val input: ModelInputConfig,
-    val recommendedThreshold: Float = 0.55f
+    val recommendedThreshold: Float = 0.55f,
+    val fileName: String? = null
 )

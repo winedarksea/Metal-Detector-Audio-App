@@ -85,6 +85,14 @@ fun RecordingScreen(
         viewModel.attachCapturedImage(bitmap)
     }
 
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            imageCaptureLauncher.launch(null)
+        }
+    }
+
     val previewImage = remember(uiState.pendingImageFile?.absolutePath) {
         uiState.pendingImageFile?.let { file ->
             BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
@@ -161,7 +169,17 @@ fun RecordingScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
-                            onClick = { imageCaptureLauncher.launch(null) },
+                            onClick = {
+                                val hasCameraPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.CAMERA
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (hasCameraPermission) {
+                                    imageCaptureLauncher.launch(null)
+                                } else {
+                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                }
+                            },
                             enabled = !uiState.isRecording
                         ) {
                             Text("Add Image")

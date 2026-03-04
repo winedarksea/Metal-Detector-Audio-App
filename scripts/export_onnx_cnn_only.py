@@ -9,6 +9,8 @@ side, matching the parameters baked into the training script.
 
 Usage:
     conda run -n gpu311 python scripts/export_onnx_cnn_only.py
+
+TODO: make this file share more with train_starter_model.py to avoid duplication.  Maybe refactor the model-building.
 """
 
 from __future__ import annotations
@@ -46,6 +48,10 @@ def main() -> int:
         "--onnx-output", type=Path, default=Path("models/starter_model_cnn.onnx"),
         help="Where to write the CNN-only ONNX model",
     )
+    parser.add_argument(
+        "--no-mixed", action="store_true",
+        help="Exclude all records marked as mixed_flag = True.",
+    )
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=32)
     args = parser.parse_args()
@@ -71,6 +77,13 @@ def main() -> int:
     )
     wav_files = collect_wav_files(args.assets_dir)
     sample_records = build_audio_sample_records(labels_by_id, wav_files)
+
+    if args.no_mixed:
+        original_count = len(sample_records)
+        sample_records = [r for r in sample_records if not r.mixed_flag]
+        print(f"Excluding records where mixed_flag = True. "
+              f"Reduced training pool from {original_count} to {len(sample_records)}.")
+
     label_order = list(MODEL_OUTPUT_LABELS)
     labels_to_index = {label: i for i, label in enumerate(label_order)}
 

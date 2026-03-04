@@ -92,7 +92,7 @@ def parse_cli_args() -> argparse.Namespace:
     parser.add_argument(
         "--metadata-output", type=Path,
         default=Path("models/starter_model_metadata.json"),
-    )
+    )  # TODO: consolidate these names into a single argument, a base name with suffixes
     parser.add_argument(
         "--metrics-output", type=Path,
         default=Path("models/starter_model_metrics.json"),
@@ -120,6 +120,10 @@ def parse_cli_args() -> argparse.Namespace:
         help="Synthetic ambient windows as a ratio of TARGET+JUNK windows.",
     )
     parser.add_argument("--ambient-noise-seed", type=int, default=7)
+    parser.add_argument(
+        "--no-mixed", action="store_true",
+        help="Exclude all records marked as mixed_flag = True.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -673,56 +677,25 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
     wav_files = collect_wav_files(args.assets_dir)
     sample_records = build_audio_sample_records(labels_by_id, wav_files)
 
+    if args.no_mixed:
+        original_count = len(sample_records)
+        sample_records = [r for r in sample_records if not r.mixed_flag]
+        print(f"Excluding records where mixed_flag = True. "
+              f"Reduced training pool from {original_count} to {len(sample_records)}.")
+
     label_order = list(MODEL_OUTPUT_LABELS)
     labels_to_index = {label: i for i, label in enumerate(label_order)}
 
-    # ---- dry-run: validate only, no ML imports ----
+    # ---- dry-run: validate only, no ML imports, no file writes ----
     if args.dry_run:
         file_counts = {c: 0 for c in SUPPORTED_CLASS_LABELS}
         included = [r for r in sample_records if r.include_in_training]
         for r in included:
             file_counts[r.class_label] += 1
 
-        write_json(args.metrics_output, {
-            "model_name": "starter_model",
-            "model_version": "0.3.0-dry-run",
-            "dry_run": True,
-            "sample_count": len(sample_records),
-            "training_file_count": len(included),
-            "output_class_file_counts": {
-                label: file_counts.get(label, 0)
-                for label in label_order
-            },
-            "class_file_counts": file_counts,
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        })
-        write_json(args.metadata_output, {
-            "model_name": "starter_model",
-            "model_version": "0.3.0-dry-run",
-            "labels": label_order,
-            "input": {
-                "sample_rate_hz": args.sample_rate,
-                "window_size_samples": args.window_size,
-                "hop_size_samples": args.hop_size,
-                "expects_normalized_audio": True,
-            },
-            "inference": {
-                "ambient_strategy": "explicit_class",
-                "recommended_threshold": 0.55,
-            },
-            "training": {
-                "train_and_validation_share_examples": True,
-                "energy_gate_rms_threshold": args.rms_gate_threshold,
-                "class_file_counts": file_counts,
-                "synthetic_ambient": {
-                    "enabled": bool(args.synthesize_ambient_noise),
-                    "ratio": float(args.ambient_noise_ratio),
-                    "noise_types": ["white", "brownian"],
-                },
-            },
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        })
-        print("Dry-run validation completed successfully.")
+        print(f"Dry-run validation passed: {len(sample_records)} samples, "
+              f"{len(included)} included in training.")
+        print(f"  Class file counts: {file_counts}")
         return 0
 
     # ---- full training ----
@@ -810,6 +783,7 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
             "backbone": "mel_cnn",
             "epochs": args.epochs,
             "batch_size": args.batch_size,
+            "exclude_mixed_records": bool(args.no_mixed),
             "energy_gate_rms_threshold": args.rms_gate_threshold,
             "class_window_counts": kept,
             "skipped_silent_windows": skipped,

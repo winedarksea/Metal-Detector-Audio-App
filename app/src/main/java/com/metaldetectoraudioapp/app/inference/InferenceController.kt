@@ -14,9 +14,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class InferenceController(
-    private val modelMetadata: ModelMetadata,
+    private var modelMetadata: ModelMetadata,
     private val audioPipeline: FrameStreamingPipeline,
-    private val classifier: AudioWindowClassifier,
+    private var classifier: AudioWindowClassifier,
+    private val metadataRepository: ModelMetadataRepository,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) {
     private val logTag = "InferenceController"
@@ -84,6 +85,35 @@ class InferenceController(
         stop()
         classifier.close()
         audioPipeline.release()
+    }
+
+    fun getAvailableModels(): List<ModelMetadata> {
+        return metadataRepository.listAvailableMetadata()
+    }
+
+    fun switchModel(metadata: ModelMetadata, appContext: android.content.Context) {
+        val wasRunning = _uiState.value.isRunning
+        if (wasRunning) {
+            stop()
+        }
+
+        classifier.close()
+        modelMetadata = metadata
+        classifier = MetalClassifierInterpreter(
+            modelMetadata = metadata,
+            appContext = appContext,
+            modelAssetName = metadata.fileName ?: "starter_model.tflite"
+        )
+
+        _uiState.value = _uiState.value.copy(
+            modelName = metadata.modelName,
+            modelVersion = metadata.modelVersion,
+            threshold = metadata.recommendedThreshold
+        )
+
+        if (wasRunning) {
+            start()
+        }
     }
 
     private fun handleFrame(frame: AudioPipelineFrame) {

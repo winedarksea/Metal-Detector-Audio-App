@@ -1,0 +1,58 @@
+{
+  "model_name": "starter_model",
+  "model_version": "0.3.0",
+  "labels": [
+    "TARGET",
+    "JUNK",
+    "AMBIENT"
+  ],
+  "input": {
+    "sample_rate_hz": 16000,
+    "window_size_samples": 8000,
+    "hop_size_samples": 4000,
+    "expects_normalized_audio": true
+  },
+  "inference": {
+    "ambient_strategy": "explicit_class",
+    "recommended_threshold": 0.55
+  },
+  "training": {
+    "train_and_validation_share_examples": true,
+    "backbone": "mel_cnn",
+    "epochs": 20,
+    "batch_size": 8,
+    "exclude_mixed_records": true,
+    "energy_gate_rms_threshold": 0.015,
+    "class_window_counts": {
+      "TARGET": 858,
+      "JUNK": 0,
+      "AMBIENT": 324
+    },
+    "skipped_silent_windows": {
+      "TARGET": 0,
+      "JUNK": 0,
+      "AMBIENT": 0
+    },
+    "excluded_class_file_counts": {},
+    "ambient_window_count_from_files": 24,
+    "synthetic_ambient_window_count": 300,
+    "augmented_total_windows": 3546,
+    "mel_spectrogram": {
+      "stft_frame_length": 256,
+      "stft_frame_step": 128,
+      "fft_length": 256,
+      "num_mel_bins": 40,
+      "lower_edge_hertz": 80.0,
+      "upper_edge_hertz": 7600.0
+    },
+    "synthetic_ambient": {
+      "enabled": true,
+      "ratio": 0.35,
+      "noise_types": [
+        "white",
+        "brownian"
+      ]
+    }
+  },
+  "timestamp_utc": "2026-03-04T13:41:52.211156+00:00"
+}

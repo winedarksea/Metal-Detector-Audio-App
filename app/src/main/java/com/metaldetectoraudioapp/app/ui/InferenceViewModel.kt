@@ -57,8 +57,16 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
         )
         _uiState = MutableStateFlow(controller.uiState.value)
         uiState = _uiState.asStateFlow()
-        _availableModelOptions = MutableStateFlow(listOf(defaultModelOption))
+        
+        val models = controller.getAvailableModels()
+        _availableModelOptions = MutableStateFlow(models.map { 
+            InferenceModelOption(
+                id = "${it.modelName}:${it.modelVersion}", 
+                label = "${it.modelName} v${it.modelVersion}"
+            )
+        })
         availableModelOptions = _availableModelOptions.asStateFlow()
+        
         _selectedModelOptionId = MutableStateFlow(defaultModelOption.id)
         selectedModelOptionId = _selectedModelOptionId.asStateFlow()
 
@@ -88,8 +96,16 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun selectModelOption(optionId: String) {
-        if (_availableModelOptions.value.any { it.id == optionId }) {
+        if (_selectedModelOptionId.value == optionId) return
+        
+        val models = controller.getAvailableModels()
+        val targetModel = models.find { "${it.modelName}:${it.modelVersion}" == optionId }
+        
+        if (targetModel != null) {
             _selectedModelOptionId.value = optionId
+            viewModelScope.launch {
+                controller.switchModel(targetModel, getApplication())
+            }
         }
     }
 

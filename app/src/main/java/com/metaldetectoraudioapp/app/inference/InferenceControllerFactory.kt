@@ -52,7 +52,8 @@ object InferenceControllerFactory {
         return InferenceController(
             modelMetadata = metadata,
             audioPipeline = pipeline,
-            classifier = classifier
+            classifier = classifier,
+            metadataRepository = metadataRepository
         )
     }
 

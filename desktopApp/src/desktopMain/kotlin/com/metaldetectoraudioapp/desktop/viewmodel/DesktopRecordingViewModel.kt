@@ -9,20 +9,31 @@ import com.metaldetectoraudioapp.app.ui.model.RecordingUiState
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.desktop.audio.DesktopAudioPlaybackController
 import com.metaldetectoraudioapp.desktop.audio.DesktopAudioRecordingSession
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.File
 
 class DesktopRecordingViewModel(
     private val recordingRepository: RecordingRepository,
     recordingSessionCacheDirectoryPath: String,
 ) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val tempDirectory = File(recordingSessionCacheDirectoryPath).also { it.mkdirs() }
     private val recordingSession = DesktopAudioRecordingSession(tempDirectory)
     private val playbackController = DesktopAudioPlaybackController()
 
     private var lastCapturedRecording: CapturedRecording? = null
+    private var recordingStartEpochMs: Long = 0L
+    private var durationTickerJob: Job? = null
 
     private val _uiState = MutableStateFlow(RecordingUiState())
     val uiState: StateFlow<RecordingUiState> = _uiState.asStateFlow()
@@ -34,18 +45,22 @@ class DesktopRecordingViewModel(
         clearPendingCaptureInternal(announce = false)
 
         val started = recordingSession.start()
-        _uiState.value = if (started) {
-            _uiState.value.copy(
+        if (started) {
+            recordingStartEpochMs = System.currentTimeMillis()
+            _uiState.value = _uiState.value.copy(
                 isRecording = true,
                 saveResultMessage = null,
-                errorMessage = null
+                errorMessage = null,
+                pendingDurationMs = 0,
             )
+            startDurationTicker()
         } else {
-            _uiState.value.copy(errorMessage = "Unable to start recording")
+            _uiState.value = _uiState.value.copy(errorMessage = "Unable to start recording")
         }
     }
 
     fun stopRecording() {
+        stopDurationTicker()
         val captured = recordingSession.stop()
         lastCapturedRecording = captured
         _uiState.value = _uiState.value.copy(
@@ -235,6 +250,7 @@ class DesktopRecordingViewModel(
         clearPendingCaptureInternal(announce = false)
         playbackController.stop()
         recordingSession.cancelAndDelete()
+        scope.cancel()
     }
 
     private fun isCategoryObjectMaterialLabel(value: String): Boolean {
@@ -251,10 +267,12 @@ class DesktopRecordingViewModel(
     }
 
     private fun clearPendingCaptureInternal(announce: Boolean) {
+        stopDurationTicker()
         stopPreview()
 
         lastCapturedRecording?.tempAudioFile?.delete()
         lastCapturedRecording = null
+        recordingStartEpochMs = 0L
 
         _uiState.value.pendingAudioFile?.delete()
         replacePendingImage(null)
@@ -270,5 +288,21 @@ class DesktopRecordingViewModel(
 
     private fun updateDraft(newDraft: RecordingDraftUiState) {
         _uiState.value = _uiState.value.copy(draft = newDraft, errorMessage = null)
+    }
+
+    private fun startDurationTicker() {
+        durationTickerJob?.cancel()
+        durationTickerJob = scope.launch {
+            while (isActive && _uiState.value.isRecording) {
+                val elapsed = (System.currentTimeMillis() - recordingStartEpochMs).coerceAtLeast(0L)
+                _uiState.value = _uiState.value.copy(pendingDurationMs = elapsed)
+                delay(250L)
+            }
+        }
+    }
+
+    private fun stopDurationTicker() {
+        durationTickerJob?.cancel()
+        durationTickerJob = null
     }
 }

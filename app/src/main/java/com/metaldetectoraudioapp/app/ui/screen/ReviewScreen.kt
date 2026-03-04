@@ -289,6 +289,7 @@ private fun RecordingReviewCard(
                 onValueChange = { detectorModelInput = it },
                 modifier = Modifier.fillMaxWidth()
             )
+            Text("Custom detector model values are allowed.", style = MaterialTheme.typography.bodySmall)
 
             ReviewSuggestiveTextField(
                 label = "search_mode",

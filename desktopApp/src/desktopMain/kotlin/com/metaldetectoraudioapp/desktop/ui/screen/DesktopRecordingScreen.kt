@@ -263,6 +263,7 @@ fun DesktopRecordingScreen(
                         onValueChange = viewModel::updateDetectorModel,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Text("Custom detector model values are allowed.", style = MaterialTheme.typography.bodySmall)
 
                     SuggestiveTextField(
                         label = "search_mode",

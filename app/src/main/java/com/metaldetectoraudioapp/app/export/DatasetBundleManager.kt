@@ -55,7 +55,6 @@ class DatasetBundleManager(
         val audioDirectory = File(unzipDirectory, "audio").apply { mkdirs() }
         val imageDirectory = File(unzipDirectory, "images").apply { mkdirs() }
         var metadataCsvFile: File? = null
-        var metadataJsonFile: File? = null
 
         ZipInputStream(inputStream).use { zip ->
             var entry = zip.nextEntry
@@ -73,7 +72,6 @@ class DatasetBundleManager(
 
                 when {
                     entry.name == "metadata/recordings_metadata.csv" -> metadataCsvFile = outputFile
-                    entry.name == "metadata/recordings_metadata.json" -> metadataJsonFile = outputFile
                     entry.name.startsWith("audio/") -> {
                         val normalizedFile = File(audioDirectory, outputFile.name)
                         if (normalizedFile.absolutePath != outputFile.absolutePath) {
@@ -96,16 +94,10 @@ class DatasetBundleManager(
             }
         }
 
-        val importedMetadata = when {
-            metadataCsvFile?.exists() == true -> {
-                RecordingMetadataCsvCodec.parse(metadataCsvFile!!.readText())
-            }
-
-            metadataJsonFile?.exists() == true -> {
-                parseMetadataJson(metadataJsonFile!!.readText())
-            }
-
-            else -> emptyList()
+        val importedMetadata = if (metadataCsvFile?.exists() == true) {
+            RecordingMetadataCsvCodec.parse(metadataCsvFile!!.readText())
+        } else {
+            emptyList()
         }
 
         var importedCount = 0
@@ -176,17 +168,4 @@ class DatasetBundleManager(
             .toString()
     }
 
-    private fun parseMetadataJson(raw: String?): List<RecordingMetadata> {
-        if (raw.isNullOrBlank()) {
-            return emptyList()
-        }
-
-        val array = org.json.JSONArray(raw)
-        return buildList {
-            for (index in 0 until array.length()) {
-                val item = array.optJSONObject(index) ?: continue
-                add(RecordingMetadata.fromJson(item))
-            }
-        }
-    }
 }

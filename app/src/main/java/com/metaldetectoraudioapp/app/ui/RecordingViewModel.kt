@@ -17,6 +17,9 @@ import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -28,6 +31,8 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private val locationProvider = RecordingLocationProvider(application.applicationContext)
 
     private var lastCapturedRecording: CapturedRecording? = null
+    private var recordingStartEpochMs: Long = 0L
+    private var durationTickerJob: Job? = null
 
     private val _uiState = MutableStateFlow(RecordingUiState())
     val uiState: StateFlow<RecordingUiState> = _uiState.asStateFlow()
@@ -37,17 +42,21 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
         val started = recordingSession.start()
         if (started) {
+            recordingStartEpochMs = System.currentTimeMillis()
             _uiState.value = _uiState.value.copy(
                 isRecording = true,
                 saveResultMessage = null,
-                errorMessage = null
+                errorMessage = null,
+                pendingDurationMs = 0,
             )
+            startDurationTicker()
         } else {
             _uiState.value = _uiState.value.copy(errorMessage = "Unable to start recording")
         }
     }
 
     fun stopRecording() {
+        stopDurationTicker()
         val captured = recordingSession.stop()
         lastCapturedRecording = captured
 
@@ -295,10 +304,12 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun clearPendingCaptureInternal(announce: Boolean) {
+        stopDurationTicker()
         stopPreview()
 
         lastCapturedRecording?.tempAudioFile?.delete()
         lastCapturedRecording = null
+        recordingStartEpochMs = 0L
 
         _uiState.value.pendingAudioFile?.delete()
         replacePendingImage(null)
@@ -321,5 +332,21 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         clearPendingCaptureInternal(announce = false)
         playbackController.stop()
         recordingSession.cancelAndDelete()
+    }
+
+    private fun startDurationTicker() {
+        durationTickerJob?.cancel()
+        durationTickerJob = viewModelScope.launch {
+            while (isActive && _uiState.value.isRecording) {
+                val elapsed = (System.currentTimeMillis() - recordingStartEpochMs).coerceAtLeast(0L)
+                _uiState.value = _uiState.value.copy(pendingDurationMs = elapsed)
+                delay(250L)
+            }
+        }
+    }
+
+    private fun stopDurationTicker() {
+        durationTickerJob?.cancel()
+        durationTickerJob = null
     }
 }

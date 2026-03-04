@@ -1,8 +1,10 @@
 package com.metaldetectoraudioapp.app
 
 import android.app.Application
+import android.content.ContentValues
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
-import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.text.SimpleDateFormat
@@ -14,8 +16,10 @@ class MetalDetectorAudioApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         installCrashLogger()
+        Log.i(TAG, "Application created")
     }
 
+    /** Writes crash logs to Downloads via MediaStore (visible in Files app). */
     private fun installCrashLogger() {
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
 
@@ -27,25 +31,20 @@ class MetalDetectorAudioApplication : Application() {
 
                 Log.e(TAG, "FATAL CRASH on thread '${thread.name}':\n$stackTrace")
 
-                // Write crash log to internal storage for retrieval via adb
                 val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-                val crashFile = File(filesDir, "crash_$timestamp.log")
-                crashFile.writeText(
-                    "Thread: ${thread.name}\n" +
-                    "Time: $timestamp\n\n" +
-                    stackTrace
-                )
+                val content = "Thread: ${thread.name}\nTime: $timestamp\n\n$stackTrace"
 
-                // Keep only the 5 most recent crash logs
-                filesDir.listFiles { file -> file.name.startsWith("crash_") && file.name.endsWith(".log") }
-                    ?.sortedByDescending { it.lastModified() }
-                    ?.drop(5)
-                    ?.forEach { it.delete() }
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, "mda_crash_$timestamp.txt")
+                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                uri?.let { contentResolver.openOutputStream(it)?.use { os -> os.write(content.toByteArray()) } }
             } catch (_: Exception) {
                 // Don't let crash logging itself cause issues
             }
 
-            // Chain to the default handler so the OS still reports the crash
             defaultHandler?.uncaughtException(thread, throwable)
         }
     }

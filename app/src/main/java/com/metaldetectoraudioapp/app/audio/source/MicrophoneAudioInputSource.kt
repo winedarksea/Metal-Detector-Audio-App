@@ -4,6 +4,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.util.Log
 import com.metaldetectoraudioapp.app.audio.AudioConstants
 import kotlin.math.max
 
@@ -16,17 +17,23 @@ class MicrophoneAudioInputSource(
     private val minBufferSize = AudioRecord.getMinBufferSize(sampleRateHz, channelConfig, encoding)
     private val audioRecordBufferSize = max(minBufferSize, AudioConstants.INFERENCE_CAPTURE_BLOCK_SIZE * 4)
 
-    private val audioRecord = AudioRecord.Builder()
-        .setAudioSource(MediaRecorder.AudioSource.MIC)
-        .setAudioFormat(
-            AudioFormat.Builder()
-                .setSampleRate(sampleRateHz)
-                .setChannelMask(channelConfig)
-                .setEncoding(encoding)
-                .build()
-        )
-        .setBufferSizeInBytes(audioRecordBufferSize)
-        .build()
+    private val audioRecord: AudioRecord
+
+    init {
+        Log.i(TAG, "Creating AudioRecord: sampleRate=$sampleRateHz minBuffer=$minBufferSize bufferSize=$audioRecordBufferSize")
+        audioRecord = AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.MIC)
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setSampleRate(sampleRateHz)
+                    .setChannelMask(channelConfig)
+                    .setEncoding(encoding)
+                    .build()
+            )
+            .setBufferSizeInBytes(audioRecordBufferSize)
+            .build()
+        Log.i(TAG, "AudioRecord created: state=${audioRecord.state}")
+    }
 
     override fun start() {
         if (audioRecord.state == AudioRecord.STATE_INITIALIZED) {
@@ -54,5 +61,9 @@ class MicrophoneAudioInputSource(
 
     override fun setPreferredDevice(device: AudioDeviceInfo?) {
         audioRecord.preferredDevice = device
+    }
+
+    companion object {
+        private const val TAG = "MicAudioInputSource"
     }
 }

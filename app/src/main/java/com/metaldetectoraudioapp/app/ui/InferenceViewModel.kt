@@ -2,6 +2,7 @@ package com.metaldetectoraudioapp.app.ui
 
 import android.app.Application
 import android.media.AudioDeviceInfo
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
@@ -16,24 +17,23 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class InferenceViewModel(application: Application) : AndroidViewModel(application) {
-    private val controller: InferenceController = InferenceControllerFactory.create(application.applicationContext)
-    val deviceManager = AudioDeviceManager(application.applicationContext)
-    private val defaultModelOption = InferenceModelOption(
-        id = "${controller.uiState.value.modelName}:${controller.uiState.value.modelVersion}",
-        label = "${controller.uiState.value.modelName} v${controller.uiState.value.modelVersion}"
-    )
+    private val controller: InferenceController
 
-    private val _uiState = MutableStateFlow(controller.uiState.value)
-    val uiState: StateFlow<InferenceUiState> = _uiState.asStateFlow()
+    val deviceManager: AudioDeviceManager
+
+    private val defaultModelOption: InferenceModelOption
+
+    private val _uiState: MutableStateFlow<InferenceUiState>
+    val uiState: StateFlow<InferenceUiState>
 
     private val _passthroughEnabled = MutableStateFlow(false)
     val passthroughEnabled: StateFlow<Boolean> = _passthroughEnabled.asStateFlow()
 
-    private val _availableModelOptions = MutableStateFlow(listOf(defaultModelOption))
-    val availableModelOptions: StateFlow<List<InferenceModelOption>> = _availableModelOptions.asStateFlow()
+    private val _availableModelOptions: MutableStateFlow<List<InferenceModelOption>>
+    val availableModelOptions: StateFlow<List<InferenceModelOption>>
 
-    private val _selectedModelOptionId = MutableStateFlow(defaultModelOption.id)
-    val selectedModelOptionId: StateFlow<String> = _selectedModelOptionId.asStateFlow()
+    private val _selectedModelOptionId: MutableStateFlow<String>
+    val selectedModelOptionId: StateFlow<String>
 
     private val _selectedInputDevice = MutableStateFlow<AudioDeviceInfo?>(null)
     val selectedInputDevice: StateFlow<AudioDeviceInfo?> = _selectedInputDevice.asStateFlow()
@@ -42,11 +42,32 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
     val selectedOutputDevice: StateFlow<AudioDeviceInfo?> = _selectedOutputDevice.asStateFlow()
 
     init {
+        Log.i(TAG, "Initializing InferenceViewModel...")
+        controller = InferenceControllerFactory.create(
+            application.applicationContext,
+            allowFallbackModel = true
+        )
+        Log.i(TAG, "InferenceController created (model=${controller.uiState.value.modelName})")
+        deviceManager = AudioDeviceManager(application.applicationContext)
+        Log.i(TAG, "AudioDeviceManager created")
+
+        defaultModelOption = InferenceModelOption(
+            id = "${controller.uiState.value.modelName}:${controller.uiState.value.modelVersion}",
+            label = "${controller.uiState.value.modelName} v${controller.uiState.value.modelVersion}"
+        )
+        _uiState = MutableStateFlow(controller.uiState.value)
+        uiState = _uiState.asStateFlow()
+        _availableModelOptions = MutableStateFlow(listOf(defaultModelOption))
+        availableModelOptions = _availableModelOptions.asStateFlow()
+        _selectedModelOptionId = MutableStateFlow(defaultModelOption.id)
+        selectedModelOptionId = _selectedModelOptionId.asStateFlow()
+
         viewModelScope.launch {
             controller.uiState.collectLatest { state ->
                 _uiState.value = state
             }
         }
+        Log.i(TAG, "InferenceViewModel initialized successfully")
     }
 
     fun start() {
@@ -86,5 +107,9 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
         super.onCleared()
         controller.release()
         deviceManager.release()
+    }
+
+    companion object {
+        private const val TAG = "InferenceViewModel"
     }
 }

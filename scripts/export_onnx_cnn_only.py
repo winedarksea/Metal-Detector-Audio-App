@@ -65,7 +65,10 @@ def main() -> int:
         MODEL_OUTPUT_LABELS,
     )
 
-    labels_by_id = load_label_rows(args.labels_csv)
+    labels_by_id = load_label_rows(
+        args.labels_csv,
+        metadata_csv_path=args.assets_dir / "recordings_metadata.csv"
+    )
     wav_files = collect_wav_files(args.assets_dir)
     sample_records = build_audio_sample_records(labels_by_id, wav_files)
     label_order = list(MODEL_OUTPUT_LABELS)

@@ -1,13 +1,13 @@
 {
   "model_name": "starter_model",
   "model_version": "0.3.0",
-  "sample_count": 60,
-  "window_count_before_augmentation": 2844,
-  "window_count_after_augmentation": 8532,
+  "sample_count": 62,
+  "window_count_before_augmentation": 2868,
+  "window_count_after_augmentation": 8604,
   "class_window_counts": {
     "TARGET": 1557,
     "JUNK": 550,
-    "AMBIENT": 737
+    "AMBIENT": 761
   },
   "skipped_silent_windows": {
     "TARGET": 0,
@@ -15,21 +15,21 @@
     "AMBIENT": 0
   },
   "excluded_class_file_counts": {},
-  "ambient_window_count_from_files": 0,
+  "ambient_window_count_from_files": 24,
   "synthetic_ambient_window_count": 737,
   "recommended_threshold": 0.55,
   "threshold_calibration_metrics": {
     "strategy": "explicit_ambient_class",
-    "ambient_windows_from_files": 0,
+    "ambient_windows_from_files": 24,
     "synthetic_ambient_window_count": 737
   },
   "metrics": {
-    "loss": 0.29688194394111633,
-    "accuracy": 0.8737693428993225,
-    "train_loss": 0.30678674578666687,
-    "train_accuracy": 0.8613455295562744,
-    "val_loss": 0.29688194394111633,
-    "val_accuracy": 0.8737693428993225
+    "loss": 0.2949225902557373,
+    "accuracy": 0.8688982129096985,
+    "train_loss": 0.30892205238342285,
+    "train_accuracy": 0.8592514991760254,
+    "val_loss": 0.29492273926734924,
+    "val_accuracy": 0.8688982129096985
   },
-  "timestamp_utc": "2026-03-03T05:32:36.800707+00:00"
+  "timestamp_utc": "2026-03-04T03:06:18.365722+00:00"
 }

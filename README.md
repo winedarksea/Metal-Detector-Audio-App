@@ -96,26 +96,31 @@ The easiest way to connect a phone or computer to a detector is from the audio o
 
 ## Starter model commands
 
+### Which scripts should I run for model training?
+- **For Android deployment only**: Run **(2) `train_starter_model.py`**. This generates `starter_model.tflite`.
+- **For Desktop deployment (JVM/Kotlin)**: Run **(3) `export_onnx_cnn_only.py`**. This generates `starter_model_cnn.onnx`. It handles training and subset-export in one step.
+---
+
 ### 1) Validate dataset consistency (no TensorFlow required)
 ```bash
 python3 scripts/train_starter_model.py --dry-run
 ```
 
-### 2) Train and export the starter model
+### 2) Train and export for Android (TFLite)
 ```bash
 conda run -n gpu311 python scripts/train_starter_model.py \
   --epochs 20 \
   --batch-size 8
 ```
 
+### 3) Train and export for Desktop (ONNX CNN-only)
+```bash
+conda run -n gpu311 python scripts/export_onnx_cnn_only.py --epochs 20 --batch-size 16
+```
+
 Disable synthetic ambient generation if needed:
 ```bash
 conda run -n gpu311 python scripts/train_starter_model.py --no-synthesize-ambient-noise
-```
-
-Export desktop ONNX (CNN-only):
-```bash
-conda run -n gpu311 python scripts/export_onnx_cnn_only.py --epochs 20 --batch-size 16
 ```
 
 If TensorFlow is not installed:
@@ -124,11 +129,6 @@ python3 -m pip install tensorflow numpy scipy
 ```
 
 ## Test commands
-
-Python:
-```bash
-python3 -m unittest tests.test_train_starter_model
-```
 
 Android unit tests (from repo root):
 ```bash

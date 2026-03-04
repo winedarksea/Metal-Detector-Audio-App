@@ -60,16 +60,17 @@ DEFAULT_HOP_SIZE_SAMPLES = DEFAULT_WINDOW_SIZE_SAMPLES // 2  # 0.25 s
 
 @dataclass(frozen=True)
 class LabelRow:
-    sample_id: int
+    sample_id: str
     target_name: str
     class_label: str
     mixed_flag: bool
     include_in_training: bool
+    pattern: str = ""
 
 
 @dataclass(frozen=True)
 class AudioSampleRecord:
-    sample_id: int
+    sample_id: str
     wav_path: Path
     pattern: str
     class_label: str
@@ -136,7 +137,7 @@ def parse_bool(value: str) -> bool:
     raise ValueError(f"Expected boolean field, got: {value!r}")
 
 
-def validate_category_object_material_tokens(target_name: str, sample_id: int) -> None:
+def validate_category_object_material_tokens(target_name: str, sample_id: str) -> None:
     tokens = [token.strip() for token in target_name.split("|") if token.strip()]
     if not tokens:
         raise ValueError(f"sample_id={sample_id} has no target_name tokens")
@@ -160,56 +161,100 @@ def infer_pattern_from_filename(file_name: str) -> str:
     raise ValueError(f"Unable to infer pattern from filename: {file_name}")
 
 
-def infer_sample_id_from_filename(file_name: str) -> int:
+def infer_sample_id_from_filename(file_name: str) -> str:
     stem = Path(file_name).stem
+    if stem.startswith("rec_"):
+        return stem
     prefix = stem.split("_", 1)[0]
-    try:
-        return int(prefix)
-    except ValueError as error:
-        raise ValueError(f"Invalid sample id in filename: {file_name}") from error
+    return prefix
 
 
-def load_label_rows(labels_csv_path: Path) -> Dict[int, LabelRow]:
+def load_label_rows(labels_csv_path: Path, metadata_csv_path: Path = None) -> Dict[str, LabelRow]:
     required_columns = {
         "sample_id", "target_name", "class_label",
         "mixed_flag", "include_in_training",
     }
-    with labels_csv_path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        if reader.fieldnames is None:
-            raise ValueError("Labels CSV is missing a header row")
+    rows_by_id: Dict[str, LabelRow] = {}
 
-        missing_columns = required_columns - set(reader.fieldnames)
-        if missing_columns:
-            raise ValueError(
-                f"Labels CSV missing columns: {', '.join(sorted(missing_columns))}"
-            )
+    # Load from cleaned_labels.csv (legacy format)
+    if labels_csv_path.exists():
+        with labels_csv_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames is None:
+                raise ValueError(f"{labels_csv_path.name} is missing a header row")
 
-        rows_by_id: Dict[int, LabelRow] = {}
-        for line_no, row in enumerate(reader, start=2):
-            if not row.get("sample_id", "").strip():
-                continue
-            sample_id = int(row["sample_id"])
-            if sample_id in rows_by_id:
-                raise ValueError(f"Duplicate sample_id={sample_id} at line {line_no}")
-
-            class_label = row["class_label"].strip().upper()
-            if class_label not in SUPPORTED_CLASS_LABELS:
+            missing_columns = required_columns - set(reader.fieldnames)
+            if missing_columns:
                 raise ValueError(
-                    f"Invalid class_label={class_label!r} for sample_id={sample_id}"
+                    f"{labels_csv_path.name} missing columns: {', '.join(sorted(missing_columns))}"
                 )
-            target_name = row["target_name"].strip()
-            if not target_name:
-                raise ValueError(f"sample_id={sample_id} has empty target_name")
-            validate_category_object_material_tokens(target_name, sample_id)
 
-            rows_by_id[sample_id] = LabelRow(
-                sample_id=sample_id,
-                target_name=target_name,
-                class_label=class_label,
-                mixed_flag=parse_bool(row["mixed_flag"]),
-                include_in_training=parse_bool(row["include_in_training"]),
-            )
+            for line_no, row in enumerate(reader, start=2):
+                if not row.get("sample_id", "").strip():
+                    continue
+                sample_id = row["sample_id"].strip()
+                if sample_id in rows_by_id:
+                    raise ValueError(f"Duplicate sample_id={sample_id} at line {line_no} in {labels_csv_path.name}")
+
+                class_label = row["class_label"].strip().upper()
+                if class_label not in SUPPORTED_CLASS_LABELS:
+                    raise ValueError(
+                        f"Invalid class_label={class_label!r} for sample_id={sample_id}"
+                    )
+                target_name = row["target_name"].strip()
+                if not target_name:
+                    raise ValueError(f"sample_id={sample_id} has empty target_name")
+                validate_category_object_material_tokens(target_name, sample_id)
+
+                rows_by_id[sample_id] = LabelRow(
+                    sample_id=sample_id,
+                    target_name=target_name,
+                    class_label=class_label,
+                    mixed_flag=parse_bool(row["mixed_flag"]),
+                    include_in_training=parse_bool(row["include_in_training"]),
+                    pattern=""
+                )
+
+    # Load from recordings_metadata.csv (app format)
+    if metadata_csv_path and metadata_csv_path.exists():
+        with metadata_csv_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            # Map app columns to LabelRow fields
+            # app: recording_id -> sample_id
+            # app: target_name -> target_name
+            # app: class_label -> class_label
+            # app: mixed_flag -> mixed_flag
+            # app: include_in_training -> include_in_training
+            for line_no, row in enumerate(reader, start=2):
+                sample_id = row.get("recording_id", "").strip()
+                if not sample_id:
+                    continue
+                if sample_id in rows_by_id:
+                    # Prefer metadata from recordings_metadata.csv if there's a collision
+                    pass
+
+                class_label = row["class_label"].strip().upper()
+                if class_label not in SUPPORTED_CLASS_LABELS:
+                    continue # Skip unsupported labels in app metadata
+
+                target_name = row["target_name"].strip()
+                if not target_name:
+                    continue
+                
+                try:
+                    validate_category_object_material_tokens(target_name, sample_id)
+                except ValueError:
+                    # App might allow freeform target names, handle gracefully or skip
+                    continue
+
+                rows_by_id[sample_id] = LabelRow(
+                    sample_id=sample_id,
+                    target_name=target_name,
+                    class_label=class_label,
+                    mixed_flag=parse_bool(row.get("mixed_flag", "false")),
+                    include_in_training=parse_bool(row.get("include_in_training", "false")),
+                    pattern=row.get("pattern", "").strip().upper()
+                )
 
     if not rows_by_id:
         raise ValueError("No label rows found")
@@ -224,7 +269,7 @@ def collect_wav_files(assets_directory: Path) -> List[Path]:
 
 
 def build_audio_sample_records(
-    labels_by_id: Dict[int, LabelRow],
+    labels_by_id: Dict[str, LabelRow],
     wav_files: Iterable[Path],
 ) -> List[AudioSampleRecord]:
     records: List[AudioSampleRecord] = []
@@ -232,15 +277,20 @@ def build_audio_sample_records(
 
     for wav_path in wav_files:
         sample_id = infer_sample_id_from_filename(wav_path.name)
-        pattern = infer_pattern_from_filename(wav_path.name)
-        if pattern not in SUPPORTED_PATTERNS:
-            raise ValueError(f"Unsupported pattern for {wav_path.name}: {pattern}")
 
         label_row = labels_by_id.get(sample_id)
         if label_row is None:
             raise ValueError(
                 f"Missing label row for sample_id={sample_id} ({wav_path.name})"
             )
+
+        pattern = label_row.pattern
+        if not pattern:
+            pattern = infer_pattern_from_filename(wav_path.name)
+
+        if pattern not in SUPPORTED_PATTERNS:
+            raise ValueError(f"Unsupported pattern for {wav_path.name}: {pattern}")
+
         if label_row.include_in_training:
             seen_training_ids.add(sample_id)
 
@@ -616,7 +666,10 @@ def write_json(path: Path, content: Dict) -> None:
 # ---------------------------------------------------------------------------
 
 def run_training_pipeline(args: argparse.Namespace) -> int:
-    labels_by_id = load_label_rows(args.labels_csv)
+    labels_by_id = load_label_rows(
+        args.labels_csv,
+        metadata_csv_path=args.assets_dir / "recordings_metadata.csv"
+    )
     wav_files = collect_wav_files(args.assets_dir)
     sample_records = build_audio_sample_records(labels_by_id, wav_files)
 

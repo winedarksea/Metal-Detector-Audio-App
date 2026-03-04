@@ -25,7 +25,7 @@
     "class_window_counts": {
       "TARGET": 1557,
       "JUNK": 550,
-      "AMBIENT": 737
+      "AMBIENT": 761
     },
     "skipped_silent_windows": {
       "TARGET": 0,
@@ -33,9 +33,9 @@
       "AMBIENT": 0
     },
     "excluded_class_file_counts": {},
-    "ambient_window_count_from_files": 0,
+    "ambient_window_count_from_files": 24,
     "synthetic_ambient_window_count": 737,
-    "augmented_total_windows": 8532,
+    "augmented_total_windows": 8604,
     "mel_spectrogram": {
       "stft_frame_length": 256,
       "stft_frame_step": 128,
@@ -53,5 +53,5 @@
       ]
     }
   },
-  "timestamp_utc": "2026-03-03T05:32:36.800707+00:00"
+  "timestamp_utc": "2026-03-04T03:06:18.365722+00:00"
 }

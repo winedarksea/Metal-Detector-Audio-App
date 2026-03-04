@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,10 +37,12 @@ class InferenceControllerIntegrationTest {
 
         val fakePipeline = FakeFrameStreamingPipeline()
         val fakeClassifier = RuleBasedTestClassifier()
+        val metadataRepo = ModelMetadataRepository(ApplicationProvider.getApplicationContext())
         val controller = InferenceController(
             modelMetadata = metadata,
             audioPipeline = fakePipeline,
-            classifier = fakeClassifier,
+            initialClassifier = fakeClassifier,
+            metadataRepository = metadataRepo,
             scope = this // Testing in current scope
         )
 

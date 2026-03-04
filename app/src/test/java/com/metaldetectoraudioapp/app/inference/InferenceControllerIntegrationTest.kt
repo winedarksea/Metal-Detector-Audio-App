@@ -3,6 +3,7 @@ package com.metaldetectoraudioapp.app.inference
 import com.metaldetectoraudioapp.app.audio.pipeline.AudioPipelineFrame
 import com.metaldetectoraudioapp.app.audio.pipeline.AudioSignalStatus
 import com.metaldetectoraudioapp.app.audio.pipeline.FrameStreamingPipeline
+import android.media.AudioDeviceInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,8 +12,13 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class InferenceControllerIntegrationTest {
     @Test
     fun fixtureFrames_emitExpectedPredictionSequence() = runTest {
@@ -87,6 +93,10 @@ private class FakeFrameStreamingPipeline : FrameStreamingPipeline {
     override val signalStatusFlow: StateFlow<AudioSignalStatus> = signalFlow
 
     override fun setPassthroughEnabled(enabled: Boolean) = Unit
+
+    override fun setInputDevice(device: AudioDeviceInfo?) = Unit
+
+    override fun setOutputDevice(device: AudioDeviceInfo?) = Unit
 
     override fun start(onFrame: (AudioPipelineFrame) -> Unit) {
         frameCallback = onFrame

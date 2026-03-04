@@ -12,6 +12,7 @@
         android:label="Metal Detector Audio"
         android:roundIcon="@android:drawable/ic_btn_speak_now"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.MetalDetectorAudio">
         <activity
             android:name=".MainActivity"

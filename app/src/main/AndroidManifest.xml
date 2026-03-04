@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
+        android:name=".MetalDetectorAudioApplication"
         android:allowBackup="true"
         android:icon="@android:drawable/ic_btn_speak_now"
         android:label="Metal Detector Audio"

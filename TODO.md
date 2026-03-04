@@ -8,6 +8,8 @@
 - [ ] Optional chirp crop tool for failed auto-segmentation.
 - [ ] **Inference:** Investigate increasing window size (0.5s -> 1.0s) to capture full swing dynamics. (Parameter centralized: change `DEFAULT_WINDOW_SIZE_SAMPLES` in `train_starter_model.py` and `INFERENCE_WINDOW_SIZE_SAMPLES` in `AudioConstants.kt`.). Possibly allow window size load from model metadata to allow testing different window sizes live.
 - [ ] **Model Architecture:** Evaluate **DS-CNN** (Depthwise Separable CNN) or YAMNet to replace the current vanilla CNN.
+- [ ] **Mixed Data** More work needs to be done on deciding how to incorporate mixed signals (junk and target very close to each other or overlapping).
+- [ ] **Separate Training File Location** The newer recordings_metadata and rec_*.wav files should be moved to a new location so they are not stored in github (too big). Other files remains as uploaded examples, kept in github.
 
 ## On-Device Fine-Tuning - FUTURE EXTENSION
 - [ ] Pre-train gate: show sample counts by class and exclusions.

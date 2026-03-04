@@ -20,13 +20,13 @@
     "train_and_validation_share_examples": true,
     "backbone": "mel_cnn",
     "epochs": 20,
-    "batch_size": 8,
+    "batch_size": 16,
     "exclude_mixed_records": true,
     "energy_gate_rms_threshold": 0.015,
     "class_window_counts": {
       "TARGET": 858,
-      "JUNK": 0,
-      "AMBIENT": 324
+      "JUNK": 450,
+      "AMBIENT": 482
     },
     "skipped_silent_windows": {
       "TARGET": 0,
@@ -35,8 +35,8 @@
     },
     "excluded_class_file_counts": {},
     "ambient_window_count_from_files": 24,
-    "synthetic_ambient_window_count": 300,
-    "augmented_total_windows": 3546,
+    "synthetic_ambient_window_count": 458,
+    "augmented_total_windows": 5370,
     "mel_spectrogram": {
       "stft_frame_length": 256,
       "stft_frame_step": 128,
@@ -54,5 +54,5 @@
       ]
     }
   },
-  "timestamp_utc": "2026-03-04T13:41:52.211156+00:00"
+  "timestamp_utc": "2026-03-04T13:59:59.885733+00:00"
 }

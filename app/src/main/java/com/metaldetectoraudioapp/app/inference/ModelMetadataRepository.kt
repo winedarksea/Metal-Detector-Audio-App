@@ -7,6 +7,8 @@ import org.json.JSONObject
 class ModelMetadataRepository(
     private val appContext: Context
 ) {
+    // WARNING: This matches any asset ending in "_metadata.json" in the root assets dir.
+    // If non-model metadata files are added, use a stricter naming convention or manifest.
     fun listAvailableMetadata(): List<ModelMetadata> {
         val assets = appContext.assets.list("") ?: return emptyList()
         return assets.filter { it.endsWith("_metadata.json") }

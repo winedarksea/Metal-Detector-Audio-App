@@ -195,6 +195,12 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    fun onCameraPermissionDenied() {
+        _uiState.value = _uiState.value.copy(
+            errorMessage = "Camera permission was denied."
+        )
+    }
+
     fun playPreview() {
         val file = _uiState.value.pendingAudioFile ?: return
         playbackController.play(file) {

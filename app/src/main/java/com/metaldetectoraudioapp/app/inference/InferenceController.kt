@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 class InferenceController(
     private var modelMetadata: ModelMetadata,
     private val audioPipeline: FrameStreamingPipeline,
-    private var classifier: AudioWindowClassifier,
+    initialClassifier: AudioWindowClassifier,
     private val metadataRepository: ModelMetadataRepository,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) {
@@ -35,6 +35,9 @@ class InferenceController(
 
     @Volatile
     private var inferenceInFlight = false
+
+    @Volatile
+    private var classifier: AudioWindowClassifier = initialClassifier
     private var latencyAccumulatorMs = 0L
     private var inferenceCount = 0L
 
@@ -97,19 +100,46 @@ class InferenceController(
             stop()
         }
 
-        classifier.close()
+        // Guard: the audio pipeline frame size must match the new model's expected input.
+        if (metadata.input.windowSizeSamples != modelMetadata.input.windowSizeSamples ||
+            metadata.input.hopSizeSamples != modelMetadata.input.hopSizeSamples
+        ) {
+            Log.e(logTag, "Cannot switch to model '${metadata.modelName}': " +
+                "input config (window=${metadata.input.windowSizeSamples}, hop=${metadata.input.hopSizeSamples}) " +
+                "differs from pipeline (window=${modelMetadata.input.windowSizeSamples}, hop=${modelMetadata.input.hopSizeSamples})")
+            if (wasRunning) start()
+            return
+        }
+
+        // Wait for any in-flight inference to finish before closing the old classifier.
+        @Suppress("ControlFlowWithEmptyBody")
+        while (inferenceInFlight) { /* spin-wait; inference is sub-ms to complete */ }
+
+        val oldClassifier = classifier
         modelMetadata = metadata
         classifier = MetalClassifierInterpreter(
             modelMetadata = metadata,
             appContext = appContext,
             modelAssetName = metadata.fileName ?: "starter_model.tflite"
         )
+        oldClassifier.close()
+
+        // Reset inference stats for the new model session.
+        latencyAccumulatorMs = 0L
+        inferenceCount = 0L
 
         _uiState.value = _uiState.value.copy(
             modelName = metadata.modelName,
             modelVersion = metadata.modelVersion,
-            threshold = metadata.recommendedThreshold
+            threshold = metadata.recommendedThreshold,
+            droppedFrames = 0,
+            averageLatencyMs = 0f,
+            recentDetections = emptyList(),
+            stickyTargetActive = false,
+            stickyTargetConfidence = 0f,
+            recentTargetCount = 0
         )
+        stickyTargetEndMs = 0L
 
         if (wasRunning) {
             start()

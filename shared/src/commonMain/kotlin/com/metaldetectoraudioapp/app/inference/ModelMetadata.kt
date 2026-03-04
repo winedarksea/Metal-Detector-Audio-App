@@ -13,5 +13,7 @@ data class ModelMetadata(
     val labels: List<String>,
     val input: ModelInputConfig,
     val recommendedThreshold: Float = 0.55f,
-    val fileName: String? = null
+    val fileName: String? = null,
+    /** Stable identifier derived from the asset file name, not the display name. */
+    val assetId: String = fileName?.removeSuffix(".tflite") ?: "unknown"
 )

@@ -51,22 +51,26 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
         deviceManager = AudioDeviceManager(application.applicationContext)
         Log.i(TAG, "AudioDeviceManager created")
 
+        val models = controller.getAvailableModels()
+        val initialModel = models.firstOrNull {
+            it.modelName == controller.uiState.value.modelName &&
+            it.modelVersion == controller.uiState.value.modelVersion
+        }
         defaultModelOption = InferenceModelOption(
-            id = "${controller.uiState.value.modelName}:${controller.uiState.value.modelVersion}",
+            id = initialModel?.assetId ?: "unknown",
             label = "${controller.uiState.value.modelName} v${controller.uiState.value.modelVersion}"
         )
         _uiState = MutableStateFlow(controller.uiState.value)
         uiState = _uiState.asStateFlow()
-        
-        val models = controller.getAvailableModels()
-        _availableModelOptions = MutableStateFlow(models.map { 
+
+        _availableModelOptions = MutableStateFlow(models.map {
             InferenceModelOption(
-                id = "${it.modelName}:${it.modelVersion}", 
+                id = it.assetId,
                 label = "${it.modelName} v${it.modelVersion}"
             )
         })
         availableModelOptions = _availableModelOptions.asStateFlow()
-        
+
         _selectedModelOptionId = MutableStateFlow(defaultModelOption.id)
         selectedModelOptionId = _selectedModelOptionId.asStateFlow()
 
@@ -97,10 +101,10 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun selectModelOption(optionId: String) {
         if (_selectedModelOptionId.value == optionId) return
-        
+
         val models = controller.getAvailableModels()
-        val targetModel = models.find { "${it.modelName}:${it.modelVersion}" == optionId }
-        
+        val targetModel = models.find { it.assetId == optionId }
+
         if (targetModel != null) {
             _selectedModelOptionId.value = optionId
             viewModelScope.launch {

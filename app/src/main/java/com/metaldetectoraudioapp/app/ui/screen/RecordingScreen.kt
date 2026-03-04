@@ -90,6 +90,8 @@ fun RecordingScreen(
     ) { granted ->
         if (granted) {
             imageCaptureLauncher.launch(null)
+        } else {
+            viewModel.onCameraPermissionDenied()
         }
     }
 

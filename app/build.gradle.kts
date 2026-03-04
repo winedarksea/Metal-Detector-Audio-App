@@ -51,7 +51,7 @@ android {
     }
 
     sourceSets {
-        getByName("main").assets.srcDirs("src/main/assets", "${rootDir}/models", "${rootDir}/assets")
+        getByName("main").assets.srcDirs("src/main/assets", "${rootDir}/models")
     }
 
     testOptions {

@@ -59,7 +59,7 @@ tasks.register<Copy>("copyModelAssets") {
     from("${rootDir}/models") {
         include("starter_model_cnn.onnx", "starter_model_metadata.json")
     }
-    from("${rootDir}/assets") {
+    from("${rootDir}/app/src/main/assets") {
         include("label_dropdown_options.csv")
     }
     into(desktopModelResources)

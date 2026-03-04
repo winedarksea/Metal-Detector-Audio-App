@@ -39,9 +39,13 @@ fun MetalDetectorAudioRoot(
 ) {
     if (!hasMicrophonePermission) {
         PermissionGate(onRequestMicrophonePermission)
-        return
+    } else {
+        MetalDetectorAudioAppContent()
     }
+}
 
+@Composable
+private fun MetalDetectorAudioAppContent() {
     val navController = rememberNavController()
     val inferenceViewModel: InferenceViewModel = viewModel()
     val recordingViewModel: RecordingViewModel = viewModel()

@@ -21,7 +21,12 @@ data class RecordingMetadata(
     val durationMs: Long,
     val soilType: String? = null,
     val moisture: String? = null,
-    val detectorModel: String? = null
+    val detectorModel: String? = null,
+    val searchMode: String? = null,
+    val sensitivity: String? = null,
+    val recoverySpeed: String? = null,
+    val stabilizer: String? = null,
+    val imageFileName: String? = null,
 ) {
     fun toJson(): JSONObject {
         return JSONObject()
@@ -41,15 +46,28 @@ data class RecordingMetadata(
             .put("soil_type", soilType ?: JSONObject.NULL)
             .put("moisture", moisture ?: JSONObject.NULL)
             .put("detector_model", detectorModel ?: JSONObject.NULL)
+            .put("search_mode", searchMode ?: JSONObject.NULL)
+            .put("sensitivity", sensitivity ?: JSONObject.NULL)
+            .put("recovery_speed", recoverySpeed ?: JSONObject.NULL)
+            .put("stabilizer", stabilizer ?: JSONObject.NULL)
+            .put("image_file_name", imageFileName ?: JSONObject.NULL)
     }
 
     companion object {
         fun fromJson(json: JSONObject): RecordingMetadata {
-            val targetNameJson = json.optJSONArray("target_names") ?: JSONArray()
-            val targetNames = buildList {
-                for (index in 0 until targetNameJson.length()) {
-                    add(targetNameJson.getString(index))
+            val targetNameJson = json.optJSONArray("target_names")
+            val targetNames = when {
+                targetNameJson != null -> buildList {
+                    for (index in 0 until targetNameJson.length()) {
+                        add(targetNameJson.getString(index))
+                    }
                 }
+
+                json.has("target_name") -> listOfNotNull(
+                    json.optString("target_name").takeIf { it.isNotBlank() && it != "null" }
+                )
+
+                else -> emptyList()
             }
 
             return RecordingMetadata(
@@ -76,7 +94,12 @@ data class RecordingMetadata(
                 durationMs = json.optLong("duration_ms", 0L),
                 soilType = json.optString("soil_type").takeIf { it.isNotBlank() && it != "null" },
                 moisture = json.optString("moisture").takeIf { it.isNotBlank() && it != "null" },
-                detectorModel = json.optString("detector_model").takeIf { it.isNotBlank() && it != "null" }
+                detectorModel = json.optString("detector_model").takeIf { it.isNotBlank() && it != "null" },
+                searchMode = json.optString("search_mode").takeIf { it.isNotBlank() && it != "null" },
+                sensitivity = json.optString("sensitivity").takeIf { it.isNotBlank() && it != "null" },
+                recoverySpeed = json.optString("recovery_speed").takeIf { it.isNotBlank() && it != "null" },
+                stabilizer = json.optString("stabilizer").takeIf { it.isNotBlank() && it != "null" },
+                imageFileName = json.optString("image_file_name").takeIf { it.isNotBlank() && it != "null" },
             )
         }
     }

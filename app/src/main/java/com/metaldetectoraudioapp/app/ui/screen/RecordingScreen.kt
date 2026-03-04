@@ -2,14 +2,17 @@ package com.metaldetectoraudioapp.app.ui.screen
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -27,9 +30,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +47,19 @@ private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
 )
 private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
+private val DETECTOR_MODEL_OPTIONS = listOf(
+    "minelab manticore",
+    "minelab equinox",
+    "xp deus 2",
+)
+private val SEARCH_MODE_OPTIONS = listOf(
+    "all terrain high conductivity",
+    "beach",
+    "field",
+)
+private val SENSITIVITY_OPTIONS = (15..30).map { it.toString() }
+private val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
+private val STABILIZER_OPTIONS = (1..10).map { it.toString() }
 
 @Composable
 fun RecordingScreen(
@@ -49,6 +68,7 @@ fun RecordingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -56,6 +76,18 @@ fun RecordingScreen(
             viewModel.captureCurrentLocation()
         } else {
             viewModel.onLocationPermissionDenied()
+        }
+    }
+
+    val imageCaptureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        viewModel.attachCapturedImage(bitmap)
+    }
+
+    val previewImage = remember(uiState.pendingImageFile?.absolutePath) {
+        uiState.pendingImageFile?.let { file ->
+            BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
         }
     }
 
@@ -86,8 +118,18 @@ fun RecordingScreen(
                         ) {
                             Text(if (uiState.isPlayingPreview) "Stop Preview" else "Play Preview")
                         }
+                        Button(
+                            onClick = viewModel::clearPendingCapture,
+                            enabled = uiState.pendingAudioFile != null || uiState.pendingImageFile != null
+                        ) {
+                            Text("Clear Pending")
+                        }
                     }
                     Text("Duration: ${uiState.pendingDurationMs} ms")
+                    Text(
+                        "Audio and image stay temporary until Save Recording. Starting a new recording clears unsaved capture.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
@@ -116,6 +158,31 @@ fun RecordingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 3
                     )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { imageCaptureLauncher.launch(null) },
+                            enabled = !uiState.isRecording
+                        ) {
+                            Text("Add Image")
+                        }
+                        if (uiState.pendingImageFile != null) {
+                            Button(onClick = viewModel::removePendingImage) {
+                                Text("Remove Image")
+                            }
+                        }
+                    }
+
+                    if (previewImage != null) {
+                        Image(
+                            bitmap = previewImage,
+                            contentDescription = "Captured find image preview",
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(MaterialTheme.shapes.small),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -194,7 +261,7 @@ fun RecordingScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Environment", style = MaterialTheme.typography.titleMedium)
+                    Text("Environment & Detector", style = MaterialTheme.typography.titleMedium)
 
                     SuggestiveTextField(
                         label = "soil_type (optional)",
@@ -219,10 +286,43 @@ fun RecordingScreen(
                         }
                     }
 
-                    OutlinedTextField(
+                    SuggestiveTextField(
+                        label = "detector_model",
                         value = uiState.draft.detectorModel,
+                        suggestions = DETECTOR_MODEL_OPTIONS,
                         onValueChange = viewModel::updateDetectorModel,
-                        label = { Text("detector_model (optional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "search_mode",
+                        value = uiState.draft.searchMode,
+                        suggestions = SEARCH_MODE_OPTIONS,
+                        onValueChange = viewModel::updateSearchMode,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "sensitivity",
+                        value = uiState.draft.sensitivity,
+                        suggestions = SENSITIVITY_OPTIONS,
+                        onValueChange = viewModel::updateSensitivity,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "recovery_speed",
+                        value = uiState.draft.recoverySpeed,
+                        suggestions = RECOVERY_SPEED_OPTIONS,
+                        onValueChange = viewModel::updateRecoverySpeed,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "stabilizer",
+                        value = uiState.draft.stabilizer,
+                        suggestions = STABILIZER_OPTIONS,
+                        onValueChange = viewModel::updateStabilizer,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

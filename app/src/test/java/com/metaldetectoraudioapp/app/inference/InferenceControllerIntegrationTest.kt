@@ -15,7 +15,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class InferenceControllerIntegrationTest {
     @Test
-    fun fixtureFrames_emitExpectedPredictionSequence() = runTest(StandardTestDispatcher()) {
+    fun fixtureFrames_emitExpectedPredictionSequence() = runTest {
         val metadata = ModelMetadata(
             modelName = "test",
             modelVersion = "1",
@@ -34,7 +34,7 @@ class InferenceControllerIntegrationTest {
             modelMetadata = metadata,
             audioPipeline = fakePipeline,
             classifier = fakeClassifier,
-            scope = backgroundScope
+            scope = this // Testing in current scope
         )
 
         controller.setThreshold(0.2f)

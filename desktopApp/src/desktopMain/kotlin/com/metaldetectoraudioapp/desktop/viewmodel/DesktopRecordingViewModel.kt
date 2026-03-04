@@ -12,14 +12,14 @@ import com.metaldetectoraudioapp.desktop.audio.DesktopAudioRecordingSession
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 
 class DesktopRecordingViewModel(
     private val recordingRepository: RecordingRepository,
     recordingSessionCacheDirectoryPath: String,
 ) {
-    private val recordingSession = DesktopAudioRecordingSession(
-        java.io.File(recordingSessionCacheDirectoryPath)
-    )
+    private val tempDirectory = File(recordingSessionCacheDirectoryPath).also { it.mkdirs() }
+    private val recordingSession = DesktopAudioRecordingSession(tempDirectory)
     private val playbackController = DesktopAudioPlaybackController()
 
     private var lastCapturedRecording: CapturedRecording? = null
@@ -31,6 +31,8 @@ class DesktopRecordingViewModel(
         recordingRepository.metadataFile().parentFile?.absolutePath.orEmpty()
 
     fun startRecording() {
+        clearPendingCaptureInternal(announce = false)
+
         val started = recordingSession.start()
         _uiState.value = if (started) {
             _uiState.value.copy(
@@ -53,6 +55,10 @@ class DesktopRecordingViewModel(
             saveResultMessage = null,
             errorMessage = if (captured == null) "No recording available" else null
         )
+    }
+
+    fun clearPendingCapture() {
+        clearPendingCaptureInternal(announce = true)
     }
 
     fun playPreview() {
@@ -113,6 +119,49 @@ class DesktopRecordingViewModel(
         updateDraft(_uiState.value.draft.copy(detectorModel = value))
     }
 
+    fun updateSearchMode(value: String) {
+        updateDraft(_uiState.value.draft.copy(searchMode = value))
+    }
+
+    fun updateSensitivity(value: String) {
+        updateDraft(_uiState.value.draft.copy(sensitivity = value))
+    }
+
+    fun updateRecoverySpeed(value: String) {
+        updateDraft(_uiState.value.draft.copy(recoverySpeed = value))
+    }
+
+    fun updateStabilizer(value: String) {
+        updateDraft(_uiState.value.draft.copy(stabilizer = value))
+    }
+
+    fun attachImageFromFile(sourceImage: File) {
+        if (!sourceImage.exists()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Image file not found")
+            return
+        }
+
+        val extension = sourceImage.extension.ifBlank { "jpg" }
+        val tempImage = File(tempDirectory, "capture_img_${System.currentTimeMillis()}.$extension")
+        val copyResult = runCatching {
+            sourceImage.copyTo(tempImage, overwrite = true)
+        }
+
+        if (copyResult.isFailure) {
+            tempImage.delete()
+            _uiState.value = _uiState.value.copy(errorMessage = "Unable to attach image")
+            return
+        }
+
+        replacePendingImage(tempImage)
+        _uiState.value = _uiState.value.copy(saveResultMessage = "Image attached", errorMessage = null)
+    }
+
+    fun removePendingImage() {
+        replacePendingImage(null)
+        _uiState.value = _uiState.value.copy(saveResultMessage = "Image removed", errorMessage = null)
+    }
+
     fun saveRecording() {
         val captured = lastCapturedRecording
         if (captured == null) {
@@ -157,7 +206,12 @@ class DesktopRecordingViewModel(
                 includeInTraining = draft.includeInTraining,
                 soilType = draft.soilType.ifBlank { null },
                 moisture = draft.moisture.ifBlank { null },
-                detectorModel = draft.detectorModel.ifBlank { null }
+                detectorModel = draft.detectorModel.ifBlank { null },
+                searchMode = draft.searchMode.ifBlank { null },
+                sensitivity = draft.sensitivity.ifBlank { null },
+                recoverySpeed = draft.recoverySpeed.ifBlank { null },
+                stabilizer = draft.stabilizer.ifBlank { null },
+                imageTempFile = _uiState.value.pendingImageFile,
             )
         )
 
@@ -170,6 +224,7 @@ class DesktopRecordingViewModel(
             ),
             saveResultMessage = "Saved ${metadata.audioFileName}",
             pendingAudioFile = null,
+            pendingImageFile = null,
             pendingDurationMs = 0,
             isRecording = false,
             isPlayingPreview = false
@@ -177,6 +232,7 @@ class DesktopRecordingViewModel(
     }
 
     fun close() {
+        clearPendingCaptureInternal(announce = false)
         playbackController.stop()
         recordingSession.cancelAndDelete()
     }
@@ -184,6 +240,32 @@ class DesktopRecordingViewModel(
     private fun isCategoryObjectMaterialLabel(value: String): Boolean {
         val parts = value.split(":")
         return parts.size == 3 && parts.all { it.isNotBlank() }
+    }
+
+    private fun replacePendingImage(newFile: File?) {
+        val existing = _uiState.value.pendingImageFile
+        if (existing != null && existing.absolutePath != newFile?.absolutePath) {
+            existing.delete()
+        }
+        _uiState.value = _uiState.value.copy(pendingImageFile = newFile)
+    }
+
+    private fun clearPendingCaptureInternal(announce: Boolean) {
+        stopPreview()
+
+        lastCapturedRecording?.tempAudioFile?.delete()
+        lastCapturedRecording = null
+
+        _uiState.value.pendingAudioFile?.delete()
+        replacePendingImage(null)
+
+        _uiState.value = _uiState.value.copy(
+            pendingAudioFile = null,
+            pendingDurationMs = 0,
+            isPlayingPreview = false,
+            saveResultMessage = if (announce) "Cleared unsaved recording" else null,
+            errorMessage = null,
+        )
     }
 
     private fun updateDraft(newDraft: RecordingDraftUiState) {

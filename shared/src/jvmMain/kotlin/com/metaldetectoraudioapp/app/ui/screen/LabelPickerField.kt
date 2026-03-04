@@ -1,6 +1,5 @@
 package com.metaldetectoraudioapp.app.ui.screen
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,8 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import java.io.File
 
 private data class LabelEntry(val obj: String = "", val name: String = "", val material: String = "")
 
@@ -33,13 +32,20 @@ private data class LabelSuggestionCatalog(
 )
 
 private object LabelSuggestionConfigLoader {
-    private const val CONFIG_ASSET = "label_dropdown_options.csv"
+    private const val CONFIG_RESOURCE = "label_dropdown_options.csv"
 
-    fun load(context: Context): LabelSuggestionCatalog {
-        val rawCsv = runCatching {
-            context.assets.open(CONFIG_ASSET).bufferedReader().use { it.readText() }
+    fun load(): LabelSuggestionCatalog {
+        val classpathCsv = javaClass.classLoader
+            ?.getResourceAsStream(CONFIG_RESOURCE)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+
+        val fileCsv = runCatching {
+            val file = File(System.getProperty("user.dir"), "assets/$CONFIG_RESOURCE")
+            if (file.exists()) file.readText() else null
         }.getOrNull()
 
+        val rawCsv = classpathCsv ?: fileCsv
         return rawCsv?.let { parseCatalog(it) } ?: defaultCatalog()
     }
 
@@ -199,8 +205,7 @@ fun LabelPickerField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val suggestions = remember(context) { LabelSuggestionConfigLoader.load(context) }
+    val suggestions = remember { LabelSuggestionConfigLoader.load() }
     var entries by remember { mutableStateOf(parseEntries(value)) }
 
     LaunchedEffect(value) {

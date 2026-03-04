@@ -1,6 +1,7 @@
 package com.metaldetectoraudioapp.app.ui
 
 import android.app.Application
+import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.metaldetectoraudioapp.app.AppContainerProvider
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 class RecordingViewModel(application: Application) : AndroidViewModel(application) {
     private val appContainer = AppContainerProvider.get(application.applicationContext)
@@ -31,6 +33,8 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     val uiState: StateFlow<RecordingUiState> = _uiState.asStateFlow()
 
     fun startRecording() {
+        clearPendingCaptureInternal(announce = false)
+
         val started = recordingSession.start()
         if (started) {
             _uiState.value = _uiState.value.copy(
@@ -46,13 +50,20 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     fun stopRecording() {
         val captured = recordingSession.stop()
         lastCapturedRecording = captured
+
+        val updatedDraft = withAutoLocationIfAvailable(_uiState.value.draft)
         _uiState.value = _uiState.value.copy(
             isRecording = false,
             pendingAudioFile = captured?.tempAudioFile,
             pendingDurationMs = captured?.durationMs ?: 0,
+            draft = updatedDraft,
             saveResultMessage = null,
             errorMessage = if (captured == null) "No recording available" else null
         )
+    }
+
+    fun clearPendingCapture() {
+        clearPendingCaptureInternal(announce = true)
     }
 
     fun updateTargetNames(value: String) {
@@ -98,6 +109,53 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateDetectorModel(value: String) {
         updateDraft(_uiState.value.draft.copy(detectorModel = value))
+    }
+
+    fun updateSearchMode(value: String) {
+        updateDraft(_uiState.value.draft.copy(searchMode = value))
+    }
+
+    fun updateSensitivity(value: String) {
+        updateDraft(_uiState.value.draft.copy(sensitivity = value))
+    }
+
+    fun updateRecoverySpeed(value: String) {
+        updateDraft(_uiState.value.draft.copy(recoverySpeed = value))
+    }
+
+    fun updateStabilizer(value: String) {
+        updateDraft(_uiState.value.draft.copy(stabilizer = value))
+    }
+
+    fun attachCapturedImage(bitmap: Bitmap?) {
+        if (bitmap == null) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Image capture cancelled")
+            return
+        }
+
+        val cacheDir = getApplication<Application>().cacheDir
+        val tempImage = File(cacheDir, "capture_img_${System.currentTimeMillis()}.jpg")
+        val writeResult = runCatching {
+            tempImage.outputStream().use { output ->
+                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 92, output)) {
+                    error("Failed to encode JPEG")
+                }
+            }
+        }
+
+        if (writeResult.isFailure) {
+            tempImage.delete()
+            _uiState.value = _uiState.value.copy(errorMessage = "Unable to save captured image")
+            return
+        }
+
+        replacePendingImage(tempImage)
+        _uiState.value = _uiState.value.copy(saveResultMessage = "Image attached", errorMessage = null)
+    }
+
+    fun removePendingImage() {
+        replacePendingImage(null)
+        _uiState.value = _uiState.value.copy(saveResultMessage = "Image removed", errorMessage = null)
     }
 
     fun captureCurrentLocation() {
@@ -185,7 +243,12 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                     includeInTraining = draft.includeInTraining,
                     soilType = draft.soilType.ifBlank { null },
                     moisture = draft.moisture.ifBlank { null },
-                    detectorModel = draft.detectorModel.ifBlank { null }
+                    detectorModel = draft.detectorModel.ifBlank { null },
+                    searchMode = draft.searchMode.ifBlank { null },
+                    sensitivity = draft.sensitivity.ifBlank { null },
+                    recoverySpeed = draft.recoverySpeed.ifBlank { null },
+                    stabilizer = draft.stabilizer.ifBlank { null },
+                    imageTempFile = _uiState.value.pendingImageFile,
                 )
             )
 
@@ -198,6 +261,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                 ),
                 saveResultMessage = "Saved ${metadata.audioFileName}",
                 pendingAudioFile = null,
+                pendingImageFile = null,
                 pendingDurationMs = 0,
                 isRecording = false,
                 isPlayingPreview = false
@@ -222,12 +286,39 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun formatCoordinate(value: Double): String = "%.6f".format(value)
 
+    private fun replacePendingImage(newFile: File?) {
+        val existing = _uiState.value.pendingImageFile
+        if (existing != null && existing.absolutePath != newFile?.absolutePath) {
+            existing.delete()
+        }
+        _uiState.value = _uiState.value.copy(pendingImageFile = newFile)
+    }
+
+    private fun clearPendingCaptureInternal(announce: Boolean) {
+        stopPreview()
+
+        lastCapturedRecording?.tempAudioFile?.delete()
+        lastCapturedRecording = null
+
+        _uiState.value.pendingAudioFile?.delete()
+        replacePendingImage(null)
+
+        _uiState.value = _uiState.value.copy(
+            pendingAudioFile = null,
+            pendingDurationMs = 0,
+            isPlayingPreview = false,
+            saveResultMessage = if (announce) "Cleared unsaved recording" else null,
+            errorMessage = null
+        )
+    }
+
     private fun updateDraft(newDraft: RecordingDraftUiState) {
         _uiState.value = _uiState.value.copy(draft = newDraft, errorMessage = null)
     }
 
     override fun onCleared() {
         super.onCleared()
+        clearPendingCaptureInternal(announce = false)
         playbackController.stop()
         recordingSession.cancelAndDelete()
     }

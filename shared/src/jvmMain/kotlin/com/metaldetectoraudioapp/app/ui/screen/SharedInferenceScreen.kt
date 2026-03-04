@@ -3,6 +3,8 @@ package com.metaldetectoraudioapp.app.ui.screen
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
@@ -32,6 +36,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
 
@@ -49,10 +54,13 @@ private val StickyBannerGreen = Color(0xFF1B5E20)
 fun SharedInferenceScreen(
     uiState: InferenceUiState,
     passthroughEnabled: Boolean,
+    availableModelOptions: List<InferenceModelOption>,
+    selectedModelOptionId: String,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onThresholdChange: (Float) -> Unit,
     onPassthroughChange: (Boolean) -> Unit,
+    onModelOptionSelected: (String) -> Unit,
     contentPadding: PaddingValues = PaddingValues(16.dp),
 ) {
     LazyColumn(
@@ -120,6 +128,13 @@ fun SharedInferenceScreen(
                             onCheckedChange = onPassthroughChange,
                         )
                     }
+
+                    ModelOptionPicker(
+                        label = "Classifier Model",
+                        options = availableModelOptions,
+                        selectedOptionId = selectedModelOptionId,
+                        onOptionSelected = onModelOptionSelected,
+                    )
                 }
             }
         }
@@ -256,6 +271,48 @@ private fun RecentDetectionsCard(detections: List<RecentDetection>) {
                         formatRelativeTime(det.timestampMs),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelOptionPicker(
+    label: String,
+    options: List<InferenceModelOption>,
+    selectedOptionId: String,
+    onOptionSelected: (String) -> Unit,
+) {
+    val expandedState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val expanded = expandedState.value
+    val selectedLabel = options.firstOrNull { it.id == selectedOptionId }?.label
+        ?: options.firstOrNull()?.label
+        ?: "None"
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Box {
+            Text(
+                selectedLabel,
+                modifier = Modifier
+                    .clickable { expandedState.value = true }
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            DropdownMenu(expanded = expanded, onDismissRequest = { expandedState.value = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label) },
+                        onClick = {
+                            onOptionSelected(option.id)
+                            expandedState.value = false
+                        }
                     )
                 }
             }

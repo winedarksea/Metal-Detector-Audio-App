@@ -3,6 +3,7 @@ package com.metaldetectoraudioapp.app.export
 import com.metaldetectoraudioapp.app.recording.CapturedRecording
 import com.metaldetectoraudioapp.app.recording.RecordingLabelDraft
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
+import com.metaldetectoraudioapp.app.recording.RecordingMetadataCsvCodec
 import com.metaldetectoraudioapp.app.recording.RecordingRepository
 import java.io.File
 import java.io.InputStream
@@ -13,16 +14,16 @@ import java.util.zip.ZipOutputStream
 
 class DatasetBundleManager(
     private val recordingRepository: RecordingRepository,
-    private val cacheDirectory: File
+    private val cacheDirectory: File,
 ) {
 
     fun exportBundle(outputStream: OutputStream) {
         val recordings = recordingRepository.listRecordings()
 
         ZipOutputStream(outputStream).use { zip ->
-            zip.putNextEntry(ZipEntry("metadata/recordings_metadata.json"))
-            val metadataJson = buildMetadataJson(recordings)
-            zip.write(metadataJson.toByteArray())
+            zip.putNextEntry(ZipEntry("metadata/recordings_metadata.csv"))
+            val metadataCsv = RecordingMetadataCsvCodec.serialize(recordings)
+            zip.write(metadataCsv.toByteArray())
             zip.closeEntry()
 
             zip.putNextEntry(ZipEntry("metadata/split_manifest.json"))
@@ -30,12 +31,21 @@ class DatasetBundleManager(
             zip.closeEntry()
 
             recordings.forEach { metadata ->
-                val file = recordingRepository.resolveAudioFile(metadata) ?: return@forEach
+                val audioFile = recordingRepository.resolveAudioFile(metadata) ?: return@forEach
                 zip.putNextEntry(ZipEntry("audio/${metadata.audioFileName}"))
-                file.inputStream().use { input ->
+                audioFile.inputStream().use { input ->
                     input.copyTo(zip)
                 }
                 zip.closeEntry()
+
+                val imageFile = recordingRepository.resolveImageFile(metadata)
+                if (imageFile != null && metadata.imageFileName != null) {
+                    zip.putNextEntry(ZipEntry("images/${metadata.imageFileName}"))
+                    imageFile.inputStream().use { input ->
+                        input.copyTo(zip)
+                    }
+                    zip.closeEntry()
+                }
             }
         }
     }
@@ -43,7 +53,9 @@ class DatasetBundleManager(
     fun importBundle(inputStream: InputStream): Int {
         val unzipDirectory = File(cacheDirectory, "bundle_import_${System.currentTimeMillis()}").apply { mkdirs() }
         val audioDirectory = File(unzipDirectory, "audio").apply { mkdirs() }
-        var metadataFile: File? = null
+        val imageDirectory = File(unzipDirectory, "images").apply { mkdirs() }
+        var metadataCsvFile: File? = null
+        var metadataJsonFile: File? = null
 
         ZipInputStream(inputStream).use { zip ->
             var entry = zip.nextEntry
@@ -59,14 +71,23 @@ class DatasetBundleManager(
                     zip.copyTo(output)
                 }
 
-                if (entry.name == "metadata/recordings_metadata.json") {
-                    metadataFile = outputFile
-                }
-                if (entry.name.startsWith("audio/")) {
-                    val normalizedFile = File(audioDirectory, outputFile.name)
-                    if (normalizedFile.absolutePath != outputFile.absolutePath) {
-                        outputFile.copyTo(normalizedFile, overwrite = true)
-                        outputFile.delete()
+                when {
+                    entry.name == "metadata/recordings_metadata.csv" -> metadataCsvFile = outputFile
+                    entry.name == "metadata/recordings_metadata.json" -> metadataJsonFile = outputFile
+                    entry.name.startsWith("audio/") -> {
+                        val normalizedFile = File(audioDirectory, outputFile.name)
+                        if (normalizedFile.absolutePath != outputFile.absolutePath) {
+                            outputFile.copyTo(normalizedFile, overwrite = true)
+                            outputFile.delete()
+                        }
+                    }
+
+                    entry.name.startsWith("images/") -> {
+                        val normalizedFile = File(imageDirectory, outputFile.name)
+                        if (normalizedFile.absolutePath != outputFile.absolutePath) {
+                            outputFile.copyTo(normalizedFile, overwrite = true)
+                            outputFile.delete()
+                        }
                     }
                 }
 
@@ -75,19 +96,42 @@ class DatasetBundleManager(
             }
         }
 
-        val importedMetadata = parseMetadataJson(metadataFile?.takeIf { it.exists() }?.readText())
+        val importedMetadata = when {
+            metadataCsvFile?.exists() == true -> {
+                RecordingMetadataCsvCodec.parse(metadataCsvFile!!.readText())
+            }
+
+            metadataJsonFile?.exists() == true -> {
+                parseMetadataJson(metadataJsonFile!!.readText())
+            }
+
+            else -> emptyList()
+        }
+
         var importedCount = 0
         importedMetadata.forEach { metadata ->
-            val sourceFile = File(audioDirectory, metadata.audioFileName)
-            if (!sourceFile.exists()) {
+            val sourceAudioFile = File(audioDirectory, metadata.audioFileName)
+            if (!sourceAudioFile.exists()) {
                 return@forEach
             }
 
-            val tempCopy = File(cacheDirectory, "import_${System.nanoTime()}.wav")
-            sourceFile.copyTo(tempCopy, overwrite = true)
+            val tempAudioCopy = File(cacheDirectory, "import_${System.nanoTime()}.wav")
+            sourceAudioFile.copyTo(tempAudioCopy, overwrite = true)
+
+            val tempImageCopy = metadata.imageFileName?.let { imageName ->
+                val sourceImage = File(imageDirectory, imageName)
+                if (!sourceImage.exists()) {
+                    null
+                } else {
+                    val extension = sourceImage.extension.ifBlank { "jpg" }
+                    val tempImage = File(cacheDirectory, "import_img_${System.nanoTime()}.$extension")
+                    sourceImage.copyTo(tempImage, overwrite = true)
+                    tempImage
+                }
+            }
 
             val saved = recordingRepository.saveCapturedRecording(
-                capturedRecording = CapturedRecording(tempCopy, metadata.durationMs),
+                capturedRecording = CapturedRecording(tempAudioCopy, metadata.durationMs),
                 labelDraft = RecordingLabelDraft(
                     targetNames = metadata.targetNames,
                     classLabel = metadata.classLabel,
@@ -100,14 +144,19 @@ class DatasetBundleManager(
                     includeInTraining = metadata.includeInTraining,
                     soilType = metadata.soilType,
                     moisture = metadata.moisture,
-                    detectorModel = metadata.detectorModel
+                    detectorModel = metadata.detectorModel,
+                    searchMode = metadata.searchMode,
+                    sensitivity = metadata.sensitivity,
+                    recoverySpeed = metadata.recoverySpeed,
+                    stabilizer = metadata.stabilizer,
+                    imageTempFile = tempImageCopy,
                 )
             )
 
             recordingRepository.updateRecording(
                 saved.copy(
                     createdEpochMs = metadata.createdEpochMs,
-                    durationMs = metadata.durationMs
+                    durationMs = metadata.durationMs,
                 )
             )
             importedCount += 1
@@ -115,13 +164,6 @@ class DatasetBundleManager(
 
         unzipDirectory.deleteRecursively()
         return importedCount
-    }
-
-    private fun buildMetadataJson(recordings: List<RecordingMetadata>): String {
-        val content = recordings.joinToString(prefix = "[", postfix = "]", separator = ",") {
-            it.toJson().toString()
-        }
-        return content
     }
 
     private fun buildSplitManifestJson(recordings: List<RecordingMetadata>): String {

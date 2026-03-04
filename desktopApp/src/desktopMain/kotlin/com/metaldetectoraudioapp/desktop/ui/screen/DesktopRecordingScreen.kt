@@ -1,11 +1,13 @@
 package com.metaldetectoraudioapp.desktop.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -26,16 +28,36 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.screen.LabelPickerField
 import com.metaldetectoraudioapp.desktop.viewmodel.DesktopRecordingViewModel
+import org.jetbrains.skia.Image as SkiaImage
+import java.awt.FileDialog
+import java.awt.Frame
+import java.io.File
 
 private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
 )
 private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
+private val DETECTOR_MODEL_OPTIONS = listOf(
+    "minelab manticore",
+    "minelab equinox",
+    "xp deus 2",
+)
+private val SEARCH_MODE_OPTIONS = listOf(
+    "all terrain high conductivity",
+    "beach",
+    "field",
+)
+private val SENSITIVITY_OPTIONS = (15..30).map { it.toString() }
+private val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
+private val STABILIZER_OPTIONS = (1..10).map { it.toString() }
 
 @Composable
 fun DesktopRecordingScreen(
@@ -43,6 +65,9 @@ fun DesktopRecordingScreen(
     contentPadding: PaddingValues,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val previewImage = remember(uiState.pendingImageFile?.absolutePath) {
+        loadDesktopImageBitmap(uiState.pendingImageFile)
+    }
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
@@ -57,7 +82,7 @@ fun DesktopRecordingScreen(
                     Text("Dataset Storage", style = MaterialTheme.typography.titleMedium)
                     Text(viewModel.datasetDirectoryPath)
                     Text(
-                        "Saved labels are written to recordings_metadata.json and WAV files are written to dataset/audio/.",
+                        "Saved labels are written to recordings_metadata.csv, WAV files to dataset/audio/, and optional images to dataset/images/.",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -87,8 +112,18 @@ fun DesktopRecordingScreen(
                         ) {
                             Text(if (uiState.isPlayingPreview) "Stop Preview" else "Play Preview")
                         }
+                        Button(
+                            onClick = viewModel::clearPendingCapture,
+                            enabled = uiState.pendingAudioFile != null || uiState.pendingImageFile != null
+                        ) {
+                            Text("Clear Pending")
+                        }
                     }
                     Text("Duration: ${uiState.pendingDurationMs} ms")
+                    Text(
+                        "Audio and image stay temporary until Save Recording. Starting a new recording clears unsaved capture.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
@@ -118,6 +153,40 @@ fun DesktopRecordingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 3
                     )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                val selected = chooseOpenImageFile(defaultDirectory = viewModel.datasetDirectoryPath)
+                                if (selected != null) {
+                                    viewModel.attachImageFromFile(selected)
+                                }
+                            },
+                            enabled = !uiState.isRecording
+                        ) {
+                            Text("Add Image")
+                        }
+
+                        if (uiState.pendingImageFile != null) {
+                            Button(onClick = viewModel::removePendingImage) {
+                                Text("Remove Image")
+                            }
+                        }
+                    }
+
+                    if (previewImage != null) {
+                        Image(
+                            bitmap = previewImage,
+                            contentDescription = "Captured find image preview",
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(MaterialTheme.shapes.small),
+                            contentScale = ContentScale.Crop
+                        )
+                        Text(uiState.pendingImageFile?.name.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                    }
+
+                    Text("GPS: not available on desktop capture")
 
                     Text("class_label")
                     EnumChips(
@@ -162,7 +231,7 @@ fun DesktopRecordingScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Environment", style = MaterialTheme.typography.titleMedium)
+                    Text("Environment & Detector", style = MaterialTheme.typography.titleMedium)
 
                     SuggestiveTextField(
                         label = "soil_type (optional)",
@@ -187,10 +256,43 @@ fun DesktopRecordingScreen(
                         }
                     }
 
-                    OutlinedTextField(
+                    SuggestiveTextField(
+                        label = "detector_model",
                         value = uiState.draft.detectorModel,
+                        suggestions = DETECTOR_MODEL_OPTIONS,
                         onValueChange = viewModel::updateDetectorModel,
-                        label = { Text("detector_model (optional)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "search_mode",
+                        value = uiState.draft.searchMode,
+                        suggestions = SEARCH_MODE_OPTIONS,
+                        onValueChange = viewModel::updateSearchMode,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "sensitivity",
+                        value = uiState.draft.sensitivity,
+                        suggestions = SENSITIVITY_OPTIONS,
+                        onValueChange = viewModel::updateSensitivity,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "recovery_speed",
+                        value = uiState.draft.recoverySpeed,
+                        suggestions = RECOVERY_SPEED_OPTIONS,
+                        onValueChange = viewModel::updateRecoverySpeed,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "stabilizer",
+                        value = uiState.draft.stabilizer,
+                        suggestions = STABILIZER_OPTIONS,
+                        onValueChange = viewModel::updateStabilizer,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -277,4 +379,24 @@ private fun SuggestiveTextField(
             }
         }
     }
+}
+
+private fun chooseOpenImageFile(defaultDirectory: String): File? {
+    val dialog = FileDialog(null as Frame?, "Select Find Image", FileDialog.LOAD)
+    dialog.directory = defaultDirectory
+    dialog.isVisible = true
+
+    val selectedFileName = dialog.file ?: return null
+    val selectedDirectory = dialog.directory ?: return null
+    return File(selectedDirectory, selectedFileName)
+}
+
+private fun loadDesktopImageBitmap(imageFile: File?): androidx.compose.ui.graphics.ImageBitmap? {
+    if (imageFile == null || !imageFile.exists()) {
+        return null
+    }
+
+    return runCatching {
+        SkiaImage.makeFromEncoded(imageFile.readBytes()).toComposeImageBitmap()
+    }.getOrNull()
 }

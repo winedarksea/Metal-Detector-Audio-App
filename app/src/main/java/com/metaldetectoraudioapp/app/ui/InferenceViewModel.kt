@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
 import com.metaldetectoraudioapp.app.inference.InferenceController
 import com.metaldetectoraudioapp.app.inference.InferenceControllerFactory
+import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,12 +18,22 @@ import kotlinx.coroutines.launch
 class InferenceViewModel(application: Application) : AndroidViewModel(application) {
     private val controller: InferenceController = InferenceControllerFactory.create(application.applicationContext)
     val deviceManager = AudioDeviceManager(application.applicationContext)
+    private val defaultModelOption = InferenceModelOption(
+        id = "${controller.uiState.value.modelName}:${controller.uiState.value.modelVersion}",
+        label = "${controller.uiState.value.modelName} v${controller.uiState.value.modelVersion}"
+    )
 
     private val _uiState = MutableStateFlow(controller.uiState.value)
     val uiState: StateFlow<InferenceUiState> = _uiState.asStateFlow()
 
     private val _passthroughEnabled = MutableStateFlow(false)
     val passthroughEnabled: StateFlow<Boolean> = _passthroughEnabled.asStateFlow()
+
+    private val _availableModelOptions = MutableStateFlow(listOf(defaultModelOption))
+    val availableModelOptions: StateFlow<List<InferenceModelOption>> = _availableModelOptions.asStateFlow()
+
+    private val _selectedModelOptionId = MutableStateFlow(defaultModelOption.id)
+    val selectedModelOptionId: StateFlow<String> = _selectedModelOptionId.asStateFlow()
 
     private val _selectedInputDevice = MutableStateFlow<AudioDeviceInfo?>(null)
     val selectedInputDevice: StateFlow<AudioDeviceInfo?> = _selectedInputDevice.asStateFlow()
@@ -53,6 +64,12 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
     fun setPassthroughEnabled(enabled: Boolean) {
         _passthroughEnabled.value = enabled
         controller.setPassthroughEnabled(enabled)
+    }
+
+    fun selectModelOption(optionId: String) {
+        if (_availableModelOptions.value.any { it.id == optionId }) {
+            _selectedModelOptionId.value = optionId
+        }
     }
 
     fun setInputDevice(device: AudioDeviceInfo?) {

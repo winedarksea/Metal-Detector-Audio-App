@@ -27,9 +27,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
@@ -40,6 +40,19 @@ private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
 )
 private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
+private val DETECTOR_MODEL_OPTIONS = listOf(
+    "minelab manticore",
+    "minelab equinox",
+    "xp deus 2",
+)
+private val SEARCH_MODE_OPTIONS = listOf(
+    "all terrain high conductivity",
+    "beach",
+    "field",
+)
+private val SENSITIVITY_OPTIONS = (15..30).map { it.toString() }
+private val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
+private val STABILIZER_OPTIONS = (1..10).map { it.toString() }
 
 @Composable
 fun ReviewScreen(
@@ -79,7 +92,7 @@ fun ReviewScreen(
                     Text("Dataset Storage", style = MaterialTheme.typography.titleMedium)
                     Text("${context.filesDir.absolutePath}/dataset")
                     Text(
-                        "Android app data is private storage. Use Export Bundle to move labels/WAVs off-device.",
+                        "Android app data is private storage. Use Export Bundle to move CSV labels, WAVs, and images off-device.",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -117,8 +130,17 @@ fun ReviewScreen(
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
                 onRelabelClass = { viewModel.relabelClass(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
-                onRelabelEnvironment = { soil, moist, model ->
-                    viewModel.relabelEnvironment(recording, soil, moist, model)
+                onRelabelEnvironment = { soil, moist, detectorModel, searchMode, sensitivity, recovery, stabilizer ->
+                    viewModel.relabelEnvironment(
+                        recording = recording,
+                        soilType = soil,
+                        moisture = moist,
+                        detectorModel = detectorModel,
+                        searchMode = searchMode,
+                        sensitivity = sensitivity,
+                        recoverySpeed = recovery,
+                        stabilizer = stabilizer,
+                    )
                 },
                 onDelete = { viewModel.delete(recording.recordingId) }
             )
@@ -135,7 +157,15 @@ private fun RecordingReviewCard(
     onRelabelTargets: (String) -> Unit,
     onRelabelClass: (ClassLabel) -> Unit,
     onRelabelNotes: (String) -> Unit,
-    onRelabelEnvironment: (soilType: String, moisture: String, detectorModel: String) -> Unit,
+    onRelabelEnvironment: (
+        soilType: String,
+        moisture: String,
+        detectorModel: String,
+        searchMode: String,
+        sensitivity: String,
+        recoverySpeed: String,
+        stabilizer: String,
+    ) -> Unit,
     onDelete: () -> Unit
 ) {
     var targetInput by remember(recording.recordingId) {
@@ -153,14 +183,29 @@ private fun RecordingReviewCard(
     var detectorModelInput by remember(recording.recordingId) {
         mutableStateOf(recording.detectorModel.orEmpty())
     }
+    var searchModeInput by remember(recording.recordingId) {
+        mutableStateOf(recording.searchMode.orEmpty())
+    }
+    var sensitivityInput by remember(recording.recordingId) {
+        mutableStateOf(recording.sensitivity.orEmpty())
+    }
+    var recoverySpeedInput by remember(recording.recordingId) {
+        mutableStateOf(recording.recoverySpeed.orEmpty())
+    }
+    var stabilizerInput by remember(recording.recordingId) {
+        mutableStateOf(recording.stabilizer.orEmpty())
+    }
+
     val latitude = recording.gpsLatitude
     val longitude = recording.gpsLongitude
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
+            Text("ID: ${recording.recordingId}")
             Text("Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | Duration: ${recording.durationMs} ms")
             Text("Depth: ${recording.depthInches ?: "N/A"} | Mixed: ${recording.mixedFlag}")
+            Text("Image: ${recording.imageFileName ?: "none"}")
             Text(
                 "GPS: ${
                     if (latitude == null || longitude == null) {
@@ -218,7 +263,6 @@ private fun RecordingReviewCard(
                 Text("include_in_training")
             }
 
-            // Environment fields
             ReviewSuggestiveTextField(
                 label = "soil_type",
                 value = soilTypeInput,
@@ -238,15 +282,56 @@ private fun RecordingReviewCard(
                 }
             }
 
-            OutlinedTextField(
+            ReviewSuggestiveTextField(
+                label = "detector_model",
                 value = detectorModelInput,
+                suggestions = DETECTOR_MODEL_OPTIONS,
                 onValueChange = { detectorModelInput = it },
-                label = { Text("detector_model") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ReviewSuggestiveTextField(
+                label = "search_mode",
+                value = searchModeInput,
+                suggestions = SEARCH_MODE_OPTIONS,
+                onValueChange = { searchModeInput = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ReviewSuggestiveTextField(
+                label = "sensitivity",
+                value = sensitivityInput,
+                suggestions = SENSITIVITY_OPTIONS,
+                onValueChange = { sensitivityInput = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ReviewSuggestiveTextField(
+                label = "recovery_speed",
+                value = recoverySpeedInput,
+                suggestions = RECOVERY_SPEED_OPTIONS,
+                onValueChange = { recoverySpeedInput = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ReviewSuggestiveTextField(
+                label = "stabilizer",
+                value = stabilizerInput,
+                suggestions = STABILIZER_OPTIONS,
+                onValueChange = { stabilizerInput = it },
                 modifier = Modifier.fillMaxWidth()
             )
 
             Button(onClick = {
-                onRelabelEnvironment(soilTypeInput, moistureInput, detectorModelInput)
+                onRelabelEnvironment(
+                    soilTypeInput,
+                    moistureInput,
+                    detectorModelInput,
+                    searchModeInput,
+                    sensitivityInput,
+                    recoverySpeedInput,
+                    stabilizerInput,
+                )
             }) {
                 Text("Apply Environment")
             }

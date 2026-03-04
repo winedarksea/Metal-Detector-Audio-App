@@ -65,7 +65,7 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
             .filter { it.isNotBlank() }
 
         recordingRepository.updateRecording(
-            recording.copy(targetNames = if (targetNames.isEmpty()) listOf("ambient") else targetNames)
+            recording.copy(targetNames = if (targetNames.isEmpty()) listOf("ambient:background:unknown") else targetNames)
         )
         refresh()
     }
@@ -80,12 +80,25 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
         refresh()
     }
 
-    fun relabelEnvironment(recording: RecordingMetadata, soilType: String, moisture: String, detectorModel: String) {
+    fun relabelEnvironment(
+        recording: RecordingMetadata,
+        soilType: String,
+        moisture: String,
+        detectorModel: String,
+        searchMode: String,
+        sensitivity: String,
+        recoverySpeed: String,
+        stabilizer: String,
+    ) {
         recordingRepository.updateRecording(
             recording.copy(
                 soilType = soilType.ifBlank { null },
                 moisture = moisture.ifBlank { null },
-                detectorModel = detectorModel.ifBlank { null }
+                detectorModel = detectorModel.ifBlank { null },
+                searchMode = searchMode.ifBlank { null },
+                sensitivity = sensitivity.ifBlank { null },
+                recoverySpeed = recoverySpeed.ifBlank { null },
+                stabilizer = stabilizer.ifBlank { null },
             )
         )
         refresh()

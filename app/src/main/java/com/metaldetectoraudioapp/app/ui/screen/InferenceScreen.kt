@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
+import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
 import com.metaldetectoraudioapp.app.ui.InferenceViewModel
@@ -60,6 +61,8 @@ fun InferenceScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val passthroughEnabled by viewModel.passthroughEnabled.collectAsStateWithLifecycle()
+    val availableModelOptions by viewModel.availableModelOptions.collectAsStateWithLifecycle()
+    val selectedModelOptionId by viewModel.selectedModelOptionId.collectAsStateWithLifecycle()
     val inputDevices by viewModel.deviceManager.inputDevices.collectAsStateWithLifecycle()
     val outputDevices by viewModel.deviceManager.outputDevices.collectAsStateWithLifecycle()
     val selectedInputDevice by viewModel.selectedInputDevice.collectAsStateWithLifecycle()
@@ -125,6 +128,13 @@ fun InferenceScreen(
                             onCheckedChange = { viewModel.setPassthroughEnabled(it) }
                         )
                     }
+
+                    ModelOptionPicker(
+                        label = "Classifier Model",
+                        options = availableModelOptions,
+                        selectedOptionId = selectedModelOptionId,
+                        onOptionSelected = viewModel::selectModelOption
+                    )
 
                     AudioDevicePicker(
                         label = "Input Device",
@@ -345,6 +355,47 @@ private fun AudioDevicePicker(
                         text = { Text(AudioDeviceManager.deviceDisplayName(device)) },
                         onClick = {
                             onDeviceSelected(device)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelOptionPicker(
+    label: String,
+    options: List<InferenceModelOption>,
+    selectedOptionId: String,
+    onOptionSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.firstOrNull { it.id == selectedOptionId }?.label
+        ?: options.firstOrNull()?.label
+        ?: "None"
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Box {
+            Text(
+                selectedLabel,
+                modifier = Modifier
+                    .clickable { expanded = true }
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(4.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.bodySmall
+            )
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label) },
+                        onClick = {
+                            onOptionSelected(option.id)
                             expanded = false
                         }
                     )

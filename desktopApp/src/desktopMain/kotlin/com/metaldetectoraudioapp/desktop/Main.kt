@@ -76,6 +76,8 @@ fun main() = application {
 
         val inferenceUiState by inferenceViewModel.uiState.collectAsState()
         val passthroughEnabled by inferenceViewModel.passthroughEnabled.collectAsState()
+        val availableModelOptions by inferenceViewModel.availableModelOptions.collectAsState()
+        val selectedModelOptionId by inferenceViewModel.selectedModelOptionId.collectAsState()
         val destinations = DesktopDestination.entries
 
         MetalDetectorAudioTheme {
@@ -98,10 +100,13 @@ fun main() = application {
                         SharedInferenceScreen(
                             uiState = inferenceUiState,
                             passthroughEnabled = passthroughEnabled,
+                            availableModelOptions = availableModelOptions,
+                            selectedModelOptionId = selectedModelOptionId,
                             onStart = inferenceViewModel::start,
                             onStop = inferenceViewModel::stop,
                             onThresholdChange = inferenceViewModel::updateThreshold,
                             onPassthroughChange = inferenceViewModel::setPassthroughEnabled,
+                            onModelOptionSelected = inferenceViewModel::selectModelOption,
                             contentPadding = contentPadding
                         )
                     }

@@ -12,5 +12,9 @@ data class RecordingDraftUiState(
     val includeInTraining: Boolean = true,
     val soilType: String = "",
     val moisture: String = "",
-    val detectorModel: String = ""
+    val detectorModel: String = "minelab manticore",
+    val searchMode: String = "all terrain high conductivity",
+    val sensitivity: String = "23",
+    val recoverySpeed: String = "4",
+    val stabilizer: String = "5",
 )

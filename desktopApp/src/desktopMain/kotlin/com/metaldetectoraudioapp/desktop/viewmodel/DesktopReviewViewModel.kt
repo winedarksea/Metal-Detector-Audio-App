@@ -84,13 +84,21 @@ class DesktopReviewViewModel(
         recording: RecordingMetadata,
         soilType: String,
         moisture: String,
-        detectorModel: String
+        detectorModel: String,
+        searchMode: String,
+        sensitivity: String,
+        recoverySpeed: String,
+        stabilizer: String,
     ) {
         recordingRepository.updateRecording(
             recording.copy(
                 soilType = soilType.ifBlank { null },
                 moisture = moisture.ifBlank { null },
-                detectorModel = detectorModel.ifBlank { null }
+                detectorModel = detectorModel.ifBlank { null },
+                searchMode = searchMode.ifBlank { null },
+                sensitivity = sensitivity.ifBlank { null },
+                recoverySpeed = recoverySpeed.ifBlank { null },
+                stabilizer = stabilizer.ifBlank { null },
             )
         )
         refresh()

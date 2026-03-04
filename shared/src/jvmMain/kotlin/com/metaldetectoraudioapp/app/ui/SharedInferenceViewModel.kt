@@ -1,6 +1,7 @@
 package com.metaldetectoraudioapp.app.ui
 
 import com.metaldetectoraudioapp.app.inference.InferenceController
+import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,11 +21,22 @@ class SharedInferenceViewModel(
     private val controller: InferenceController,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
+    private val defaultModelOption = InferenceModelOption(
+        id = "${controller.uiState.value.modelName}:${controller.uiState.value.modelVersion}",
+        label = "${controller.uiState.value.modelName} v${controller.uiState.value.modelVersion}"
+    )
+
     private val _uiState = MutableStateFlow(controller.uiState.value)
     val uiState: StateFlow<InferenceUiState> = _uiState.asStateFlow()
 
     private val _passthroughEnabled = MutableStateFlow(false)
     val passthroughEnabled: StateFlow<Boolean> = _passthroughEnabled.asStateFlow()
+
+    private val _availableModelOptions = MutableStateFlow(listOf(defaultModelOption))
+    val availableModelOptions: StateFlow<List<InferenceModelOption>> = _availableModelOptions.asStateFlow()
+
+    private val _selectedModelOptionId = MutableStateFlow(defaultModelOption.id)
+    val selectedModelOptionId: StateFlow<String> = _selectedModelOptionId.asStateFlow()
 
     init {
         scope.launch {
@@ -42,6 +54,12 @@ class SharedInferenceViewModel(
     fun setPassthroughEnabled(enabled: Boolean) {
         _passthroughEnabled.value = enabled
         controller.setPassthroughEnabled(enabled)
+    }
+
+    fun selectModelOption(optionId: String) {
+        if (_availableModelOptions.value.any { it.id == optionId }) {
+            _selectedModelOptionId.value = optionId
+        }
     }
 
     fun close() {

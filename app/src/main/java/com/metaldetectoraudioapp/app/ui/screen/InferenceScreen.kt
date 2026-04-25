@@ -14,11 +14,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -73,15 +80,25 @@ fun InferenceScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Button(onClick = viewModel::start, enabled = !uiState.isRunning) {
-                    Text("Start")
+            if (uiState.isRunning) {
+                Button(
+                    onClick = viewModel::stop,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = JunkRed)
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Stop Detection")
                 }
-                Button(onClick = viewModel::stop, enabled = uiState.isRunning) {
-                    Text("Stop")
+            } else {
+                Button(
+                    onClick = viewModel::start,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = TargetGreen)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Start Detecting")
                 }
             }
         }
@@ -234,7 +251,7 @@ private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
 }
 
 @Composable
-private fun WaveformCanvas(waveformPoints: List<Float>) {
+internal fun WaveformCanvas(waveformPoints: List<Float>) {
     val lineColor = MaterialTheme.colorScheme.primary
     Canvas(
         modifier = Modifier
@@ -319,7 +336,7 @@ private fun RecentDetectionsCard(detections: List<RecentDetection>) {
 }
 
 @Composable
-private fun AudioDevicePicker(
+internal fun AudioDevicePicker(
     label: String,
     devices: List<AudioDeviceInfo>,
     selectedDevice: AudioDeviceInfo?,

@@ -3,6 +3,7 @@ package com.metaldetectoraudioapp.app.ui.screen
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.media.AudioDeviceInfo
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -13,15 +14,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -36,12 +45,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metaldetectoraudioapp.app.ui.RecordingViewModel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
+
+private val RecordingRed = Color(0xFFC62828)
 
 private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
@@ -67,6 +80,8 @@ fun RecordingScreen(
     contentPadding: PaddingValues
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val inputDevices by viewModel.inputDevices.collectAsStateWithLifecycle()
+    val selectedInputDevice by viewModel.selectedInputDevice.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -109,13 +124,29 @@ fun RecordingScreen(
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
+                    AudioDevicePicker(
+                        label = "Input Device",
+                        devices = inputDevices,
+                        selectedDevice = selectedInputDevice,
+                        onDeviceSelected = viewModel::setInputDevice
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = viewModel::startRecording, enabled = !uiState.isRecording) {
-                            Text("Start")
+                        Button(
+                            onClick = viewModel::startRecording,
+                            enabled = !uiState.isRecording,
+                            colors = ButtonDefaults.buttonColors(containerColor = RecordingRed)
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Record")
                         }
                         Button(onClick = viewModel::stopRecording, enabled = uiState.isRecording) {
+                            Icon(Icons.Default.Stop, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
                             Text("Stop")
                         }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = {
                                 if (uiState.isPlayingPreview) {
@@ -134,6 +165,22 @@ fun RecordingScreen(
                         ) {
                             Text("Clear Pending")
                         }
+                    }
+                    if (uiState.isRecording) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("●", color = RecordingRed)
+                            Text("RECORDING", color = RecordingRed, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (uiState.isRecording || uiState.pendingAudioFile != null) {
+                        WaveformCanvas(waveformPoints = uiState.waveformPoints)
+                        LinearProgressIndicator(
+                            progress = { uiState.rmsLevel.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                     Text("Duration: ${uiState.pendingDurationMs} ms")
                     Text(
@@ -238,7 +285,7 @@ fun RecordingScreen(
                         )
                     }
 
-                    Text("class_label")
+                    Text("class_label (required)")
                     EnumChips(
                         selectedLabel = uiState.draft.classLabel,
                         labels = ClassLabel.entries,
@@ -254,12 +301,12 @@ fun RecordingScreen(
                         onSelect = viewModel::updatePattern
                     )
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = uiState.draft.mixedFlag,
-                            onCheckedChange = viewModel::updateMixedFlag
+                    if (uiState.draft.mixedFlag) {
+                        Text(
+                            "mixed_flag: auto-set (multiple labels)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
                         )
-                        Text("mixed_flag")
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -412,7 +459,7 @@ private fun SuggestiveTextField(
 
 @Composable
 private fun <T> EnumChips(
-    selectedLabel: T,
+    selectedLabel: T?,
     labels: List<T>,
     toText: (T) -> String,
     onSelect: (T) -> Unit

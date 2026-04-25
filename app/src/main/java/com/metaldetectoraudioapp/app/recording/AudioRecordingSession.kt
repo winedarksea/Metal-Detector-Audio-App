@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.app.recording
 
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -8,10 +9,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.math.max
+import kotlin.math.sqrt
 
 class AudioRecordingSession(
     private val cacheDirectory: File,
@@ -29,7 +34,13 @@ class AudioRecordingSession(
     private var activeTempFile: File? = null
     private var recordingStartMs: Long = 0L
 
-    fun start(): Boolean {
+    private val _rmsLevel = MutableStateFlow(0f)
+    val rmsLevel: StateFlow<Float> = _rmsLevel.asStateFlow()
+
+    private val _waveformPoints = MutableStateFlow<List<Float>>(emptyList())
+    val waveformPoints: StateFlow<List<Float>> = _waveformPoints.asStateFlow()
+
+    fun start(preferredInputDevice: AudioDeviceInfo? = null): Boolean {
         if (captureJob != null) {
             return false
         }
@@ -54,6 +65,8 @@ class AudioRecordingSession(
             bitsPerSample = 16
         )
 
+        recorder.preferredDevice = preferredInputDevice
+
         val tempBuffer = ShortArray(2048)
         recorder.startRecording()
 
@@ -66,6 +79,14 @@ class AudioRecordingSession(
                 val samplesRead = recorder.read(tempBuffer, 0, tempBuffer.size, AudioRecord.READ_BLOCKING)
                 if (samplesRead > 0) {
                     writer.append(tempBuffer, samplesRead)
+                    var sumSq = 0.0
+                    for (i in 0 until samplesRead) {
+                        val s = tempBuffer[i] / 32768.0
+                        sumSq += s * s
+                    }
+                    _rmsLevel.value = sqrt(sumSq / samplesRead).toFloat()
+                    val step = maxOf(1, samplesRead / 100)
+                    _waveformPoints.value = (0 until samplesRead step step).map { i -> tempBuffer[i] / 32768f }
                 }
             }
         }

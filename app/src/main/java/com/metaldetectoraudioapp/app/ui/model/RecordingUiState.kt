@@ -11,4 +11,6 @@ data class RecordingUiState(
     val saveResultMessage: String? = null,
     val errorMessage: String? = null,
     val isPlayingPreview: Boolean = false,
+    val waveformPoints: List<Float> = emptyList(),
+    val rmsLevel: Float = 0f,
 )

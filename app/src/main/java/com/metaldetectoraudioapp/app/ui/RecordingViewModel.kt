@@ -2,9 +2,11 @@ package com.metaldetectoraudioapp.app.ui
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.media.AudioDeviceInfo
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.metaldetectoraudioapp.app.AppContainerProvider
+import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
 import com.metaldetectoraudioapp.app.recording.AudioPlaybackController
 import com.metaldetectoraudioapp.app.recording.AudioRecordingSession
 import com.metaldetectoraudioapp.app.recording.CapturedRecording
@@ -34,13 +36,36 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private var recordingStartEpochMs: Long = 0L
     private var durationTickerJob: Job? = null
 
+    val audioDeviceManager = AudioDeviceManager(application.applicationContext)
+    val inputDevices: StateFlow<List<AudioDeviceInfo>> = audioDeviceManager.inputDevices
+
+    private val _selectedInputDevice = MutableStateFlow<AudioDeviceInfo?>(null)
+    val selectedInputDevice: StateFlow<AudioDeviceInfo?> = _selectedInputDevice.asStateFlow()
+
     private val _uiState = MutableStateFlow(RecordingUiState())
     val uiState: StateFlow<RecordingUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            recordingSession.waveformPoints.collect { points ->
+                _uiState.value = _uiState.value.copy(waveformPoints = points)
+            }
+        }
+        viewModelScope.launch {
+            recordingSession.rmsLevel.collect { rms ->
+                _uiState.value = _uiState.value.copy(rmsLevel = rms)
+            }
+        }
+    }
+
+    fun setInputDevice(device: AudioDeviceInfo?) {
+        _selectedInputDevice.value = device
+    }
 
     fun startRecording() {
         clearPendingCaptureInternal(announce = false)
 
-        val started = recordingSession.start()
+        val started = recordingSession.start(preferredInputDevice = _selectedInputDevice.value)
         if (started) {
             recordingStartEpochMs = System.currentTimeMillis()
             _uiState.value = _uiState.value.copy(
@@ -76,7 +101,12 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun updateTargetNames(value: String) {
-        updateDraft(_uiState.value.draft.copy(targetNameInput = value))
+        val isMixed = value.split(',', ';', '|').count { it.trim().isNotBlank() } > 1
+        updateDraft(_uiState.value.draft.copy(
+            targetNameInput = value,
+            mixedFlag = isMixed,
+            includeInTraining = if (isMixed) false else _uiState.value.draft.includeInTraining
+        ))
     }
 
     fun updateClassLabel(value: ClassLabel) {
@@ -222,17 +252,22 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         val draft = withAutoLocationIfAvailable(_uiState.value.draft)
+        val classLabel = draft.classLabel
+        if (classLabel == null) {
+            _uiState.value = _uiState.value.copy(errorMessage = "class_label is required")
+            return
+        }
         val targetNames = draft.targetNameInput
             .split(',', ';', '|')
             .map { it.trim() }
             .filter { it.isNotBlank() }
 
-        if (targetNames.isEmpty() && draft.classLabel != ClassLabel.AMBIENT) {
+        if (targetNames.isEmpty() && classLabel != ClassLabel.AMBIENT) {
             _uiState.value = _uiState.value.copy(errorMessage = "target_name is required")
             return
         }
         val invalidToken = targetNames.firstOrNull { !isCategoryObjectMaterialLabel(it) }
-        if (draft.classLabel != ClassLabel.AMBIENT && invalidToken != null) {
+        if (classLabel != ClassLabel.AMBIENT && invalidToken != null) {
             _uiState.value = _uiState.value.copy(
                 errorMessage = "target_name '$invalidToken' must be category:object:material"
             )
@@ -248,7 +283,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                     } else {
                         targetNames
                     },
-                    classLabel = draft.classLabel,
+                    classLabel = classLabel,
                     pattern = draft.pattern,
                     depthInches = draft.depthInches.ifBlank { null },
                     notes = draft.notesInput.ifBlank { null },
@@ -325,7 +360,16 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             pendingDurationMs = 0,
             isPlayingPreview = false,
             saveResultMessage = if (announce) "Cleared unsaved recording" else null,
-            errorMessage = null
+            errorMessage = null,
+            waveformPoints = emptyList(),
+            rmsLevel = 0f,
+            draft = _uiState.value.draft.copy(
+                targetNameInput = "",
+                classLabel = null,
+                depthInches = "",
+                notesInput = "",
+                mixedFlag = false
+            )
         )
     }
 
@@ -338,6 +382,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         clearPendingCaptureInternal(announce = false)
         playbackController.stop()
         recordingSession.cancelAndDelete()
+        audioDeviceManager.release()
     }
 
     private fun startDurationTicker() {

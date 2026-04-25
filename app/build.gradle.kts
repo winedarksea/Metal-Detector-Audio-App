@@ -27,6 +27,13 @@ android {
         }
     }
 
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
+            output.outputFileName = "detector-app.apk"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -90,6 +97,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.8.8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.tensorflow:tensorflow-lite:2.16.1")

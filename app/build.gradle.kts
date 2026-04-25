@@ -62,7 +62,16 @@ android {
 androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.forEach { output ->
-            output.outputFileName.set("detector-app.apk")
+            // AGP API exposure for APK file naming can vary in Kotlin DSL classpath.
+            // Use reflection so script compilation remains stable across CI/local toolchains.
+            val getOutputFileName = output.javaClass.methods.firstOrNull {
+                it.name == "getOutputFileName" && it.parameterCount == 0
+            }
+            val outputFileNameProperty = getOutputFileName?.invoke(output)
+            val setMethod = outputFileNameProperty?.javaClass?.methods?.firstOrNull {
+                it.name == "set" && it.parameterCount == 1
+            }
+            setMethod?.invoke(outputFileNameProperty, "detector-app.apk")
         }
     }
 }

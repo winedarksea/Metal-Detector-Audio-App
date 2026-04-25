@@ -62,7 +62,7 @@ android {
 androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.forEach { output ->
-            (output as com.android.build.api.variant.ApkVariantOutput).outputFileName.set("detector-app.apk")
+            output.outputFileName.set("detector-app.apk")
         }
     }
 }

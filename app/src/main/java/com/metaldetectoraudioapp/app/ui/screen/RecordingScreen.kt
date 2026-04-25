@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
@@ -175,6 +176,21 @@ fun RecordingScreen(
                             Text("RECORDING", color = RecordingRed, fontWeight = FontWeight.Bold)
                         }
                     }
+                    if (uiState.pendingAudioFile != null && !uiState.isRecording) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "Recording captured — add labels below, then tap Save Recording",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
                     if (uiState.isRecording || uiState.pendingAudioFile != null) {
                         WaveformCanvas(waveformPoints = uiState.waveformPoints)
                         LinearProgressIndicator(
@@ -318,6 +334,9 @@ fun RecordingScreen(
                         Text("include_in_training")
                     }
 
+                    uiState.saveResultMessage?.let { message ->
+                        Text(message, color = MaterialTheme.colorScheme.primary)
+                    }
                     Button(onClick = viewModel::saveRecording, enabled = uiState.pendingAudioFile != null) {
                         Text("Save Recording")
                     }
@@ -395,10 +414,6 @@ fun RecordingScreen(
                     )
                 }
             }
-        }
-
-        uiState.saveResultMessage?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.primary) }
         }
 
         uiState.errorMessage?.let { error ->

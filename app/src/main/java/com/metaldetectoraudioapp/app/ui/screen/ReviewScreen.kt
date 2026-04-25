@@ -237,6 +237,8 @@ private fun RecordingReviewCard(
                 Button(onClick = { onRelabelNotes(notesInput) }) {
                     Text("Apply Notes")
                 }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onPlay) {
                     Text(if (isPlaying) "Stop" else "Play")
                 }

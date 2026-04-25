@@ -36,7 +36,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private var recordingStartEpochMs: Long = 0L
     private var durationTickerJob: Job? = null
 
-    val audioDeviceManager = AudioDeviceManager(application.applicationContext)
+    private val audioDeviceManager = AudioDeviceManager(application.applicationContext)
     val inputDevices: StateFlow<List<AudioDeviceInfo>> = audioDeviceManager.inputDevices
 
     private val _selectedInputDevice = MutableStateFlow<AudioDeviceInfo?>(null)
@@ -363,13 +363,13 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             errorMessage = null,
             waveformPoints = emptyList(),
             rmsLevel = 0f,
-            draft = _uiState.value.draft.copy(
+            draft = if (announce) _uiState.value.draft.copy(
                 targetNameInput = "",
                 classLabel = null,
                 depthInches = "",
                 notesInput = "",
                 mixedFlag = false
-            )
+            ) else _uiState.value.draft
         )
     }
 

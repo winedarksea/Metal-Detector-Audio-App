@@ -27,13 +27,6 @@ android {
         }
     }
 
-    applicationVariants.all {
-        outputs.all {
-            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
-            output.outputFileName = "detector-app.apk"
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -63,6 +56,14 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set("detector-app.apk")
+        }
     }
 }
 

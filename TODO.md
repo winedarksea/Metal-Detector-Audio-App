@@ -9,6 +9,7 @@
 - [x] **select microphone** Have users clearly see and be able to select which audio input is being used (built in microphone, microphone from headphone jack, or microphone from usb-c dongle). It might also be helpful to store in the app data which microphone was used, as metadata (but perhaps does not need to be in the csv export).
 - [x] **Audio visualization in record tab** The tab used for recording labeled audio should have a small audio visualization to help show that something was recorded (and that it wasn't all zeroes). It might also be nice to have the option to expand a section and there have created and shown a spectrogram and other audio tools.
 - [x] **Design for Android Tablets** Support adaptive resize, navigation rail, and more for larger screens in Android 16+.
+- [x] **Review tab needs a delete button** Old or unused recordings should be able to be deleted by the user in the review tab.
 - [ ] **Kotlin 2.0 and Gradle 9.0 Upgrades** The current base libraries used here are deprecated and updates are needed, also bump to targetSdk=36 or greater.
 - [ ] **Consolidate Training Scripts** Merge and improve the separate cnn files so training for Android and Desktop apps are consistent.
 - [ ] **App load and permissions unittests** Test for issues to assure crash on load (often due to permissions) are not present

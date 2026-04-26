@@ -267,39 +267,33 @@ fun RecordingScreen(
                         )
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val latitude = uiState.draft.gpsLatitude
-                        val longitude = uiState.draft.gpsLongitude
-                        Button(
-                            onClick = {
-                                val hasLocationPermission = ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.ACCESS_FINE_LOCATION
-                                ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                ) == PackageManager.PERMISSION_GRANTED
+                    Button(
+                        onClick = {
+                            val hasLocationPermission = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            ) == PackageManager.PERMISSION_GRANTED
 
-                                if (hasLocationPermission) {
-                                    viewModel.captureCurrentLocation()
-                                } else {
-                                    locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                                }
-                            }
-                        ) {
-                            Text("Use Current GPS")
-                        }
-                        Text(
-                            text = if (latitude == null || longitude == null) {
-                                "GPS: not set"
+                            if (hasLocationPermission) {
+                                viewModel.captureCurrentLocation()
                             } else {
-                                "GPS: %.6f, %.6f".format(latitude, longitude)
+                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                             }
-                        )
+                        }
+                    ) {
+                        Text("Use Current GPS")
                     }
+                    Text(
+                        text = if (uiState.draft.gpsLatitude == null || uiState.draft.gpsLongitude == null) {
+                            "GPS: not set"
+                        } else {
+                            "GPS: %.6f, %.6f".format(uiState.draft.gpsLatitude, uiState.draft.gpsLongitude)
+                        },
+                        style = MaterialTheme.typography.bodySmall
+                    )
 
                     Text("class_label (required)")
                     EnumChips(

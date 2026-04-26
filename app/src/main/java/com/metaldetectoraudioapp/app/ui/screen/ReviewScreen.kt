@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -18,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -29,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -100,14 +103,26 @@ fun ReviewScreen(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { exportLauncher.launch("detector_dataset_${System.currentTimeMillis()}.zip") }) {
+            Row(
+                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { exportLauncher.launch("detector_dataset_${System.currentTimeMillis()}.zip") },
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("Export Bundle")
                 }
-                Button(onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }) {
+                Button(
+                    onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) },
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("Import Bundle")
                 }
-                Button(onClick = viewModel::refresh) {
+                Button(
+                    onClick = viewModel::refresh,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("Refresh")
                 }
             }
@@ -198,9 +213,11 @@ private fun RecordingReviewCard(
 
     val latitude = recording.gpsLatitude
     val longitude = recording.gpsLongitude
+    val isWideScreen = LocalConfiguration.current.screenWidthDp >= 600
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Metadata header — always full-width at the top
             Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
             Text("ID: ${recording.recordingId}")
             Text("Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | Duration: ${recording.durationMs} ms")
@@ -208,136 +225,237 @@ private fun RecordingReviewCard(
             Text("Image: ${recording.imageFileName ?: "none"}")
             Text(
                 "GPS: ${
-                    if (latitude == null || longitude == null) {
-                        "N/A"
-                    } else {
-                        "%.6f, %.6f".format(latitude, longitude)
-                    }
+                    if (latitude == null || longitude == null) "N/A"
+                    else "%.6f, %.6f".format(latitude, longitude)
                 }"
             )
 
-            LabelPickerField(
-                value = targetInput,
-                onValueChange = { targetInput = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = notesInput,
-                onValueChange = { notesInput = it },
-                label = { Text("notes") },
-                modifier = Modifier.fillMaxWidth(),
-                maxLines = 3
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onRelabelTargets(targetInput) }) {
-                    Text("Apply Names")
-                }
-                Button(onClick = { onRelabelNotes(notesInput) }) {
-                    Text("Apply Notes")
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onPlay) {
-                    Text(if (isPlaying) "Stop" else "Play")
-                }
-                Button(onClick = onDelete) {
-                    Text("Delete")
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                ClassLabel.entries.forEach { label ->
-                    FilterChip(
-                        selected = recording.classLabel == label,
-                        onClick = { onRelabelClass(label) },
-                        label = { Text(label.name) }
+            if (isWideScreen) {
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    RecordingMainSection(
+                        recording = recording,
+                        targetInput = targetInput,
+                        onTargetChange = { targetInput = it },
+                        notesInput = notesInput,
+                        onNotesChange = { notesInput = it },
+                        isPlaying = isPlaying,
+                        onPlay = onPlay,
+                        onRelabelTargets = onRelabelTargets,
+                        onRelabelNotes = onRelabelNotes,
+                        onRelabelClass = onRelabelClass,
+                        onToggleInclude = onToggleInclude,
+                        onDelete = onDelete,
+                        modifier = Modifier.weight(2f)
+                    )
+                    RecordingEnvironmentSection(
+                        soilTypeInput = soilTypeInput,
+                        onSoilTypeChange = { soilTypeInput = it },
+                        moistureInput = moistureInput,
+                        onMoistureChange = { moistureInput = it },
+                        detectorModelInput = detectorModelInput,
+                        onDetectorModelChange = { detectorModelInput = it },
+                        searchModeInput = searchModeInput,
+                        onSearchModeChange = { searchModeInput = it },
+                        sensitivityInput = sensitivityInput,
+                        onSensitivityChange = { sensitivityInput = it },
+                        recoverySpeedInput = recoverySpeedInput,
+                        onRecoverySpeedChange = { recoverySpeedInput = it },
+                        stabilizerInput = stabilizerInput,
+                        onStabilizerChange = { stabilizerInput = it },
+                        onApplyEnvironment = {
+                            onRelabelEnvironment(
+                                soilTypeInput, moistureInput, detectorModelInput,
+                                searchModeInput, sensitivityInput, recoverySpeedInput, stabilizerInput
+                            )
+                        },
+                        showTitle = true,
+                        modifier = Modifier.weight(1f)
                     )
                 }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = recording.includeInTraining,
-                    onCheckedChange = onToggleInclude
+            } else {
+                RecordingMainSection(
+                    recording = recording,
+                    targetInput = targetInput,
+                    onTargetChange = { targetInput = it },
+                    notesInput = notesInput,
+                    onNotesChange = { notesInput = it },
+                    isPlaying = isPlaying,
+                    onPlay = onPlay,
+                    onRelabelTargets = onRelabelTargets,
+                    onRelabelNotes = onRelabelNotes,
+                    onRelabelClass = onRelabelClass,
+                    onToggleInclude = onToggleInclude,
+                    onDelete = onDelete
                 )
-                Text("include_in_training")
-            }
-
-            ReviewSuggestiveTextField(
-                label = "soil_type",
-                value = soilTypeInput,
-                suggestions = SOIL_TYPE_OPTIONS,
-                onValueChange = { soilTypeInput = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Text("moisture")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MOISTURE_OPTIONS.forEach { option ->
-                    FilterChip(
-                        selected = moistureInput == option,
-                        onClick = { moistureInput = if (moistureInput == option) "" else option },
-                        label = { Text(option) }
-                    )
-                }
-            }
-
-            ReviewSuggestiveTextField(
-                label = "detector_model",
-                value = detectorModelInput,
-                suggestions = DETECTOR_MODEL_OPTIONS,
-                onValueChange = { detectorModelInput = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text("Custom detector model values are allowed.", style = MaterialTheme.typography.bodySmall)
-
-            ReviewSuggestiveTextField(
-                label = "search_mode",
-                value = searchModeInput,
-                suggestions = SEARCH_MODE_OPTIONS,
-                onValueChange = { searchModeInput = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            ReviewSuggestiveTextField(
-                label = "sensitivity",
-                value = sensitivityInput,
-                suggestions = SENSITIVITY_OPTIONS,
-                onValueChange = { sensitivityInput = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            ReviewSuggestiveTextField(
-                label = "recovery_speed",
-                value = recoverySpeedInput,
-                suggestions = RECOVERY_SPEED_OPTIONS,
-                onValueChange = { recoverySpeedInput = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            ReviewSuggestiveTextField(
-                label = "stabilizer",
-                value = stabilizerInput,
-                suggestions = STABILIZER_OPTIONS,
-                onValueChange = { stabilizerInput = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Button(onClick = {
-                onRelabelEnvironment(
-                    soilTypeInput,
-                    moistureInput,
-                    detectorModelInput,
-                    searchModeInput,
-                    sensitivityInput,
-                    recoverySpeedInput,
-                    stabilizerInput,
+                RecordingEnvironmentSection(
+                    soilTypeInput = soilTypeInput,
+                    onSoilTypeChange = { soilTypeInput = it },
+                    moistureInput = moistureInput,
+                    onMoistureChange = { moistureInput = it },
+                    detectorModelInput = detectorModelInput,
+                    onDetectorModelChange = { detectorModelInput = it },
+                    searchModeInput = searchModeInput,
+                    onSearchModeChange = { searchModeInput = it },
+                    sensitivityInput = sensitivityInput,
+                    onSensitivityChange = { sensitivityInput = it },
+                    recoverySpeedInput = recoverySpeedInput,
+                    onRecoverySpeedChange = { recoverySpeedInput = it },
+                    stabilizerInput = stabilizerInput,
+                    onStabilizerChange = { stabilizerInput = it },
+                    onApplyEnvironment = {
+                        onRelabelEnvironment(
+                            soilTypeInput, moistureInput, detectorModelInput,
+                            searchModeInput, sensitivityInput, recoverySpeedInput, stabilizerInput
+                        )
+                    }
                 )
-            }) {
-                Text("Apply Environment")
             }
+        }
+    }
+}
+
+@Composable
+private fun RecordingMainSection(
+    recording: RecordingMetadata,
+    targetInput: String,
+    onTargetChange: (String) -> Unit,
+    notesInput: String,
+    onNotesChange: (String) -> Unit,
+    isPlaying: Boolean,
+    onPlay: () -> Unit,
+    onRelabelTargets: (String) -> Unit,
+    onRelabelNotes: (String) -> Unit,
+    onRelabelClass: (ClassLabel) -> Unit,
+    onToggleInclude: (Boolean) -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LabelPickerField(
+            value = targetInput,
+            onValueChange = onTargetChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = notesInput,
+            onValueChange = onNotesChange,
+            label = { Text("notes") },
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 3
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onRelabelTargets(targetInput) }) { Text("Apply Names") }
+            Button(onClick = { onRelabelNotes(notesInput) }) { Text("Apply Notes") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
+            Button(onClick = onDelete) { Text("Delete") }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ClassLabel.entries.forEach { label ->
+                FilterChip(
+                    selected = recording.classLabel == label,
+                    onClick = { onRelabelClass(label) },
+                    label = { Text(label.name) }
+                )
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                checked = recording.includeInTraining,
+                onCheckedChange = onToggleInclude
+            )
+            Text("include_in_training")
+        }
+    }
+}
+
+@Composable
+private fun RecordingEnvironmentSection(
+    soilTypeInput: String,
+    onSoilTypeChange: (String) -> Unit,
+    moistureInput: String,
+    onMoistureChange: (String) -> Unit,
+    detectorModelInput: String,
+    onDetectorModelChange: (String) -> Unit,
+    searchModeInput: String,
+    onSearchModeChange: (String) -> Unit,
+    sensitivityInput: String,
+    onSensitivityChange: (String) -> Unit,
+    recoverySpeedInput: String,
+    onRecoverySpeedChange: (String) -> Unit,
+    stabilizerInput: String,
+    onStabilizerChange: (String) -> Unit,
+    onApplyEnvironment: () -> Unit,
+    showTitle: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (showTitle) {
+            Text("Environment", style = MaterialTheme.typography.titleSmall)
+        }
+        ReviewSuggestiveTextField(
+            label = "soil_type",
+            value = soilTypeInput,
+            suggestions = SOIL_TYPE_OPTIONS,
+            onValueChange = onSoilTypeChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text("moisture")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MOISTURE_OPTIONS.forEach { option ->
+                FilterChip(
+                    selected = moistureInput == option,
+                    onClick = { onMoistureChange(if (moistureInput == option) "" else option) },
+                    label = { Text(option) }
+                )
+            }
+        }
+        ReviewSuggestiveTextField(
+            label = "detector_model",
+            value = detectorModelInput,
+            suggestions = DETECTOR_MODEL_OPTIONS,
+            onValueChange = onDetectorModelChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text("Custom detector model values are allowed.", style = MaterialTheme.typography.bodySmall)
+        ReviewSuggestiveTextField(
+            label = "search_mode",
+            value = searchModeInput,
+            suggestions = SEARCH_MODE_OPTIONS,
+            onValueChange = onSearchModeChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        ReviewSuggestiveTextField(
+            label = "sensitivity",
+            value = sensitivityInput,
+            suggestions = SENSITIVITY_OPTIONS,
+            onValueChange = onSensitivityChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        ReviewSuggestiveTextField(
+            label = "recovery_speed",
+            value = recoverySpeedInput,
+            suggestions = RECOVERY_SPEED_OPTIONS,
+            onValueChange = onRecoverySpeedChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        ReviewSuggestiveTextField(
+            label = "stabilizer",
+            value = stabilizerInput,
+            suggestions = STABILIZER_OPTIONS,
+            onValueChange = onStabilizerChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(onClick = onApplyEnvironment) {
+            Text("Apply Environment")
         }
     }
 }

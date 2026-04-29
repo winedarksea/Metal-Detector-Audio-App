@@ -9,7 +9,6 @@ object AndroidClassifierFactory {
     fun create(
         appContext: Context,
         modelMetadata: ModelMetadata,
-        allowFallbackModel: Boolean = false,
     ): AudioWindowClassifier {
         val waveformAssetName = modelMetadata.artifacts.waveformTfliteFileName
             ?: modelMetadata.fileName
@@ -31,21 +30,11 @@ object AndroidClassifierFactory {
             }
         }
 
-        return runCatching {
-            MetalClassifierInterpreter(
-                modelMetadata = modelMetadata,
-                appContext = appContext,
-                modelAssetName = waveformAssetName,
-            )
-        }.onFailure {
-            Log.w(TAG, "Waveform TFLite model '$waveformAssetName' failed: ${it.message}")
-        }.getOrElse {
-            if (!allowFallbackModel) {
-                error("Failed to load Android classifier assets: ${it.message}")
-            }
-            Log.i(TAG, "Using FallbackHeuristicClassifier")
-            FallbackHeuristicClassifier(modelMetadata.labels)
-        }
+        return MetalClassifierInterpreter(
+            modelMetadata = modelMetadata,
+            appContext = appContext,
+            modelAssetName = waveformAssetName,
+        )
     }
 
     private fun preferredAcceleratorAssetName(modelMetadata: ModelMetadata): String? {

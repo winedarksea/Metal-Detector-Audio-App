@@ -121,7 +121,6 @@ class InferenceController(
         classifier = AndroidClassifierFactory.create(
             appContext = appContext,
             modelMetadata = metadata,
-            allowFallbackModel = false,
         )
         oldClassifier.close()
 

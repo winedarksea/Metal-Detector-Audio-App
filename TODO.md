@@ -10,10 +10,10 @@
 - [x] **Audio visualization in record tab** The tab used for recording labeled audio should have a small audio visualization to help show that something was recorded (and that it wasn't all zeroes). It might also be nice to have the option to expand a section and there have created and shown a spectrogram and other audio tools.
 - [x] **Design for Android Tablets** Support adaptive resize, navigation rail, and more for larger screens in Android 16+.
 - [x] **Review tab needs a delete button** Old or unused recordings should be able to be deleted by the user in the review tab.
-- [X] **Kotlin 2.0 and Gradle 9.0 Upgrades** The current base libraries used here are deprecated and updates are needed, also bump to targetSdk=36 or greater.
-- [X] **Separate Training File Location** The newer recordings_metadata and rec_*.wav files should be moved to a new location so they are not stored in github (too big). Other files remains as uploaded examples, kept in github. gitignore might be a simpler solution.
-- [ ] **Consolidate Training Scripts** Merge and improve the separate cnn files so training for Android and Desktop apps are consistent.
-- [ ] **NPU or edge TPU Support** Add NnApiDelegate (mel layers may need to be off npu, but this shares code then with Desktop app version) so model can run with TPU or NPU on phones. Use quantization aware training if possible, else static quantization.
+- [x] **Kotlin 2.0 and Gradle 9.0 Upgrades** The current base libraries used here are deprecated and updates are needed, also bump to targetSdk=36 or greater.
+- [x] **Separate Training File Location** The newer recordings_metadata and rec_*.wav files should be moved to a new location so they are not stored in github (too big). Other files remains as uploaded examples, kept in github. gitignore might be a simpler solution.
+- [x] **Consolidate Training Scripts** Merge and improve the separate cnn files so training for Android and Desktop apps are consistent.
+- [x] **NPU or edge TPU Support** Add NnApiDelegate (mel layers may need to be off npu, but this shares code then with Desktop app version) so model can run with TPU or NPU on phones. Use quantization aware training if possible, else static quantization.
 - [ ] **App load and permissions unittests** Test for issues to assure crash on load (often due to permissions) are not present
 - [ ] **Training Data Windows** Investigate the training data flow quality. Current slice logic may select empty windows or windows that don't represent edge cases (chirps falling on window cuts).
 - [ ] Optional chirp crop tool for failed auto-segmentation.

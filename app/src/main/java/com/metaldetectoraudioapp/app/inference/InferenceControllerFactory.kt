@@ -8,19 +8,11 @@ import com.metaldetectoraudioapp.app.audio.pipeline.SharedAudioPipeline
 object InferenceControllerFactory {
     private const val TAG = "InferenceCtrlFactory"
 
-    fun create(appContext: Context, allowFallbackModel: Boolean = false): InferenceController {
-        Log.i(TAG, "Creating InferenceController (allowFallback=$allowFallbackModel)")
+    fun create(appContext: Context): InferenceController {
+        Log.i(TAG, "Creating InferenceController")
 
         val metadataRepository = ModelMetadataRepository(appContext)
-        val metadata = runCatching { metadataRepository.load() }
-            .onFailure { Log.w(TAG, "Model metadata load failed: ${it.message}") }
-            .getOrElse {
-                if (!allowFallbackModel) {
-                    error("Failed to load model metadata: ${it.message}")
-                }
-                Log.i(TAG, "Using fallback metadata")
-                fallbackMetadata()
-            }
+        val metadata = metadataRepository.load()
         Log.i(TAG, "Metadata loaded: model=${metadata.modelName} v${metadata.modelVersion} sampleRate=${metadata.input.sampleRateHz}")
 
         val source = MicrophoneAudioInputSource(metadata.input.sampleRateHz)
@@ -36,7 +28,6 @@ object InferenceControllerFactory {
         val classifier = AndroidClassifierFactory.create(
             appContext = appContext,
             modelMetadata = metadata,
-            allowFallbackModel = allowFallbackModel,
         )
         Log.i(TAG, "Classifier ready: ${classifier::class.simpleName}")
 
@@ -47,18 +38,5 @@ object InferenceControllerFactory {
             metadataRepository = metadataRepository
         )
     }
-
-    private fun fallbackMetadata(): ModelMetadata {
-        return ModelMetadata(
-            modelName = "fallback",
-            modelVersion = "0",
-            labels = listOf("TARGET", "JUNK", "AMBIENT"),
-            input = ModelInputConfig(
-                sampleRateHz = 16_000,
-                windowSizeSamples = 8_000,
-                hopSizeSamples = 4_000,
-                expectsNormalizedAudio = true
-            )
-        )
-    }
 }
+

@@ -44,8 +44,7 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         Log.i(TAG, "Initializing InferenceViewModel...")
         controller = InferenceControllerFactory.create(
-            application.applicationContext,
-            allowFallbackModel = true
+            application.applicationContext
         )
         Log.i(TAG, "InferenceController created (model=${controller.uiState.value.modelName})")
         deviceManager = AudioDeviceManager(application.applicationContext)

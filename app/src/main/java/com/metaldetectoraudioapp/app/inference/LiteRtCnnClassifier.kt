@@ -99,13 +99,17 @@ class LiteRtCnnClassifier(
             null
         }
 
+        // Do NOT include CPU as a fallback in the NPU/GPU option sets. The outer
+        // createFirstAvailableModel loop handles cross-tier fallback, and including CPU
+        // here would cause CompiledModel.create() to silently run on CPU while
+        // activeModel.backend (and therefore the UI badge) still reports NPU or GPU.
         val options = when (backend) {
-            Accelerator.NPU -> CompiledModel.Options(setOf(Accelerator.NPU, Accelerator.CPU)).apply {
+            Accelerator.NPU -> CompiledModel.Options(setOf(Accelerator.NPU)).apply {
                 qualcommOptions = CompiledModel.QualcommOptions(
                     htpPerformanceMode = CompiledModel.QualcommOptions.HtpPerformanceMode.HIGH_PERFORMANCE,
                 )
             }
-            Accelerator.GPU -> CompiledModel.Options(setOf(Accelerator.GPU, Accelerator.CPU))
+            Accelerator.GPU -> CompiledModel.Options(setOf(Accelerator.GPU))
             else -> CompiledModel.Options(Accelerator.CPU)
         }
 

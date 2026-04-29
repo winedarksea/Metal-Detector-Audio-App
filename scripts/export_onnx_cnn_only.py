@@ -205,7 +205,15 @@ def main() -> int:
     cnn_model.summary()
 
     mel_extractor = build_log_mel_feature_extractor(full_model)
+    # mel_inputs: mel spectra of the original unaugmented windows, used for
+    # parity checks and accuracy metrics (labels in y_all correspond 1-to-1).
     mel_inputs = mel_extractor.predict(x_all, verbose=0).astype(np.float32)
+    # mel_aug_inputs: mel spectra of the full augmented training set.
+    # Used for PTQ calibration so the quantizer sees the same activation
+    # distribution the model was actually trained on.
+    mel_aug_inputs = mel_extractor.predict(x_aug, verbose=0).astype(np.float32)
+    print(f"PTQ calibration samples: {mel_aug_inputs.shape[0]} (augmented), "
+          f"accuracy reference samples: {mel_inputs.shape[0]} (original)")
     full_pred = full_model.predict(x_all, verbose=0)
     cnn_pred = cnn_model.predict(mel_inputs, verbose=0)
 
@@ -217,7 +225,7 @@ def main() -> int:
     accelerator_int8_bytes = convert_keras_model_to_tflite(
         cnn_model,
         optimizations=["default"],
-        representative_inputs=mel_inputs,
+        representative_inputs=mel_aug_inputs,
         supported_ops=[tf.lite.OpsSet.TFLITE_BUILTINS_INT8],
         inference_input_type=tf.int8,
         inference_output_type=tf.int8,

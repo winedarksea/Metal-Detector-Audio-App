@@ -4,6 +4,10 @@ Android-first, minimal on-device audio app for metal detector signals with two c
 - Runtime inference (`TARGET` / `JUNK` / `AMBIENT`) from live audio.
 - High-quality labeled recording workflow for building a training dataset.
 
+## Install
+The Android app is available on GitHub in the "Releases" tab as app-debug.apk. Download and tap on this on your Android phone and it should guide you through installation.
+For desktop use, see the commands at the bottom of the readme, needing Java installed locally.
+
 ## Connection
 The easiest way to connect a phone or computer to a detector is from the audio out using a microphone attenuator cable (like [this](https://www.amazon.com/gp/product/B01GW69IQ2)) which looks like a standard audio cord but has an inline resistor because the headphone out is too strong a signal for most microphone inputs. Then a 3.5 TRRS to USB-C adapter is needed for most phones (like [this](https://www.amazon.com/Apple-USB-C-Headphone-Jack-Adapter/dp/B0D7FF5Y3X?))
 
@@ -145,9 +149,3 @@ Run locally
 ```bash
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ./gradlew :desktopApp:run
 ```
-
-## Notes
-
-- `desktop/` (Python tkinter app) is an inference-only test harness and does not include Record/Review data-labeling UI.
-- Current `assets/` has no real recorded `AMBIENT` WAV files; synthetic ambient windows are used to balance the starter model.
-- Initial release intentionally skips on-device fine-tuning UI/engine. Dataset capture + export is implemented so training can run off-device and ship new model artifacts.

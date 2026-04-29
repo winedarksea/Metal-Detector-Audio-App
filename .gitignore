@@ -119,3 +119,7 @@ app.*.symbols
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
 .DS_Store
+
+# Local training data generated during collection (keep curated sample assets tracked)
+assets/rec_*.wav
+assets/recordings_metadata.csv

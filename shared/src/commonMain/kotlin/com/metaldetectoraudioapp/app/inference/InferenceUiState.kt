@@ -7,6 +7,7 @@ data class InferenceUiState(
     val topLabel: String = "AMBIENT",
     val confidence: Float = 0f,
     val threshold: Float = 0.55f,
+    val activeAccelerator: InferenceAccelerator = InferenceAccelerator.UNKNOWN,
     val signalStatus: AudioSignalStatus = AudioSignalStatus(),
     val lastInferenceMs: Long = 0,
     val averageLatencyMs: Float = 0f,

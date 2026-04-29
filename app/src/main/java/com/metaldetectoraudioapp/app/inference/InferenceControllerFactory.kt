@@ -33,20 +33,11 @@ object InferenceControllerFactory {
         )
         Log.i(TAG, "SharedAudioPipeline created")
 
-        val classifier = runCatching {
-            MetalClassifierInterpreter(
-                modelMetadata = metadata,
-                appContext = appContext
-            )
-        }
-            .onFailure { Log.w(TAG, "TFLite model load failed: ${it.message}") }
-            .getOrElse {
-                if (!allowFallbackModel) {
-                    error("Failed to load starter_model.tflite: ${it.message}")
-                }
-                Log.i(TAG, "Using FallbackHeuristicClassifier")
-                FallbackHeuristicClassifier(metadata.labels)
-            }
+        val classifier = AndroidClassifierFactory.create(
+            appContext = appContext,
+            modelMetadata = metadata,
+            allowFallbackModel = allowFallbackModel,
+        )
         Log.i(TAG, "Classifier ready: ${classifier::class.simpleName}")
 
         return InferenceController(

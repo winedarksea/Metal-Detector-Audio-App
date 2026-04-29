@@ -26,7 +26,31 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, TYPE_CHECKING, Tuple
+
+if TYPE_CHECKING:
+    import numpy as np
+
+try:
+    from .mel_cnn_pipeline import (
+        DEFAULT_HOP_SIZE_SAMPLES,
+        DEFAULT_RMS_GATE_THRESHOLD,
+        DEFAULT_SAMPLE_RATE_HZ,
+        STARTER_MODEL_VERSION,
+        DEFAULT_WINDOW_SIZE_SAMPLES,
+        mel_spectrogram_metadata,
+        train_and_convert_tflite,
+    )
+except ImportError:
+    from mel_cnn_pipeline import (
+        DEFAULT_HOP_SIZE_SAMPLES,
+        DEFAULT_RMS_GATE_THRESHOLD,
+        DEFAULT_SAMPLE_RATE_HZ,
+        STARTER_MODEL_VERSION,
+        DEFAULT_WINDOW_SIZE_SAMPLES,
+        mel_spectrogram_metadata,
+        train_and_convert_tflite,
+    )
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -35,23 +59,6 @@ from typing import Dict, Iterable, List, Tuple
 SUPPORTED_CLASS_LABELS = ("TARGET", "JUNK", "AMBIENT")
 MODEL_OUTPUT_LABELS = SUPPORTED_CLASS_LABELS
 SUPPORTED_PATTERNS = ("SWING", "WIGGLE")
-
-# Default STFT / mel parameters baked into the TFLite model graph.
-DEFAULT_STFT_FRAME_LENGTH = 256   # 16 ms @ 16 kHz
-DEFAULT_STFT_FRAME_STEP = 128     # 8 ms @ 16 kHz
-DEFAULT_STFT_FFT_LENGTH = 256
-DEFAULT_NUM_MEL_BINS = 40
-DEFAULT_MEL_LOWER_HZ = 80.0
-DEFAULT_MEL_UPPER_HZ = 7600.0
-
-# Energy gate: minimum RMS for a window to count as "active".
-DEFAULT_RMS_GATE_THRESHOLD = 0.015
-
-# Window / hop sizes in samples.  Change DEFAULT_WINDOW_SIZE_SAMPLES here to test
-# a larger window (e.g. 16_000 = 1.0 s @ 16 kHz).  The hop stays at half the window.
-# NOTE: Changing this requires rebuilding the TFLite model and updating AudioConstants.kt.
-DEFAULT_WINDOW_SIZE_SAMPLES = 8_000   # 0.5 s @ 16 kHz
-DEFAULT_HOP_SIZE_SAMPLES = DEFAULT_WINDOW_SIZE_SAMPLES // 2  # 0.25 s
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +106,7 @@ def parse_cli_args() -> argparse.Namespace:
     )
     parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--sample-rate", type=int, default=16_000)
+    parser.add_argument("--sample-rate", type=int, default=DEFAULT_SAMPLE_RATE_HZ)
     parser.add_argument("--window-size", type=int, default=DEFAULT_WINDOW_SIZE_SAMPLES,
                         help="Window length in samples (default 8000 = 0.5 s @ 16 kHz).")
     parser.add_argument("--hop-size", type=int, default=DEFAULT_HOP_SIZE_SAMPLES,
@@ -354,7 +361,7 @@ def create_training_windows(
     window_size: int,
     hop_size: int,
     rms_gate_threshold: float,
-) -> Tuple["np.ndarray", "np.ndarray", Dict[str, int], Dict[str, int], Dict[str, int]]:
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, int], Dict[str, int], Dict[str, int]]:
     """Slide windows and label them.  For TARGET/JUNK files, windows below
     *rms_gate_threshold* are silently discarded (not mislabeled as AMBIENT).
 
@@ -423,7 +430,7 @@ def collect_negative_ambient_windows(
     sample_rate: int,
     window_size: int,
     hop_size: int,
-) -> "np.ndarray":
+) -> np.ndarray:
     """Collect normalized windows from AMBIENT files used for threshold calibration."""
     import numpy as np
 
@@ -488,97 +495,10 @@ def synthesize_ambient_noise_windows(
 
 
 # ---------------------------------------------------------------------------
-# Model architecture: log-mel spectrogram CNN
-# ---------------------------------------------------------------------------
-
-def build_mel_cnn_model(
-    num_classes: int,
-    window_size: int,
-    sample_rate: int,
-):
-    """Small 2D CNN on log-mel spectrograms.  All feature extraction (STFT, mel
-    projection, log) happens inside the graph so the TFLite model accepts raw
-    waveform input — no external preprocessing on device.
-    """
-    import tensorflow as tf
-
-    num_spectrogram_bins = DEFAULT_STFT_FFT_LENGTH // 2 + 1  # 129
-
-    # Pre-compute mel weight matrix as a constant (embedded in graph).
-    mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
-        num_mel_bins=DEFAULT_NUM_MEL_BINS,
-        num_spectrogram_bins=num_spectrogram_bins,
-        sample_rate=float(sample_rate),
-        lower_edge_hertz=DEFAULT_MEL_LOWER_HZ,
-        upper_edge_hertz=DEFAULT_MEL_UPPER_HZ,
-    )  # shape [129, 40]
-
-    waveform_input = tf.keras.Input(
-        shape=(window_size,), dtype=tf.float32, name="waveform"
-    )
-
-    # STFT -> magnitude
-    x = tf.keras.layers.Lambda(
-        lambda s: tf.abs(tf.signal.stft(
-            s,
-            frame_length=DEFAULT_STFT_FRAME_LENGTH,
-            frame_step=DEFAULT_STFT_FRAME_STEP,
-            fft_length=DEFAULT_STFT_FFT_LENGTH,
-        )),
-        name="stft_magnitude",
-    )(waveform_input)
-
-    # Mel filterbank projection
-    x = tf.keras.layers.Lambda(
-        lambda mag: tf.tensordot(mag, mel_weight_matrix, axes=1),
-        name="mel_projection",
-    )(x)
-
-    # Log compression
-    x = tf.keras.layers.Lambda(
-        lambda mel: tf.math.log(mel + 1e-6),
-        name="log_mel",
-    )(x)
-
-    # Channel dim: [batch, time, mel] -> [batch, time, mel, 1]
-    x = tf.keras.layers.Lambda(
-        lambda t: tf.expand_dims(t, axis=-1),
-        name="add_channel",
-    )(x)
-
-    # Small 2D CNN (purpose-built for audio spectrograms)
-    x = tf.keras.layers.Conv2D(32, (3, 3), activation="relu", padding="same")(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.MaxPooling2D((2, 2))(x)
-
-    x = tf.keras.layers.Conv2D(64, (3, 3), activation="relu", padding="same")(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.MaxPooling2D((2, 2))(x)
-
-    x = tf.keras.layers.Conv2D(64, (3, 3), activation="relu", padding="same")(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.GlobalAveragePooling2D()(x)
-
-    x = tf.keras.layers.Dense(64, activation="relu")(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
-    outputs = tf.keras.layers.Dense(
-        num_classes, activation="softmax", name="class_probs"
-    )(x)
-
-    model = tf.keras.Model(inputs=waveform_input, outputs=outputs)
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"],
-    )
-    return model
-
-
-# ---------------------------------------------------------------------------
 # Data augmentation helpers
 # ---------------------------------------------------------------------------
 
-def augment_training_data(x: "np.ndarray", y: "np.ndarray", seed: int = 42):
+def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
     """Light augmentation: time-shift and low-level additive noise."""
     import numpy as np
 
@@ -604,56 +524,6 @@ def augment_training_data(x: "np.ndarray", y: "np.ndarray", seed: int = 42):
         aug_y.append(np.array([y[i]], dtype=y.dtype))
 
     return np.concatenate(aug_x, axis=0), np.concatenate(aug_y, axis=0)
-
-
-# ---------------------------------------------------------------------------
-# Train + TFLite conversion
-# ---------------------------------------------------------------------------
-
-def train_and_convert_tflite(
-    x_train: "np.ndarray",
-    y_train: "np.ndarray",
-    x_val: "np.ndarray",
-    y_val: "np.ndarray",
-    num_classes: int,
-    window_size: int,
-    sample_rate: int,
-    epochs: int,
-    batch_size: int,
-) -> Tuple[bytes, Dict[str, float], "tf.keras.Model"]:
-    import tensorflow as tf
-
-    model = build_mel_cnn_model(
-        num_classes=num_classes,
-        window_size=window_size,
-        sample_rate=sample_rate,
-    )
-
-    model.summary()
-
-    history = model.fit(
-        x_train, y_train,
-        validation_data=(x_val, y_val),
-        epochs=epochs,
-        batch_size=batch_size,
-        verbose=2,
-    )
-
-    eval_loss, eval_accuracy = model.evaluate(x_val, y_val, verbose=0)
-
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    tflite_bytes = converter.convert()
-
-    metrics = {
-        "loss": float(eval_loss),
-        "accuracy": float(eval_accuracy),
-        "train_loss": float(history.history["loss"][-1]),
-        "train_accuracy": float(history.history["accuracy"][-1]),
-        "val_loss": float(history.history["val_loss"][-1]),
-        "val_accuracy": float(history.history["val_accuracy"][-1]),
-    }
-    return tflite_bytes, metrics, model
 
 
 # ---------------------------------------------------------------------------
@@ -766,13 +636,16 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
 
     write_json(args.metadata_output, {
         "model_name": "starter_model",
-        "model_version": "0.3.0",
+        "model_version": STARTER_MODEL_VERSION,
         "labels": label_order,
         "input": {
             "sample_rate_hz": args.sample_rate,
             "window_size_samples": args.window_size,
             "hop_size_samples": args.hop_size,
             "expects_normalized_audio": True,
+        },
+        "artifacts": {
+            "waveform_tflite": args.model_output.name,
         },
         "inference": {
             "ambient_strategy": "explicit_class",
@@ -791,14 +664,7 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
             "ambient_window_count_from_files": int(ambient_file_windows.shape[0]),
             "synthetic_ambient_window_count": synth_count,
             "augmented_total_windows": int(x_aug.shape[0]),
-            "mel_spectrogram": {
-                "stft_frame_length": DEFAULT_STFT_FRAME_LENGTH,
-                "stft_frame_step": DEFAULT_STFT_FRAME_STEP,
-                "fft_length": DEFAULT_STFT_FFT_LENGTH,
-                "num_mel_bins": DEFAULT_NUM_MEL_BINS,
-                "lower_edge_hertz": DEFAULT_MEL_LOWER_HZ,
-                "upper_edge_hertz": DEFAULT_MEL_UPPER_HZ,
-            },
+            "mel_spectrogram": mel_spectrogram_metadata(),
             "synthetic_ambient": {
                 "enabled": bool(args.synthesize_ambient_noise),
                 "ratio": float(args.ambient_noise_ratio),
@@ -810,10 +676,13 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
 
     write_json(args.metrics_output, {
         "model_name": "starter_model",
-        "model_version": "0.3.0",
+        "model_version": STARTER_MODEL_VERSION,
         "sample_count": len(sample_records),
         "window_count_before_augmentation": int(x_all.shape[0]),
         "window_count_after_augmentation": int(x_aug.shape[0]),
+        "artifacts": {
+            "waveform_tflite": args.model_output.name,
+        },
         "class_window_counts": kept,
         "skipped_silent_windows": skipped,
         "excluded_class_file_counts": excluded,

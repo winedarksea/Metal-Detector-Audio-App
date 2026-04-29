@@ -29,6 +29,8 @@ The easiest way to connect a phone or computer to a detector is from the audio o
   - `TARGET` green
   - `JUNK` red
   - `AMBIENT` gray
+- Android LiteRT path prefers `NPU -> GPU -> CPU` on the CNN-only quantized artifact when it is present, and falls back to the waveform TFLite interpreter otherwise.
+- The detect UI shows a small backend badge so CPU/GPU/NPU selection is visible without crowding the screen.
 - Model and metadata load at startup from `models/`.
 - Starter model loading is strict by default. If model/metadata/ONNX assets are missing, startup fails fast instead of silently switching to fallback heuristics.
 
@@ -55,12 +57,16 @@ The easiest way to connect a phone or computer to a detector is from the audio o
   - `metadata/split_manifest.json`
 
 ### Build-time starter model pipeline
-- `scripts/train_starter_model.py` validates assets and trains a starter mel-spectrogram CNN.
+- `scripts/train_starter_model.py` is the canonical waveform-model trainer for Android-safe fallback inference.
+- `scripts/export_onnx_cnn_only.py` reuses the same shared mel-CNN pipeline and emits the split-model artifacts needed for desktop ONNX inference and Android LiteRT acceleration.
 - Class strategy assessment outcome: explicit 3-class output (`TARGET`, `JUNK`, `AMBIENT`) is currently more reliable than binary + ambient-threshold negatives on this dataset.
 - Adds synthetic `AMBIENT` windows (white + Brownian noise) by default to reduce false-positive bias when real ambient captures are sparse.
 - Enforces strict CSV/WAV consistency checks.
 - Emits versioned artifacts:
   - `models/starter_model.tflite`
+  - `models/starter_model_cnn.tflite`
+  - `models/starter_model_cnn_int8.tflite`
+  - `models/starter_model_cnn.onnx`
   - `models/starter_model_metadata.json`
   - `models/starter_model_metrics.json`
 - Gradle `preBuild` runs validation (`--dry-run`) and fails on inconsistent labels/assets.
@@ -101,8 +107,8 @@ The easiest way to connect a phone or computer to a detector is from the audio o
 ## Starter model commands
 
 ### Which scripts should I run for model training?
-- **For Android deployment only**: Run **(2) `train_starter_model.py`**. This generates `starter_model.tflite`.
-- **For Desktop deployment (JVM/Kotlin)**: Run **(3) `export_onnx_cnn_only.py`**. This generates `starter_model_cnn.onnx`. It handles training and subset-export in one step.
+- **For waveform-only Android fallback**: Run **(2) `train_starter_model.py`**. This generates `starter_model.tflite` plus metadata/metrics.
+- **For desktop ONNX and Android LiteRT accelerator artifacts**: Run **(3) `export_onnx_cnn_only.py`**. This generates the waveform TFLite, CNN-only float/int8 TFLite, ONNX, and updated metadata/metrics in one pass.
 ---
 
 ### 1) Validate dataset consistency (no TensorFlow required)
@@ -117,10 +123,18 @@ conda run -n gpu311 python scripts/train_starter_model.py \
   --batch-size 8
 ```
 
-### 3) Train and export for Desktop (ONNX CNN-only)
+### 3) Train and export split-model artifacts for Desktop + LiteRT
 ```bash
 conda run -n gpu311 python scripts/export_onnx_cnn_only.py --epochs 20 --batch-size 16
 ```
+
+That command writes:
+- `models/starter_model.tflite`
+- `models/starter_model_cnn.tflite`
+- `models/starter_model_cnn_int8.tflite`
+- `models/starter_model_cnn.onnx`
+- `models/starter_model_metadata.json`
+- `models/starter_model_metrics.json`
 
 Disable synthetic ambient generation if needed:
 ```bash

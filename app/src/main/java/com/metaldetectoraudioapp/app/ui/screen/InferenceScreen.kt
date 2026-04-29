@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
+import com.metaldetectoraudioapp.app.inference.InferenceAccelerator
 import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
@@ -203,7 +205,16 @@ fun InferenceScreen(
                     Text("Inference time: ${uiState.lastInferenceMs} ms")
                     Text("Average latency: ${"%.1f".format(uiState.averageLatencyMs)} ms")
                     Text("Dropped frames: ${uiState.droppedFrames}")
-                    Text("Model: ${uiState.modelName} v${uiState.modelVersion}")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Model: ${uiState.modelName} v${uiState.modelVersion}",
+                            modifier = Modifier.weight(1f)
+                        )
+                        AcceleratorBadge(accelerator = uiState.activeAccelerator)
+                    }
                 }
             }
         }
@@ -295,6 +306,38 @@ private fun PredictionCard(uiState: InferenceUiState) {
                     .background(color.copy(alpha = 0.15f))
             )
         }
+    }
+}
+
+@Composable
+private fun AcceleratorBadge(accelerator: InferenceAccelerator) {
+    val badgeColor = when (accelerator) {
+        InferenceAccelerator.CPU -> AmbientGray
+        InferenceAccelerator.GPU -> Color(0xFF1565C0)
+        InferenceAccelerator.NPU -> TargetGreen
+        InferenceAccelerator.UNKNOWN -> MaterialTheme.colorScheme.outline
+    }
+
+    Row(
+        modifier = Modifier
+            .background(
+                color = badgeColor.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(999.dp)
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(color = badgeColor, shape = CircleShape)
+        )
+        Text(
+            accelerator.shortLabel,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 

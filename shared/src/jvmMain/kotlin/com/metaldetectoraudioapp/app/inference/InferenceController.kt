@@ -23,6 +23,7 @@ class InferenceController(
         InferenceUiState(
             modelName = modelMetadata.modelName,
             modelVersion = modelMetadata.modelVersion,
+            activeAccelerator = classifier.activeAccelerator,
             threshold = modelMetadata.recommendedThreshold
         )
     )

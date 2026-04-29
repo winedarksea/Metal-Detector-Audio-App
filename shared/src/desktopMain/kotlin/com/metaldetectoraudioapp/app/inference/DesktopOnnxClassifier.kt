@@ -23,6 +23,8 @@ class DesktopOnnxClassifier(
     private val labels: List<String>,
 ) : AudioWindowClassifier {
 
+    override val activeAccelerator: InferenceAccelerator = InferenceAccelerator.CPU
+
     private val ortEnvironment: OrtEnvironment = OrtEnvironment.getEnvironment()
     private val ortSession: OrtSession = ortEnvironment.createSession(onnxModelBytes)
     private val melExtractor = MelSpectrogramFeatureExtractor()

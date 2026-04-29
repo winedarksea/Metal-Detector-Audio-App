@@ -14,6 +14,8 @@ class MetalClassifierInterpreter(
     modelAssetName: String = "starter_model.tflite"
 ) : AudioWindowClassifier {
 
+    override val activeAccelerator: InferenceAccelerator = InferenceAccelerator.CPU
+
     private val interpreter = Interpreter(loadModelFile(appContext, modelAssetName), Interpreter.Options())
 
     override fun classifyAudioWindow(samples: FloatArray): InferenceResult {

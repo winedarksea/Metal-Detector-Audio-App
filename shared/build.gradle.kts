@@ -11,7 +11,7 @@ kotlin {
     android {
         namespace = "com.metaldetectoraudioapp.shared"
         compileSdk = 36
-        minSdk = 28
+        minSdk = 31
 
         compilations.all {
             compileTaskProvider.configure {

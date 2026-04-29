@@ -77,6 +77,8 @@ class InferenceControllerIntegrationTest {
 }
 
 private class RuleBasedTestClassifier : AudioWindowClassifier {
+    override val activeAccelerator: InferenceAccelerator = InferenceAccelerator.CPU
+
     override fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         val mean = samples.average().toFloat()
         return when {

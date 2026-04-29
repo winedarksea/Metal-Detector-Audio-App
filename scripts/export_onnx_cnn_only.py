@@ -9,25 +9,75 @@ side, matching the parameters baked into the training script.
 
 Usage:
     conda run -n gpu311 python scripts/export_onnx_cnn_only.py
-
-TODO: make this file share more with train_starter_model.py to avoid duplication.  Maybe refactor the model-building.
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
-# Same STFT/mel constants as train_starter_model.py
-STFT_FRAME_LENGTH = 256
-STFT_FRAME_STEP = 128
-FFT_LENGTH = 256
-NUM_MEL_BINS = 40
-MEL_LOWER_HZ = 80.0
-MEL_UPPER_HZ = 7600.0
-WINDOW_SIZE = 8000
-SAMPLE_RATE = 16000
+try:
+    from .mel_cnn_pipeline import (
+        DEFAULT_SAMPLE_RATE_HZ,
+        DEFAULT_WINDOW_SIZE_SAMPLES,
+        build_log_mel_feature_extractor,
+        convert_keras_model_to_tflite,
+        extract_cnn_only_model,
+        mel_spectrogram_metadata,
+        run_tflite_predictions,
+        STARTER_MODEL_VERSION,
+        train_and_convert_tflite,
+    )
+    from .train_starter_model import (
+        MODEL_OUTPUT_LABELS,
+        augment_training_data,
+        build_audio_sample_records,
+        collect_wav_files,
+        create_training_windows,
+        load_label_rows,
+        synthesize_ambient_noise_windows,
+    )
+except ImportError:
+    from mel_cnn_pipeline import (
+        DEFAULT_SAMPLE_RATE_HZ,
+        DEFAULT_WINDOW_SIZE_SAMPLES,
+        build_log_mel_feature_extractor,
+        convert_keras_model_to_tflite,
+        extract_cnn_only_model,
+        mel_spectrogram_metadata,
+        run_tflite_predictions,
+        STARTER_MODEL_VERSION,
+        train_and_convert_tflite,
+    )
+    from train_starter_model import (
+        MODEL_OUTPUT_LABELS,
+        augment_training_data,
+        build_audio_sample_records,
+        collect_wav_files,
+        create_training_windows,
+        load_label_rows,
+        synthesize_ambient_noise_windows,
+    )
+
+
+def write_json(path: Path, content: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(content, indent=2) + "\n", encoding="utf-8")
+
+
+def summarize_prediction_alignment(reference_predictions, candidate_predictions, labels):
+    import numpy as np
+
+    candidate_top1 = np.argmax(candidate_predictions, axis=1)
+    reference_top1 = np.argmax(reference_predictions, axis=1)
+    return {
+        "top1_accuracy": float(np.mean(candidate_top1 == labels)),
+        "top1_agreement_vs_reference": float(np.mean(candidate_top1 == reference_top1)),
+        "max_abs_diff_vs_reference": float(np.max(np.abs(reference_predictions - candidate_predictions))),
+        "mean_abs_diff_vs_reference": float(np.mean(np.abs(reference_predictions - candidate_predictions))),
+    }
 
 
 def main() -> int:
@@ -49,6 +99,30 @@ def main() -> int:
         help="Where to write the CNN-only ONNX model",
     )
     parser.add_argument(
+        "--accelerator-float-output",
+        type=Path,
+        default=Path("models/starter_model_cnn.tflite"),
+        help="Where to write the CNN-only float32 TFLite model",
+    )
+    parser.add_argument(
+        "--accelerator-int8-output",
+        type=Path,
+        default=Path("models/starter_model_cnn_int8.tflite"),
+        help="Where to write the CNN-only int8 TFLite model for LiteRT accelerators",
+    )
+    parser.add_argument(
+        "--metadata-output",
+        type=Path,
+        default=Path("models/starter_model_metadata.json"),
+        help="Where to write model metadata with artifact descriptors",
+    )
+    parser.add_argument(
+        "--metrics-output",
+        type=Path,
+        default=Path("models/starter_model_metrics.json"),
+        help="Where to write model metrics and artifact parity measurements",
+    )
+    parser.add_argument(
         "--no-mixed", action="store_true",
         help="Exclude all records marked as mixed_flag = True.",
     )
@@ -58,18 +132,6 @@ def main() -> int:
 
     import numpy as np
     import tensorflow as tf
-
-    # Re-use the training pipeline to build + train the model
-    sys.path.insert(0, str(Path(__file__).parent))
-    from train_starter_model import (
-        load_label_rows,
-        collect_wav_files,
-        build_audio_sample_records,
-        create_training_windows,
-        synthesize_ambient_noise_windows,
-        augment_training_data,
-        MODEL_OUTPUT_LABELS,
-    )
 
     labels_by_id = load_label_rows(
         args.labels_csv,
@@ -90,15 +152,19 @@ def main() -> int:
     x_all, y_all, kept, skipped, excluded = create_training_windows(
         sample_records=sample_records,
         labels_to_index=labels_to_index,
-        sample_rate=SAMPLE_RATE,
-        window_size=WINDOW_SIZE,
-        hop_size=WINDOW_SIZE // 2,
+        sample_rate=DEFAULT_SAMPLE_RATE_HZ,
+        window_size=DEFAULT_WINDOW_SIZE_SAMPLES,
+        hop_size=DEFAULT_WINDOW_SIZE_SAMPLES // 2,
         rms_gate_threshold=0.015,
     )
     if "AMBIENT" in labels_to_index:
         non_ambient = kept["TARGET"] + kept["JUNK"]
         synth_count = max(1, round(non_ambient * 0.35))
-        ambient_windows = synthesize_ambient_noise_windows(synth_count, WINDOW_SIZE, 42)
+        ambient_windows = synthesize_ambient_noise_windows(
+            synth_count,
+            DEFAULT_WINDOW_SIZE_SAMPLES,
+            42,
+        )
         ambient_labels = np.full(synth_count, labels_to_index["AMBIENT"], dtype=np.int64)
         x_all = np.concatenate([x_all, ambient_windows], axis=0)
         y_all = np.concatenate([y_all, ambient_labels], axis=0)
@@ -112,135 +178,62 @@ def main() -> int:
     perm = np.random.default_rng(42).permutation(x_aug.shape[0])
     x_aug, y_aug = x_aug[perm], y_aug[perm]
 
-    # ---- Build full model (same architecture as training script) ----
-    num_spectrogram_bins = FFT_LENGTH // 2 + 1  # 129
-    mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
-        num_mel_bins=NUM_MEL_BINS,
-        num_spectrogram_bins=num_spectrogram_bins,
-        sample_rate=float(SAMPLE_RATE),
-        lower_edge_hertz=MEL_LOWER_HZ,
-        upper_edge_hertz=MEL_UPPER_HZ,
-    )
-
-    waveform_input = tf.keras.Input(shape=(WINDOW_SIZE,), dtype=tf.float32, name="waveform")
-
-    x = tf.keras.layers.Lambda(
-        lambda s: tf.abs(tf.signal.stft(s, frame_length=STFT_FRAME_LENGTH,
-                                        frame_step=STFT_FRAME_STEP,
-                                        fft_length=FFT_LENGTH)),
-        name="stft_magnitude",
-    )(waveform_input)
-
-    x = tf.keras.layers.Lambda(
-        lambda mag: tf.tensordot(mag, mel_weight_matrix, axes=1),
-        name="mel_projection",
-    )(x)
-
-    x = tf.keras.layers.Lambda(
-        lambda mel: tf.math.log(mel + 1e-6),
-        name="log_mel",
-    )(x)
-
-    x = tf.keras.layers.Lambda(
-        lambda t: tf.expand_dims(t, axis=-1),
-        name="add_channel",
-    )(x)
-
-    # CNN layers — these are the ones we want to export
-    x = tf.keras.layers.Conv2D(32, (3, 3), activation="relu", padding="same", name="conv1")(x)
-    x = tf.keras.layers.BatchNormalization(name="bn1")(x)
-    x = tf.keras.layers.MaxPooling2D((2, 2), name="pool1")(x)
-
-    x = tf.keras.layers.Conv2D(64, (3, 3), activation="relu", padding="same", name="conv2")(x)
-    x = tf.keras.layers.BatchNormalization(name="bn2")(x)
-    x = tf.keras.layers.MaxPooling2D((2, 2), name="pool2")(x)
-
-    x = tf.keras.layers.Conv2D(64, (3, 3), activation="relu", padding="same", name="conv3")(x)
-    x = tf.keras.layers.BatchNormalization(name="bn3")(x)
-    x = tf.keras.layers.GlobalAveragePooling2D(name="gap")(x)
-
-    x = tf.keras.layers.Dense(64, activation="relu", name="dense1")(x)
-    x = tf.keras.layers.Dropout(0.3, name="dropout")(x)
-    outputs = tf.keras.layers.Dense(
-        len(label_order), activation="softmax", name="class_probs"
-    )(x)
-
-    full_model = tf.keras.Model(inputs=waveform_input, outputs=outputs)
-    full_model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"],
-    )
-
-    # Train
-    print(f"Training on {x_aug.shape[0]} windows...")
-    full_model.fit(
-        x_aug, y_aug,
-        validation_data=(x_all, y_all),
+    tflite_bytes, numeric_metrics, full_model = train_and_convert_tflite(
+        x_train=x_aug,
+        y_train=y_aug,
+        x_val=x_all,
+        y_val=y_all,
+        num_classes=len(label_order),
+        window_size=DEFAULT_WINDOW_SIZE_SAMPLES,
+        sample_rate=DEFAULT_SAMPLE_RATE_HZ,
         epochs=args.epochs,
         batch_size=args.batch_size,
-        verbose=2,
+    )
+    print(
+        "Validation: "
+        f"loss={numeric_metrics['loss']:.4f}, accuracy={numeric_metrics['accuracy']:.4f}"
     )
 
-    eval_loss, eval_acc = full_model.evaluate(x_all, y_all, verbose=0)
-    print(f"Validation: loss={eval_loss:.4f}, accuracy={eval_acc:.4f}")
-
     # ---- Save TFLite (full model with STFT for Android) ----
-    converter = tf.lite.TFLiteConverter.from_keras_model(full_model)
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    tflite_bytes = converter.convert()
     args.tflite_output.parent.mkdir(parents=True, exist_ok=True)
     args.tflite_output.write_bytes(tflite_bytes)
     print(f"Wrote TFLite: {args.tflite_output} ({len(tflite_bytes)} bytes)")
 
     # ---- Extract CNN-only sub-model ----
-    # Find the add_channel layer output — that's where mel spectrogram features
-    # enter the CNN.  Input shape: [batch, time_frames, mel_bins, 1]
-    add_channel_layer = full_model.get_layer("add_channel")
-    add_channel_output_shape = add_channel_layer.output.shape[1:]  # (time, mel, 1)
+    cnn_model, add_channel_output_shape = extract_cnn_only_model(full_model)
     print(f"CNN input shape (after mel): {add_channel_output_shape}")
-
-    # Build a new model that takes mel spectrogram input directly
-    mel_input = tf.keras.Input(
-        shape=add_channel_output_shape,
-        dtype=tf.float32,
-        name="log_mel_spectrogram",
-    )
-
-    # Re-wire through existing trained layers
-    cnn_x = full_model.get_layer("conv1")(mel_input)
-    cnn_x = full_model.get_layer("bn1")(cnn_x)
-    cnn_x = full_model.get_layer("pool1")(cnn_x)
-    cnn_x = full_model.get_layer("conv2")(cnn_x)
-    cnn_x = full_model.get_layer("bn2")(cnn_x)
-    cnn_x = full_model.get_layer("pool2")(cnn_x)
-    cnn_x = full_model.get_layer("conv3")(cnn_x)
-    cnn_x = full_model.get_layer("bn3")(cnn_x)
-    cnn_x = full_model.get_layer("gap")(cnn_x)
-    cnn_x = full_model.get_layer("dense1")(cnn_x)
-    # Skip dropout for inference
-    cnn_x = full_model.get_layer("class_probs")(cnn_x)
-
-    cnn_model = tf.keras.Model(inputs=mel_input, outputs=cnn_x)
     cnn_model.summary()
 
-    # Verify CNN-only model produces same output as full model
-    test_waveform = x_all[:1]
-    full_pred = full_model.predict(test_waveform, verbose=0)
+    mel_extractor = build_log_mel_feature_extractor(full_model)
+    mel_inputs = mel_extractor.predict(x_all, verbose=0).astype(np.float32)
+    full_pred = full_model.predict(x_all, verbose=0)
+    cnn_pred = cnn_model.predict(mel_inputs, verbose=0)
 
-    # Compute mel spectrogram features through the full model's layers
-    mel_extractor = tf.keras.Model(
-        inputs=full_model.input,
-        outputs=add_channel_layer.output,
-    )
-    test_mel = mel_extractor.predict(test_waveform, verbose=0)
-    cnn_pred = cnn_model.predict(test_mel, verbose=0)
-
-    print(f"Full model pred:     {full_pred[0]}")
-    print(f"CNN-only model pred: {cnn_pred[0]}")
     max_diff = np.max(np.abs(full_pred - cnn_pred))
     print(f"Max prediction diff: {max_diff:.8f}")
     assert max_diff < 1e-4, f"Predictions diverge: {max_diff}"
+
+    accelerator_float_bytes = convert_keras_model_to_tflite(cnn_model)
+    accelerator_int8_bytes = convert_keras_model_to_tflite(
+        cnn_model,
+        optimizations=["default"],
+        representative_inputs=mel_inputs,
+        supported_ops=[tf.lite.OpsSet.TFLITE_BUILTINS_INT8],
+        inference_input_type=tf.int8,
+        inference_output_type=tf.int8,
+    )
+
+    args.accelerator_float_output.parent.mkdir(parents=True, exist_ok=True)
+    args.accelerator_float_output.write_bytes(accelerator_float_bytes)
+    args.accelerator_int8_output.parent.mkdir(parents=True, exist_ok=True)
+    args.accelerator_int8_output.write_bytes(accelerator_int8_bytes)
+    print(
+        f"Wrote accelerator TFLite models: {args.accelerator_float_output.name}, "
+        f"{args.accelerator_int8_output.name}"
+    )
+
+    float_tflite_pred = run_tflite_predictions(accelerator_float_bytes, mel_inputs)
+    int8_tflite_pred = run_tflite_predictions(accelerator_int8_bytes, mel_inputs)
 
     # ---- Export CNN-only model to ONNX ----
     import tf2onnx
@@ -252,7 +245,13 @@ def main() -> int:
 
     onnx_model, _ = tf2onnx.convert.from_keras(
         cnn_model,
-        input_signature=[tf.TensorSpec(shape=(1,) + add_channel_output_shape, dtype=tf.float32, name="log_mel_spectrogram")],
+        input_signature=[
+            tf.TensorSpec(
+                shape=(None,) + add_channel_output_shape,
+                dtype=tf.float32,
+                name="log_mel_spectrogram",
+            )
+        ],
         opset=13,
     )
     onnx.save(onnx_model, str(args.onnx_output))
@@ -262,10 +261,83 @@ def main() -> int:
     import onnxruntime as ort
     sess = ort.InferenceSession(str(args.onnx_output))
     input_name = sess.get_inputs()[0].name
-    onnx_pred = sess.run(None, {input_name: test_mel.astype(np.float32)})[0]
-    print(f"ONNX pred:           {onnx_pred[0]}")
+    onnx_pred = sess.run(None, {input_name: mel_inputs.astype(np.float32)})[0]
     onnx_diff = np.max(np.abs(full_pred - onnx_pred))
     print(f"ONNX vs full diff:   {onnx_diff:.8f}")
+
+    full_model_accuracy = float(np.mean(np.argmax(full_pred, axis=1) == y_all))
+    comparison_metrics = {
+        "full_model": {
+            "top1_accuracy": full_model_accuracy,
+        },
+        "cnn_keras": summarize_prediction_alignment(full_pred, cnn_pred, y_all),
+        "cnn_tflite_float": summarize_prediction_alignment(full_pred, float_tflite_pred, y_all),
+        "cnn_tflite_int8": summarize_prediction_alignment(full_pred, int8_tflite_pred, y_all),
+        "cnn_onnx": summarize_prediction_alignment(full_pred, onnx_pred, y_all),
+    }
+
+    timestamp = datetime.now(timezone.utc).isoformat()
+    artifacts = {
+        "waveform_tflite": args.tflite_output.name,
+        "accelerator_float_tflite": args.accelerator_float_output.name,
+        "accelerator_tflite": args.accelerator_int8_output.name,
+        "desktop_onnx": args.onnx_output.name,
+        "accelerator_input": {
+            "kind": "log_mel_spectrogram",
+            "time_frames": int(add_channel_output_shape[0]),
+            "mel_bins": int(add_channel_output_shape[1]),
+            "channels": int(add_channel_output_shape[2]),
+        },
+    }
+
+    write_json(args.metadata_output, {
+        "model_name": "starter_model",
+        "model_version": STARTER_MODEL_VERSION,
+        "labels": label_order,
+        "input": {
+            "sample_rate_hz": DEFAULT_SAMPLE_RATE_HZ,
+            "window_size_samples": DEFAULT_WINDOW_SIZE_SAMPLES,
+            "hop_size_samples": DEFAULT_WINDOW_SIZE_SAMPLES // 2,
+            "expects_normalized_audio": True,
+        },
+        "artifacts": artifacts,
+        "inference": {
+            "ambient_strategy": "explicit_class",
+            "recommended_threshold": 0.55,
+        },
+        "training": {
+            "train_and_validation_share_examples": True,
+            "backbone": "mel_cnn",
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "exclude_mixed_records": bool(args.no_mixed),
+            "energy_gate_rms_threshold": 0.015,
+            "class_window_counts": kept,
+            "excluded_class_file_counts": excluded,
+            "augmented_total_windows": int(x_aug.shape[0]),
+            "mel_spectrogram": mel_spectrogram_metadata(),
+            "synthetic_ambient": {
+                "enabled": True,
+                "ratio": 0.35,
+                "noise_types": ["white", "brownian"],
+            },
+        },
+        "timestamp_utc": timestamp,
+    })
+
+    write_json(args.metrics_output, {
+        "model_name": "starter_model",
+        "model_version": STARTER_MODEL_VERSION,
+        "artifacts": artifacts,
+        "sample_count": int(x_all.shape[0]),
+        "window_count_before_augmentation": int(x_all.shape[0]),
+        "window_count_after_augmentation": int(x_aug.shape[0]),
+        "class_window_counts": kept,
+        "excluded_class_file_counts": excluded,
+        "metrics": numeric_metrics,
+        "artifact_comparison": comparison_metrics,
+        "timestamp_utc": timestamp,
+    })
 
     print("\nDone. Desktop will compute mel spectrogram in Kotlin, feed to ONNX CNN.")
     return 0

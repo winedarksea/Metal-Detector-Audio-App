@@ -26,7 +26,8 @@ class InferenceController(
         InferenceUiState(
             modelName = modelMetadata.modelName,
             modelVersion = modelMetadata.modelVersion,
-            threshold = 0.55f
+            activeAccelerator = initialClassifier.activeAccelerator,
+            threshold = modelMetadata.recommendedThreshold
         )
     )
     val uiState: StateFlow<InferenceUiState> = _uiState
@@ -117,10 +118,10 @@ class InferenceController(
 
         val oldClassifier = classifier
         modelMetadata = metadata
-        classifier = MetalClassifierInterpreter(
-            modelMetadata = metadata,
+        classifier = AndroidClassifierFactory.create(
             appContext = appContext,
-            modelAssetName = metadata.fileName ?: "starter_model.tflite"
+            modelMetadata = metadata,
+            allowFallbackModel = false,
         )
         oldClassifier.close()
 
@@ -131,6 +132,7 @@ class InferenceController(
         _uiState.value = _uiState.value.copy(
             modelName = metadata.modelName,
             modelVersion = metadata.modelVersion,
+            activeAccelerator = classifier.activeAccelerator,
             threshold = metadata.recommendedThreshold,
             droppedFrames = 0,
             averageLatencyMs = 0f,

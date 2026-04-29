@@ -41,7 +41,7 @@ object DesktopInferenceControllerFactory {
         )
 
         val classifier: AudioWindowClassifier = runCatching {
-            val onnxBytes = loadOnnxModelBytes()
+            val onnxBytes = loadOnnxModelBytes(metadata.artifacts.desktopOnnxFileName)
             DesktopOnnxClassifier(onnxBytes, metadata.labels)
         }.getOrElse { ex ->
             if (!allowFallbackModel) {
@@ -58,20 +58,22 @@ object DesktopInferenceControllerFactory {
         )
     }
 
-    private fun loadOnnxModelBytes(): ByteArray {
+    private fun loadOnnxModelBytes(onnxFileName: String?): ByteArray {
+        val resolvedFileName = onnxFileName ?: "starter_model_cnn.onnx"
+
         val classpathBytes = javaClass.classLoader
-            ?.getResourceAsStream("starter_model_cnn.onnx")
+            ?.getResourceAsStream(resolvedFileName)
             ?.readBytes()
         if (classpathBytes != null) {
             return classpathBytes
         }
 
-        val projectModelPath = Path.of(System.getProperty("user.dir"), "models", "starter_model_cnn.onnx")
+        val projectModelPath = Path.of(System.getProperty("user.dir"), "models", resolvedFileName)
         if (Files.exists(projectModelPath)) {
             return projectModelPath.inputStream().use { it.readBytes() }
         }
 
-        error("starter_model_cnn.onnx not found on classpath or in ./models/")
+        error("$resolvedFileName not found on classpath or in ./models/")
     }
 
     private fun fallbackMetadata(): ModelMetadata {

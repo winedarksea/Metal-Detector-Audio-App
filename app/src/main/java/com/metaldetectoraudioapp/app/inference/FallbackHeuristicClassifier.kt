@@ -6,6 +6,8 @@ class FallbackHeuristicClassifier(
     private val labels: List<String>
 ) : AudioWindowClassifier {
 
+    override val activeAccelerator: InferenceAccelerator = InferenceAccelerator.CPU
+
     override fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         if (samples.isEmpty()) {
             return InferenceResult(

@@ -1,6 +1,6 @@
 # Model Artifacts
 
-## Architecture (v0.3.0)
+## Architecture (v0.4.0)
 
 **waveform → STFT → mel filterbank → log → 2D CNN → softmax**
 
@@ -37,11 +37,14 @@ For maximum robustness, consider using YAMNet
 ## Rebuild command
 
 ```bash
-conda run -n gpu311 python scripts/train_starter_model.py --epochs 40 --batch-size 16
+conda run -n gpu311 python scripts/export_onnx_cnn_only.py --epochs 20 --batch-size 16
 ```
 
 ## Expected files
 
-- `starter_model.tflite` — quantized TFLite model
-- `starter_model_metadata.json` — label order, input config, training params
-- `starter_model_metrics.json` — accuracy, loss, window counts
+- `starter_model.tflite` — waveform-input TFLite model with STFT + mel baked in
+- `starter_model_cnn.tflite` — float32 CNN-only TFLite model that consumes log-mel tensors
+- `starter_model_cnn_int8.tflite` — int8 CNN-only TFLite model for Android LiteRT `NPU -> GPU -> CPU`
+- `starter_model_cnn.onnx` — CNN-only ONNX model for desktop inference
+- `starter_model_metadata.json` — label order, input config, artifact file names, accelerator input shape
+- `starter_model_metrics.json` — training accuracy/loss plus artifact parity metrics

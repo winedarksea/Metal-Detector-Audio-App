@@ -1,22 +1,33 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("org.jetbrains.compose")
-    id("com.android.library")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("com.android.kotlin.multiplatform.library")
 }
 
 kotlin {
-    androidTarget {
+    android {
+        namespace = "com.metaldetectoraudioapp.shared"
+        compileSdk = 36
+        minSdk = 28
+
         compilations.all {
-            kotlinOptions {
-                jvmTarget = "17"
+            compileTaskProvider.configure {
+                compilerOptions {
+                    jvmTarget.set(JvmTarget.JVM_17)
+                }
             }
         }
     }
 
     jvm("desktop") {
         compilations.all {
-            kotlinOptions {
-                jvmTarget = "17"
+            compileTaskProvider.configure {
+                compilerOptions {
+                    jvmTarget.set(JvmTarget.JVM_17)
+                }
             }
         }
     }
@@ -24,11 +35,11 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation(compose.runtime)
-                implementation(compose.foundation)
-                implementation(compose.material3)
-                implementation(compose.ui)
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+                implementation("org.jetbrains.compose.runtime:runtime:1.10.3")
+                implementation("org.jetbrains.compose.foundation:foundation:1.10.3")
+                implementation("org.jetbrains.compose.material3:material3:1.10.3")
+                implementation("org.jetbrains.compose.ui:ui:1.10.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
             }
         }
 
@@ -44,7 +55,7 @@ kotlin {
             dependsOn(jvmMain)
             dependencies {
                 implementation("org.tensorflow:tensorflow-lite:2.16.1")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
             }
         }
 
@@ -53,24 +64,12 @@ kotlin {
             dependencies {
                 implementation(compose.desktop.currentOs)
                 // ONNX Runtime for desktop CNN inference (mel spectrogram computed in Kotlin)
-                implementation("com.microsoft.onnxruntime:onnxruntime:1.17.0")
+                implementation("com.microsoft.onnxruntime:onnxruntime:1.20.0")
                 // Provides Dispatchers.Main on desktop JVM
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
             }
         }
     }
 }
 
-android {
-    namespace = "com.metaldetectoraudioapp.shared"
-    compileSdk = 35
 
-    defaultConfig {
-        minSdk = 28
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-}

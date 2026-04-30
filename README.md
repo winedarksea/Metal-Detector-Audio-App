@@ -11,6 +11,8 @@ For desktop use, see the commands at the bottom of the readme, needing Java inst
 ## Connection
 The easiest way to connect a phone or computer to a detector is from the audio out using a microphone attenuator cable (like [this](https://www.amazon.com/gp/product/B01GW69IQ2)) which looks like a standard audio cord but has an inline resistor because the headphone out is too strong a signal for most microphone inputs. Then a 3.5 TRRS to USB-C adapter is needed for most phones (like [this](https://www.amazon.com/Apple-USB-C-Headphone-Jack-Adapter/dp/B0D7FF5Y3X?))
 
+Questions? Opening an Issues or Discussion here on GitHub is the best place to start. Ask anything!
+
 ## What is implemented
 
 ### Inference path

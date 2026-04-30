@@ -113,8 +113,16 @@ class InferenceController(
         }
 
         // Wait for any in-flight inference to finish before closing the old classifier.
-        @Suppress("ControlFlowWithEmptyBody")
-        while (inferenceInFlight) { /* spin-wait; inference is sub-ms to complete */ }
+        // Bounded sleep-loop avoids burning CPU; inference is normally sub-ms and stop()
+        // above prevents new frames from being dispatched, so one or two iterations suffice.
+        val maxWaitMs = 300L
+        val startWaitMs = System.currentTimeMillis()
+        while (inferenceInFlight && System.currentTimeMillis() - startWaitMs < maxWaitMs) {
+            Thread.sleep(1)
+        }
+        if (inferenceInFlight) {
+            Log.w(logTag, "Inference still in-flight after ${maxWaitMs}ms during model switch; proceeding anyway")
+        }
 
         val oldClassifier = classifier
         modelMetadata = metadata

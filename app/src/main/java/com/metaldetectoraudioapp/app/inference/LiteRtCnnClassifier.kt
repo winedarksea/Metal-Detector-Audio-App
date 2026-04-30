@@ -27,18 +27,26 @@ class LiteRtCnnClassifier(
 
     override fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         val expectedInput = modelMetadata.artifacts.acceleratorInput
-        val flattenedInput = melExtractor.extractFlattenedForModel(
-            signal = samples,
-            expectedTimeFrames = expectedInput.timeFrames ?: DEFAULT_TIME_FRAMES,
-            expectedMelBins = expectedInput.melBins ?: DEFAULT_MEL_BINS,
-        )
 
+        // Timing covers the full classifier cost: feature extraction + model execution.
         val nanos = measureNanoTime {
+            val flattenedInput = melExtractor.extractFlattenedForModel(
+                signal = samples,
+                expectedTimeFrames = expectedInput.timeFrames ?: DEFAULT_TIME_FRAMES,
+                expectedMelBins = expectedInput.melBins ?: DEFAULT_MEL_BINS,
+            )
             activeModel.inputBuffers[0].writeFloat(flattenedInput)
             activeModel.compiledModel.run(activeModel.inputBuffers, activeModel.outputBuffers)
         }
 
         val scores = activeModel.outputBuffers[0].readFloat()
+        if (scores.size != modelMetadata.labels.size) {
+            throw IllegalStateException(
+                "LiteRT model output size (${scores.size}) does not match " +
+                    "label count (${modelMetadata.labels.size}). " +
+                    "Re-export the model with the current metadata labels."
+            )
+        }
         var topIndex = 0
         var topScore = Float.NEGATIVE_INFINITY
         scores.forEachIndexed { index, value ->
@@ -50,7 +58,7 @@ class LiteRtCnnClassifier(
 
         val map = buildMap {
             modelMetadata.labels.forEachIndexed { index, label ->
-                put(label, scores.getOrElse(index) { 0f })
+                put(label, scores[index])
             }
         }
 

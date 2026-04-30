@@ -77,8 +77,19 @@ class DesktopOnnxClassifier(
         val inputName = ortSession.inputNames.first()
         val results = ortSession.run(mapOf(inputName to inputTensor))
 
-        @Suppress("UNCHECKED_CAST")
-        val outputArray = (results[0].value as Array<FloatArray>)[0]
+        val rawOutput = results[0].value
+        val outputArray: FloatArray = when (rawOutput) {
+            is Array<*> -> (rawOutput[0] as? FloatArray)
+                ?: throw IllegalStateException(
+                    "ONNX output[0][0] is not FloatArray, got ${rawOutput[0]?.javaClass?.simpleName}. " +
+                        "Re-export the model with the current opset."
+                )
+            is FloatArray -> rawOutput
+            else -> throw IllegalStateException(
+                "Unexpected ONNX output type: ${rawOutput?.javaClass?.simpleName}. " +
+                    "Expected Array<FloatArray> or FloatArray."
+            )
+        }
 
         inputTensor.close()
         results.close()

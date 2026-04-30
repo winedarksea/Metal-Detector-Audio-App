@@ -46,6 +46,16 @@ object AndroidClassifierFactory {
         val waveformAssetName = modelMetadata.artifacts.waveformTfliteFileName
             ?: modelMetadata.fileName
             ?: return null
-        return waveformAssetName.removeSuffix(".tflite") + "_cnn_int8.tflite"
+        if (!waveformAssetName.endsWith(".tflite")) {
+            Log.w(
+                TAG,
+                "Cannot infer accelerator filename from '$waveformAssetName' (missing .tflite suffix). " +
+                    "Add 'accelerator_tflite' to model metadata to enable LiteRT acceleration.",
+            )
+            return null
+        }
+        val inferred = waveformAssetName.removeSuffix(".tflite") + "_cnn_int8.tflite"
+        Log.d(TAG, "No explicit acceleratorTfliteFileName in metadata; inferred '$inferred'")
+        return inferred
     }
 }

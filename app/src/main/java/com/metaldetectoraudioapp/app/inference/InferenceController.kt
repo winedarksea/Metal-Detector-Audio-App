@@ -118,7 +118,12 @@ class InferenceController(
         val maxWaitMs = 300L
         val startWaitMs = System.currentTimeMillis()
         while (inferenceInFlight && System.currentTimeMillis() - startWaitMs < maxWaitMs) {
-            Thread.sleep(1)
+            try {
+                Thread.sleep(1)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                break
+            }
         }
         if (inferenceInFlight) {
             Log.w(logTag, "Inference still in-flight after ${maxWaitMs}ms during model switch; proceeding anyway")

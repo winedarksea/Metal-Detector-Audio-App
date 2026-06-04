@@ -173,34 +173,67 @@ def convert_keras_model_to_tflite(
 ) -> bytes:
     import tensorflow as tf
 
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    def build_concrete_function() -> Any:
+        input_signature = [
+            tf.TensorSpec(
+                shape=tuple(dim if dim is not None else None for dim in model_input.shape),
+                dtype=model_input.dtype,
+                name=model_input.name.split(":")[0],
+            )
+            for model_input in model.inputs
+        ]
 
-    if optimizations:
-        resolved_optimizations = []
-        for optimization in optimizations:
-            if optimization == "default":
-                resolved_optimizations.append(tf.lite.Optimize.DEFAULT)
-            else:
-                resolved_optimizations.append(optimization)
-        converter.optimizations = resolved_optimizations
+        @tf.function(input_signature=input_signature)
+        def serving_default(*inputs: Any) -> Any:
+            return model(*inputs, training=False)
 
-    if representative_inputs is not None:
-        representative_inputs = representative_inputs.astype("float32", copy=False)
+        return serving_default.get_concrete_function()
 
-        def representative_dataset():
-            for sample in representative_inputs:
-                yield [sample[None, ...]]
+    def configure_converter(converter: Any) -> None:
+        if optimizations:
+            resolved_optimizations = []
+            for optimization in optimizations:
+                if optimization == "default":
+                    resolved_optimizations.append(tf.lite.Optimize.DEFAULT)
+                else:
+                    resolved_optimizations.append(optimization)
+            converter.optimizations = resolved_optimizations
 
-        converter.representative_dataset = representative_dataset
+        if representative_inputs is not None:
+            representative_inputs_float32 = representative_inputs.astype("float32", copy=False)
 
-    if supported_ops:
-        converter.target_spec.supported_ops = list(supported_ops)
-    if inference_input_type is not None:
-        converter.inference_input_type = inference_input_type
-    if inference_output_type is not None:
-        converter.inference_output_type = inference_output_type
+            def representative_dataset():
+                for sample in representative_inputs_float32:
+                    yield [sample[None, ...]]
 
-    return converter.convert()
+            converter.representative_dataset = representative_dataset
+
+        if supported_ops:
+            converter.target_spec.supported_ops = list(supported_ops)
+        if inference_input_type is not None:
+            converter.inference_input_type = inference_input_type
+        if inference_output_type is not None:
+            converter.inference_output_type = inference_output_type
+
+    try:
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        configure_converter(converter)
+        return converter.convert()
+    except TypeError as error:
+        # Keras 3 + some TensorFlow builds can fail in from_keras_model() with:
+        # TypeError: 'NoneType' object is not callable (keras call context).
+        # Fallback to a traced concrete function, which avoids that Keras call path
+        # without going through SavedModel export.
+        if "NoneType" not in str(error) or "callable" not in str(error):
+            raise
+
+        concrete_function = build_concrete_function()
+        converter = tf.lite.TFLiteConverter.from_concrete_functions(
+            [concrete_function],
+            model,
+        )
+        configure_converter(converter)
+        return converter.convert()
 
 
 def run_tflite_predictions(

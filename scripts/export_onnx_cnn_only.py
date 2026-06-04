@@ -80,6 +80,38 @@ def summarize_prediction_alignment(reference_predictions, candidate_predictions,
     }
 
 
+def load_onnx_export_dependencies():
+    try:
+        import onnx
+        import onnxruntime as ort
+        import tf2onnx
+    except ModuleNotFoundError as error:
+        raise ModuleNotFoundError(
+            "ONNX export requires tf2onnx, onnx, and onnxruntime in the active "
+            "Python environment. Install them before running this script."
+        ) from error
+
+    return tf2onnx, onnx, ort
+
+
+def build_onnx_export_function(cnn_model, input_shape):
+    import tensorflow as tf
+
+    input_signature = [
+        tf.TensorSpec(
+            shape=(None,) + input_shape,
+            dtype=tf.float32,
+            name="log_mel_spectrogram",
+        )
+    ]
+
+    @tf.function(input_signature=input_signature)
+    def serving_default(log_mel_spectrogram):
+        return {"class_probs": cnn_model(log_mel_spectrogram, training=False)}
+
+    return serving_default, input_signature
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -132,6 +164,8 @@ def main() -> int:
 
     import numpy as np
     import tensorflow as tf
+
+    tf2onnx, onnx, ort = load_onnx_export_dependencies()
 
     labels_by_id = load_label_rows(
         args.labels_csv,
@@ -244,29 +278,19 @@ def main() -> int:
     int8_tflite_pred = run_tflite_predictions(accelerator_int8_bytes, mel_inputs)
 
     # ---- Export CNN-only model to ONNX ----
-    import tf2onnx
-    import onnx
-
-    # Save as SavedModel first, then convert
-    saved_model_dir = str(args.onnx_output.parent / "cnn_saved_model")
-    cnn_model.export(saved_model_dir)
-
-    onnx_model, _ = tf2onnx.convert.from_keras(
+    onnx_export_function, onnx_input_signature = build_onnx_export_function(
         cnn_model,
-        input_signature=[
-            tf.TensorSpec(
-                shape=(None,) + add_channel_output_shape,
-                dtype=tf.float32,
-                name="log_mel_spectrogram",
-            )
-        ],
+        add_channel_output_shape,
+    )
+    onnx_model, _ = tf2onnx.convert.from_function(
+        onnx_export_function,
+        input_signature=onnx_input_signature,
         opset=13,
     )
     onnx.save(onnx_model, str(args.onnx_output))
     print(f"Wrote ONNX: {args.onnx_output}")
 
     # Quick ONNX validation
-    import onnxruntime as ort
     sess = ort.InferenceSession(str(args.onnx_output))
     input_name = sess.get_inputs()[0].name
     onnx_pred = sess.run(None, {input_name: mel_inputs.astype(np.float32)})[0]

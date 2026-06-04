@@ -1,35 +1,63 @@
 {
   "model_name": "starter_model",
-  "model_version": "0.3.0",
-  "sample_count": 62,
-  "window_count_before_augmentation": 2868,
-  "window_count_after_augmentation": 8604,
+  "model_version": "0.4.0",
+  "artifacts": {
+    "waveform_tflite": "starter_model.tflite",
+    "accelerator_float_tflite": "starter_model_cnn.tflite",
+    "accelerator_tflite": "starter_model_cnn_int8.tflite",
+    "desktop_onnx": "starter_model_cnn.onnx",
+    "accelerator_input": {
+      "kind": "log_mel_spectrogram",
+      "time_frames": 61,
+      "mel_bins": 40,
+      "channels": 1
+    }
+  },
+  "sample_count": 2876,
+  "window_count_before_augmentation": 2876,
+  "window_count_after_augmentation": 8628,
   "class_window_counts": {
     "TARGET": 1557,
     "JUNK": 550,
-    "AMBIENT": 761
-  },
-  "skipped_silent_windows": {
-    "TARGET": 0,
-    "JUNK": 0,
-    "AMBIENT": 0
+    "AMBIENT": 769
   },
   "excluded_class_file_counts": {},
-  "ambient_window_count_from_files": 24,
-  "synthetic_ambient_window_count": 737,
-  "recommended_threshold": 0.55,
-  "threshold_calibration_metrics": {
-    "strategy": "explicit_ambient_class",
-    "ambient_windows_from_files": 24,
-    "synthetic_ambient_window_count": 737
-  },
   "metrics": {
-    "loss": 0.2949225902557373,
-    "accuracy": 0.8688982129096985,
-    "train_loss": 0.30892205238342285,
-    "train_accuracy": 0.8592514991760254,
-    "val_loss": 0.29492273926734924,
-    "val_accuracy": 0.8688982129096985
+    "loss": 0.45991262793540955,
+    "accuracy": 0.7541724443435669,
+    "train_loss": 0.31795138120651245,
+    "train_accuracy": 0.8482846617698669,
+    "val_loss": 0.45991250872612,
+    "val_accuracy": 0.7541724443435669
   },
-  "timestamp_utc": "2026-03-04T03:06:18.365722+00:00"
+  "artifact_comparison": {
+    "full_model": {
+      "top1_accuracy": 0.7541724617524339
+    },
+    "cnn_keras": {
+      "top1_accuracy": 0.7541724617524339,
+      "top1_agreement_vs_reference": 1.0,
+      "max_abs_diff_vs_reference": 0.0,
+      "mean_abs_diff_vs_reference": 0.0
+    },
+    "cnn_tflite_float": {
+      "top1_accuracy": 0.8247566063977747,
+      "top1_agreement_vs_reference": 0.7566063977746871,
+      "max_abs_diff_vs_reference": 0.4291568696498871,
+      "mean_abs_diff_vs_reference": 0.07314487546682358
+    },
+    "cnn_tflite_int8": {
+      "top1_accuracy": 0.8178025034770514,
+      "top1_agreement_vs_reference": 0.7190542420027817,
+      "max_abs_diff_vs_reference": 0.49011701345443726,
+      "mean_abs_diff_vs_reference": 0.09156490117311478
+    },
+    "cnn_onnx": {
+      "top1_accuracy": 0.8247566063977747,
+      "top1_agreement_vs_reference": 0.7566063977746871,
+      "max_abs_diff_vs_reference": 0.4291567802429199,
+      "mean_abs_diff_vs_reference": 0.07314487546682358
+    }
+  },
+  "timestamp_utc": "2026-04-30T04:43:34.321383+00:00"
 }

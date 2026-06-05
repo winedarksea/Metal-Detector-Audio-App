@@ -1,5 +1,10 @@
 package com.metaldetectoraudioapp.desktop
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -89,10 +94,15 @@ fun main() = application {
                 bottomBar = {
                     NavigationBar {
                         destinations.forEach { destination ->
+                            val icon = when (destination) {
+                                DesktopDestination.INFERENCE -> Icons.Default.GraphicEq
+                                DesktopDestination.RECORD -> Icons.Default.Mic
+                                DesktopDestination.REVIEW -> Icons.Default.List
+                            }
                             NavigationBarItem(
                                 selected = selectedDestination == destination,
                                 onClick = { selectedDestination = destination },
-                                icon = {},
+                                icon = { Icon(icon, contentDescription = destination.label) },
                                 label = { Text(destination.label) }
                             )
                         }

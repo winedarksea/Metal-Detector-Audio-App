@@ -3,6 +3,11 @@ package com.metaldetectoraudioapp.web
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -88,10 +93,15 @@ fun main() {
                 bottomBar = {
                     NavigationBar {
                         WebDestination.entries.forEach { dest ->
+                            val icon = when (dest) {
+                                WebDestination.DETECT -> Icons.Default.GraphicEq
+                                WebDestination.RECORD -> Icons.Default.Mic
+                                WebDestination.REVIEW -> Icons.Default.List
+                            }
                             NavigationBarItem(
                                 selected = selected == dest,
                                 onClick = { selected = dest },
-                                icon = {},
+                                icon = { Icon(icon, contentDescription = dest.label) },
                                 label = { Text(dest.label) }
                             )
                         }

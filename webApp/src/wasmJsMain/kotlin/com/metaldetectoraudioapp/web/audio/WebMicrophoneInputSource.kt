@@ -71,6 +71,8 @@ private fun startInfMicJs() {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             window.__mdInfCtx = ctx;
             window.__mdInfStream = stream;
+            // iOS Safari starts the context suspended; resume it within this user gesture.
+            if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
             var src = ctx.createMediaStreamSource(stream);
 
             function sendChunk(channelData) {

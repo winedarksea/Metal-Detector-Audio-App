@@ -49,11 +49,14 @@ jobs:
           cp models/starter_model_cnn.onnx        dist/app/
           cp models/starter_model_metadata.json   dist/app/
 
-          # Download onnxruntime-web (single-threaded, vendored to avoid CDN dependency at runtime)
+          # Download onnxruntime-web into dist/ so it is served same-origin from /app/
+          # at runtime (no CDN dependency once deployed). --retry guards against transient
+          # CDN hiccups so the deploy doesn't fail on a single blip.
           ORT_VERSION=1.18.0
-          curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort.min.js"         -o dist/app/ort.min.js
-          curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort-wasm.wasm"      -o dist/app/ort-wasm.wasm
-          curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort-wasm-simd.wasm" -o dist/app/ort-wasm-simd.wasm
+          for f in ort.min.js ort-wasm.wasm ort-wasm-simd.wasm; do
+            curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
+              "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/$f" -o "dist/app/$f"
+          done
 
           # Root _headers (merge app-level headers)
           cat web/app-extra/_headers >> dist/_headers 2>/dev/null || true

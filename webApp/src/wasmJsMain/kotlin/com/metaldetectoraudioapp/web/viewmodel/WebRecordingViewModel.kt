@@ -261,6 +261,8 @@ private fun startWebCapture() {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             window.__recCtx = ctx;
             window.__recStream = stream;
+            // iOS Safari starts the context suspended; resume it within this user gesture.
+            if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
             var src = ctx.createMediaStreamSource(stream);
 
             function sendChunk(channelData) {

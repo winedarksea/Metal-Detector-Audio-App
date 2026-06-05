@@ -27,7 +27,7 @@ class WebMicrophoneInputSource(
         if (started) return
         started = true
         globalInfSource = this
-        startInfMicJs()
+        startInfMicJs { ctxRate, count -> onInfChunkGlobal(ctxRate, count) }
     }
 
     override fun readPcm16(targetBuffer: ShortArray): Int {
@@ -65,9 +65,10 @@ fun onInfChunkGlobal(ctxRate: Int, count: Int) {
 
 private fun readGlobalInfBufAt(i: Int): Float = js("window.__mdInfBuf[i]")
 
-private fun startInfMicJs() {
+private fun startInfMicJs(onChunk: (Int, Int) -> Unit) {
     js("""
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function(stream) {
+        var __mic = window.__micDeviceId ? { deviceId: { exact: window.__micDeviceId } } : true;
+        navigator.mediaDevices.getUserMedia({ audio: __mic, video: false }).then(function(stream) {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             window.__mdInfCtx = ctx;
             window.__mdInfStream = stream;
@@ -77,7 +78,7 @@ private fun startInfMicJs() {
 
             function sendChunk(channelData) {
                 window.__mdInfBuf = channelData;
-                onInfChunkGlobal(Math.round(ctx.sampleRate), channelData.length);
+                onChunk(Math.round(ctx.sampleRate), channelData.length);
             }
 
             if (ctx.audioWorklet) {

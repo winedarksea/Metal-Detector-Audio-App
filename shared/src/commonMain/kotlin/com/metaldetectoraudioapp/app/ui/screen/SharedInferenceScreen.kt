@@ -76,9 +76,10 @@ fun SharedInferenceScreen(
     onPassthroughChange: (Boolean) -> Unit,
     onModelOptionSelected: (String) -> Unit,
     contentPadding: PaddingValues = PaddingValues(16.dp),
+    modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = Modifier.padding(contentPadding),
+        modifier = modifier.padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {

@@ -55,7 +55,7 @@ class WebRecordingViewModel(
             pendingDurationMs = 0,
         )
         startDurationTicker()
-        startWebCapture()
+        startWebCapture { ctxRate, count -> onRecChunkGlobal(ctxRate, count) }
     }
 
     internal fun onRecChunk(ctxRate: Int, count: Int) {
@@ -255,9 +255,10 @@ private fun readGlobalRecBuf(count: Int): FloatArray {
 
 private fun readRecBufAt(i: Int): Float = js("window.__recBuf[i]")
 
-private fun startWebCapture() {
+private fun startWebCapture(onChunk: (Int, Int) -> Unit) {
     js("""
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function(stream) {
+        var __mic = window.__micDeviceId ? { deviceId: { exact: window.__micDeviceId } } : true;
+        navigator.mediaDevices.getUserMedia({ audio: __mic, video: false }).then(function(stream) {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             window.__recCtx = ctx;
             window.__recStream = stream;
@@ -267,7 +268,7 @@ private fun startWebCapture() {
 
             function sendChunk(channelData) {
                 window.__recBuf = channelData;
-                onRecChunkGlobal(Math.round(ctx.sampleRate), channelData.length);
+                onChunk(Math.round(ctx.sampleRate), channelData.length);
             }
 
             if (ctx.audioWorklet) {

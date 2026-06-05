@@ -1,9 +1,15 @@
 package com.metaldetectoraudioapp.web
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -25,6 +31,7 @@ import com.metaldetectoraudioapp.web.inference.WebInferenceControllerFactory
 import com.metaldetectoraudioapp.web.platform.WebFileDownloader
 import com.metaldetectoraudioapp.web.platform.WebFilePicker
 import com.metaldetectoraudioapp.web.storage.IndexedDbDatasetStore
+import com.metaldetectoraudioapp.web.ui.screen.MicSelector
 import com.metaldetectoraudioapp.web.ui.screen.WebRecordingScreen
 import com.metaldetectoraudioapp.web.ui.screen.WebReviewScreen
 import com.metaldetectoraudioapp.web.viewmodel.WebRecordingViewModel
@@ -100,19 +107,28 @@ fun main() {
                             val passthrough by vm.passthroughEnabled.collectAsState()
                             val modelOptions by vm.availableModelOptions.collectAsState()
                             val selectedModelId by vm.selectedModelOptionId.collectAsState()
-                            SharedInferenceScreen(
-                                uiState = uiState,
-                                ribbon = vm.ribbon,
-                                passthroughEnabled = passthrough,
-                                availableModelOptions = modelOptions,
-                                selectedModelOptionId = selectedModelId,
-                                onStart = vm::start,
-                                onStop = vm::stop,
-                                onThresholdChange = vm::updateThreshold,
-                                onPassthroughChange = vm::setPassthroughEnabled,
-                                onModelOptionSelected = vm::selectModelOption,
-                                contentPadding = padding,
-                            )
+                            Column(modifier = Modifier.padding(padding)) {
+                                MicSelector(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .padding(top = 16.dp)
+                                )
+                                SharedInferenceScreen(
+                                    uiState = uiState,
+                                    ribbon = vm.ribbon,
+                                    passthroughEnabled = passthrough,
+                                    availableModelOptions = modelOptions,
+                                    selectedModelOptionId = selectedModelId,
+                                    onStart = vm::start,
+                                    onStop = vm::stop,
+                                    onThresholdChange = vm::updateThreshold,
+                                    onPassthroughChange = vm::setPassthroughEnabled,
+                                    onModelOptionSelected = vm::selectModelOption,
+                                    contentPadding = PaddingValues(16.dp),
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         } else {
                             val err = inferenceError
                             if (err != null) {

@@ -14,7 +14,6 @@ data class InferenceUiState(
     val droppedFrames: Int = 0,
     val modelVersion: String = "",
     val modelName: String = "",
-    val waveformPreviewPoints: List<Float> = emptyList(),
 
     /**
      * Rolling list of recent non-AMBIENT detections (newest last).

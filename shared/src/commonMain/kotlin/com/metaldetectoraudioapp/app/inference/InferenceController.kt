@@ -2,6 +2,8 @@ package com.metaldetectoraudioapp.app.inference
 
 import com.metaldetectoraudioapp.app.audio.pipeline.AudioPipelineFrame
 import com.metaldetectoraudioapp.app.audio.pipeline.FrameStreamingPipeline
+import com.metaldetectoraudioapp.app.audio.pipeline.MelSpectrogramFeatureExtractor
+import com.metaldetectoraudioapp.app.audio.ribbon.RibbonAnalyzer
 import com.metaldetectoraudioapp.app.util.Clocks
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +33,10 @@ class InferenceController(
     )
     val uiState: StateFlow<InferenceUiState> = _uiState
 
+    /** Tone-quality ribbon visual state, fed from the same log-mel the model consumes. */
+    val ribbon = RibbonAnalyzer()
+    private val melExtractor = MelSpectrogramFeatureExtractor()
+
     private var signalMonitorJob: Job? = null
 
     @Volatile
@@ -52,6 +58,7 @@ class InferenceController(
 
     fun start() {
         if (_uiState.value.isRunning) return
+        ribbon.reset()
         _uiState.value = _uiState.value.copy(isRunning = true)
         signalMonitorJob = scope.launch {
             audioPipeline.signalStatusFlow.collectLatest { status ->
@@ -76,14 +83,10 @@ class InferenceController(
 
     private fun handleFrame(frame: AudioPipelineFrame) {
         if (!_uiState.value.isRunning) return
-        _uiState.value = _uiState.value.copy(
-            waveformPreviewPoints = frame.samples
-                .asSequence()
-                .chunked(80)
-                .map { chunk -> chunk.average().toFloat() }
-                .take(120)
-                .toList()
-        )
+
+        // Update the tone-quality ribbon every frame — even when an inference is dropped below —
+        // so the visual keeps scrolling. Cheap: reuses the same STFT/mel the model consumes.
+        ribbon.process(melExtractor.extractLogMelSpectrogram(frame.samples))
 
         if (inferenceInFlight) {
             _uiState.value = _uiState.value.copy(droppedFrames = _uiState.value.droppedFrames + 1)

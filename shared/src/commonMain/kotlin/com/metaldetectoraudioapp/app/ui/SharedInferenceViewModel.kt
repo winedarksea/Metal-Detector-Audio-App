@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.app.ui
 
+import com.metaldetectoraudioapp.app.audio.ribbon.RibbonAnalyzer
 import com.metaldetectoraudioapp.app.inference.InferenceController
 import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
@@ -28,6 +29,9 @@ class SharedInferenceViewModel(
 
     private val _uiState = MutableStateFlow(controller.uiState.value)
     val uiState: StateFlow<InferenceUiState> = _uiState.asStateFlow()
+
+    /** Tone-quality ribbon visual state, read directly by the ribbon renderer. */
+    val ribbon: RibbonAnalyzer = controller.ribbon
 
     private val _passthroughEnabled = MutableStateFlow(false)
     val passthroughEnabled: StateFlow<Boolean> = _passthroughEnabled.asStateFlow()

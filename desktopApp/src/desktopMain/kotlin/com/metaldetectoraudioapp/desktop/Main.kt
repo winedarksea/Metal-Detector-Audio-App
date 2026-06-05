@@ -103,6 +103,7 @@ fun main() = application {
                     DesktopDestination.INFERENCE -> {
                         SharedInferenceScreen(
                             uiState = inferenceUiState,
+                            ribbon = inferenceViewModel.ribbon,
                             passthroughEnabled = passthroughEnabled,
                             availableModelOptions = availableModelOptions,
                             selectedModelOptionId = selectedModelOptionId,

@@ -26,6 +26,10 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
     private val _uiState: MutableStateFlow<InferenceUiState>
     val uiState: StateFlow<InferenceUiState>
 
+    /** Tone-quality ribbon visual state, read directly by the ribbon renderer. */
+    val ribbon: com.metaldetectoraudioapp.app.audio.ribbon.RibbonAnalyzer
+        get() = controller.ribbon
+
     private val _passthroughEnabled = MutableStateFlow(false)
     val passthroughEnabled: StateFlow<Boolean> = _passthroughEnabled.asStateFlow()
 

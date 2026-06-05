@@ -31,11 +31,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.metaldetectoraudioapp.app.audio.ribbon.RibbonAnalyzer
 import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
@@ -65,6 +66,7 @@ private val StickyBannerGreen = Color(0xFF1B5E20)
 @Composable
 fun SharedInferenceScreen(
     uiState: InferenceUiState,
+    ribbon: RibbonAnalyzer,
     passthroughEnabled: Boolean,
     availableModelOptions: List<InferenceModelOption>,
     selectedModelOptionId: String,
@@ -102,21 +104,38 @@ fun SharedInferenceScreen(
             }
         }
 
+        // Live view: RMS level, the tone-quality ribbon, and the current prediction together.
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("Connection Check", style = MaterialTheme.typography.titleMedium)
                     Text("RMS Level")
                     LinearProgressIndicator(
                         progress = { uiState.signalStatus.rmsLevel.coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("Waveform")
-                    WaveformCanvas(waveformPoints = uiState.waveformPreviewPoints)
+                    RibbonCanvas(
+                        analyzer = ribbon,
+                        isRunning = uiState.isRunning,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                    PredictionContent(uiState = uiState)
+                }
+            }
+        }
 
+        // Settings: signal status, passthrough, model selection.
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -150,8 +169,6 @@ fun SharedInferenceScreen(
                 }
             }
         }
-
-        item { PredictionCard(uiState = uiState) }
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -218,47 +235,26 @@ private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
 }
 
 @Composable
-private fun WaveformCanvas(waveformPoints: List<Float>) {
-    val lineColor = MaterialTheme.colorScheme.primary
-    Canvas(modifier = Modifier.fillMaxWidth().height(70.dp)) {
-        if (waveformPoints.isEmpty()) return@Canvas
-        val midY = size.height / 2f
-        val path = Path()
-        waveformPoints.forEachIndexed { index, value ->
-            val x = index.toFloat() / (waveformPoints.lastIndex.coerceAtLeast(1)) * size.width
-            val y = midY - value.coerceIn(-1f, 1f) * midY
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawPath(path = path, color = lineColor)
-    }
-}
-
-@Composable
-private fun PredictionCard(uiState: InferenceUiState) {
+private fun PredictionContent(uiState: InferenceUiState) {
     val color = when (uiState.topLabel.uppercase()) {
         "TARGET" -> TargetGreen
         "JUNK" -> JunkRed
         else -> AmbientGray
     }
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Current Prediction", style = MaterialTheme.typography.titleMedium)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Current Prediction", style = MaterialTheme.typography.titleMedium)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Canvas(modifier = Modifier.size(14.dp)) { drawCircle(color = color) }
-                Text(uiState.topLabel)
-                Text(uiState.confidence.fmt2d())
-            }
-            LinearProgressIndicator(
-                progress = { uiState.confidence.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().background(color.copy(alpha = 0.15f))
-            )
+            Canvas(modifier = Modifier.size(14.dp)) { drawCircle(color = color) }
+            Text(uiState.topLabel)
+            Text(uiState.confidence.fmt2d())
         }
+        LinearProgressIndicator(
+            progress = { uiState.confidence.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().background(color.copy(alpha = 0.15f))
+        )
     }
 }
 

@@ -2,8 +2,10 @@ package com.metaldetectoraudioapp.app.inference
 
 import android.media.AudioDeviceInfo
 import android.util.Log
+import com.metaldetectoraudioapp.app.audio.pipeline.AndroidMelSpectrogramFeatureExtractor
 import com.metaldetectoraudioapp.app.audio.pipeline.AudioPipelineFrame
 import com.metaldetectoraudioapp.app.audio.pipeline.FrameStreamingPipeline
+import com.metaldetectoraudioapp.app.audio.ribbon.RibbonAnalyzer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,6 +33,10 @@ class InferenceController(
         )
     )
     val uiState: StateFlow<InferenceUiState> = _uiState
+
+    /** Tone-quality ribbon visual state, fed from the same log-mel the model consumes. */
+    val ribbon = RibbonAnalyzer()
+    private val melExtractor = AndroidMelSpectrogramFeatureExtractor()
 
     private var signalMonitorJob: Job? = null
 
@@ -67,6 +73,7 @@ class InferenceController(
             return
         }
 
+        ribbon.reset()
         _uiState.value = _uiState.value.copy(isRunning = true)
         signalMonitorJob = scope.launch {
             audioPipeline.signalStatusFlow.collectLatest { status ->
@@ -165,27 +172,9 @@ class InferenceController(
             return
         }
 
-        // Optimization: Manual downsampling to avoid GC pressure from Sequence/chunked/map
-        // inside the high-frequency audio callback.
-        val rawSamples = frame.samples
-        val previewSize = 120
-        // Calculate chunk size dynamically to fit the actual frame size
-        val chunkSize = (rawSamples.size / previewSize).coerceAtLeast(1)
-        val newPoints = ArrayList<Float>(previewSize)
-
-        for (i in 0 until previewSize) {
-            val offset = i * chunkSize
-            if (offset + chunkSize > rawSamples.size) break
-            var sum = 0f
-            for (j in 0 until chunkSize) {
-                sum += rawSamples[offset + j]
-            }
-            newPoints.add(sum / chunkSize)
-        }
-
-        _uiState.value = _uiState.value.copy(
-            waveformPreviewPoints = newPoints
-        )
+        // Update the tone-quality ribbon every frame — even when an inference is dropped below —
+        // so the visual keeps scrolling. Cheap: reuses the same STFT/mel the model consumes.
+        ribbon.process(melExtractor.extractLogMelSpectrogram(frame.samples))
 
         if (inferenceInFlight) {
             _uiState.value = _uiState.value.copy(droppedFrames = _uiState.value.droppedFrames + 1)

@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
@@ -115,18 +116,32 @@ fun InferenceScreen(
             }
         }
 
+        // Live view: RMS level, the tone-quality ribbon, and the current prediction together.
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Connection Check", style = MaterialTheme.typography.titleMedium)
                     Text("RMS Level")
                     LinearProgressIndicator(
                         progress = { uiState.signalStatus.rmsLevel.coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("Waveform")
-                    WaveformCanvas(waveformPoints = uiState.waveformPreviewPoints)
+                    RibbonCanvas(
+                        analyzer = viewModel.ribbon,
+                        isRunning = uiState.isRunning,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                    PredictionContent(uiState = uiState)
+                }
+            }
+        }
 
+        // Settings: signal status, passthrough, model + device selection.
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = uiState.signalStatus.signalPresent,
@@ -172,10 +187,6 @@ fun InferenceScreen(
                     }
                 }
             }
-        }
-
-        item {
-            PredictionCard(uiState = uiState)
         }
 
         item {
@@ -261,6 +272,7 @@ private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
     }
 }
 
+/** Simple amplitude waveform, still used by the recording screen. */
 @Composable
 internal fun WaveformCanvas(waveformPoints: List<Float>) {
     val lineColor = MaterialTheme.colorScheme.primary
@@ -282,30 +294,28 @@ internal fun WaveformCanvas(waveformPoints: List<Float>) {
 }
 
 @Composable
-private fun PredictionCard(uiState: InferenceUiState) {
+private fun PredictionContent(uiState: InferenceUiState) {
     val color = when (uiState.topLabel.uppercase()) {
         "TARGET" -> TargetGreen
         "JUNK" -> JunkRed
         else -> AmbientGray
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Current Prediction", style = MaterialTheme.typography.titleMedium)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Canvas(modifier = Modifier.size(14.dp)) {
-                    drawCircle(color = color)
-                }
-                Text(uiState.topLabel)
-                Text("${"%.2f".format(uiState.confidence)}")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Current Prediction", style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Canvas(modifier = Modifier.size(14.dp)) {
+                drawCircle(color = color)
             }
-            LinearProgressIndicator(
-                progress = { uiState.confidence.coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(color.copy(alpha = 0.15f))
-            )
+            Text(uiState.topLabel)
+            Text("${"%.2f".format(uiState.confidence)}")
         }
+        LinearProgressIndicator(
+            progress = { uiState.confidence.coerceIn(0f, 1f) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(color.copy(alpha = 0.15f))
+        )
     }
 }
 

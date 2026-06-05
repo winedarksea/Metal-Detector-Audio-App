@@ -102,6 +102,7 @@ fun main() {
                             val selectedModelId by vm.selectedModelOptionId.collectAsState()
                             SharedInferenceScreen(
                                 uiState = uiState,
+                                ribbon = vm.ribbon,
                                 passthroughEnabled = passthrough,
                                 availableModelOptions = modelOptions,
                                 selectedModelOptionId = selectedModelId,

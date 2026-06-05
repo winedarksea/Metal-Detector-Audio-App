@@ -57,11 +57,7 @@ import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
 import com.metaldetectoraudioapp.app.ui.InferenceViewModel
-
-private val TargetGreen = Color(0xFF2E7D32)
-private val JunkRed = Color(0xFFC62828)
-private val AmbientGray = Color(0xFF616161)
-private val StickyBannerGreen = Color(0xFF1B5E20)
+import com.metaldetectoraudioapp.app.ui.theme.DetectionColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,7 +83,7 @@ fun InferenceScreen(
                 Button(
                     onClick = viewModel::stop,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = JunkRed)
+                    colors = ButtonDefaults.buttonColors(containerColor = DetectionColors.Junk)
                 ) {
                     Icon(Icons.Default.Stop, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
@@ -97,7 +93,7 @@ fun InferenceScreen(
                 Button(
                     onClick = viewModel::start,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = TargetGreen)
+                    colors = ButtonDefaults.buttonColors(containerColor = DetectionColors.Target)
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
@@ -239,7 +235,7 @@ fun InferenceScreen(
 /** Prominent green banner that stays visible for several seconds after a TARGET detection. */
 @Composable
 private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
-    val bannerColor by animateColorAsState(targetValue = StickyBannerGreen, label = "banner")
+    val bannerColor by animateColorAsState(targetValue = DetectionColors.StickyBanner, label = "banner")
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -296,9 +292,9 @@ internal fun WaveformCanvas(waveformPoints: List<Float>) {
 @Composable
 private fun PredictionContent(uiState: InferenceUiState) {
     val color = when (uiState.topLabel.uppercase()) {
-        "TARGET" -> TargetGreen
-        "JUNK" -> JunkRed
-        else -> AmbientGray
+        "TARGET" -> DetectionColors.Target
+        "JUNK" -> DetectionColors.Junk
+        else -> DetectionColors.Ambient
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -322,9 +318,9 @@ private fun PredictionContent(uiState: InferenceUiState) {
 @Composable
 private fun AcceleratorBadge(accelerator: InferenceAccelerator) {
     val badgeColor = when (accelerator) {
-        InferenceAccelerator.CPU -> AmbientGray
-        InferenceAccelerator.GPU -> Color(0xFF1565C0)
-        InferenceAccelerator.NPU -> TargetGreen
+        InferenceAccelerator.CPU -> DetectionColors.Ambient
+        InferenceAccelerator.GPU -> DetectionColors.AcceleratorGpu
+        InferenceAccelerator.NPU -> DetectionColors.Target
         InferenceAccelerator.UNKNOWN -> MaterialTheme.colorScheme.outline
     }
 
@@ -360,7 +356,7 @@ private fun RecentDetectionsCard(detections: List<RecentDetection>) {
 
             // Show newest first (reversed).
             detections.asReversed().forEach { det ->
-                val dotColor = if (det.label == "TARGET") TargetGreen else JunkRed
+                val dotColor = if (det.label == "TARGET") DetectionColors.Target else DetectionColors.Junk
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

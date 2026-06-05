@@ -47,7 +47,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -55,8 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metaldetectoraudioapp.app.ui.RecordingViewModel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
-
-private val RecordingRed = Color(0xFFC62828)
+import com.metaldetectoraudioapp.app.ui.theme.DetectionColors
 
 private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
@@ -136,7 +134,7 @@ fun RecordingScreen(
                         Button(
                             onClick = viewModel::startRecording,
                             enabled = !uiState.isRecording,
-                            colors = ButtonDefaults.buttonColors(containerColor = RecordingRed)
+                            colors = ButtonDefaults.buttonColors(containerColor = DetectionColors.Recording)
                         ) {
                             Icon(Icons.Default.Mic, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
@@ -173,8 +171,8 @@ fun RecordingScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text("●", color = RecordingRed)
-                            Text("RECORDING", color = RecordingRed, fontWeight = FontWeight.Bold)
+                            Text("●", color = DetectionColors.Recording)
+                            Text("RECORDING", color = DetectionColors.Recording, fontWeight = FontWeight.Bold)
                         }
                     }
                     if (uiState.pendingAudioFile != null && !uiState.isRecording) {

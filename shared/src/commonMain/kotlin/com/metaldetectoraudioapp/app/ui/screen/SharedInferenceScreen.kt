@@ -40,6 +40,7 @@ import com.metaldetectoraudioapp.app.audio.ribbon.RibbonAnalyzer
 import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
+import com.metaldetectoraudioapp.app.ui.theme.DetectionColors
 
 private fun Float.fmt2d(): String {
     val i = (this * 100).toLong()
@@ -52,11 +53,6 @@ private fun Float.fmt1d(): String {
 }
 
 private fun Float.fmt0d(): String = toLong().toString()
-
-private val TargetGreen = Color(0xFF2E7D32)
-private val JunkRed = Color(0xFFC62828)
-private val AmbientGray = Color(0xFF616161)
-private val StickyBannerGreen = Color(0xFF1B5E20)
 
 /**
  * Shared inference screen accepting state + callback lambdas.
@@ -210,7 +206,7 @@ fun SharedInferenceScreen(
 
 @Composable
 private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
-    val bannerColor by animateColorAsState(targetValue = StickyBannerGreen, label = "banner")
+    val bannerColor by animateColorAsState(targetValue = DetectionColors.StickyBanner, label = "banner")
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -238,9 +234,9 @@ private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
 @Composable
 private fun PredictionContent(uiState: InferenceUiState) {
     val color = when (uiState.topLabel.uppercase()) {
-        "TARGET" -> TargetGreen
-        "JUNK" -> JunkRed
-        else -> AmbientGray
+        "TARGET" -> DetectionColors.Target
+        "JUNK" -> DetectionColors.Junk
+        else -> DetectionColors.Ambient
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Current Prediction", style = MaterialTheme.typography.titleMedium)
@@ -268,7 +264,7 @@ private fun RecentDetectionsCard(detections: List<RecentDetection>) {
         ) {
             Text("Recent Detections (last 30 s)", style = MaterialTheme.typography.titleMedium)
             detections.asReversed().forEach { det ->
-                val dotColor = if (det.label == "TARGET") TargetGreen else JunkRed
+                val dotColor = if (det.label == "TARGET") DetectionColors.Target else DetectionColors.Junk
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)

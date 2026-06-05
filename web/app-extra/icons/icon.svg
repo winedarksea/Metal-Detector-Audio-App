@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Metal Detector Audio">
   <defs>
+    <!-- "Sky" brand gradient: same family as the app theme + landing hero. -->
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1E88E5"/>
-      <stop offset="1" stop-color="#0D47A1"/>
+      <stop offset="0" stop-color="#3E93B5"/>
+      <stop offset="1" stop-color="#153E4E"/>
     </linearGradient>
     <linearGradient id="coil" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ECEFF1"/>
@@ -29,7 +30,9 @@
   </g>
 
   <!-- Colorful audio waveform across the top -->
-  <!-- cd web/app-extra/icons; npx @resvg/resvg-js-cli icon.svg icon-192.png fit-width 192 -->
+  <!-- Regenerate PNGs from this SVG with resvg-js-cli, using the fit-width flag
+       (prefixed by a double dash): fit-width 192 produces icon-192.png and
+       fit-width 512 produces icon-512-maskable.png, run from web/app-extra/icons. -->
   <g stroke="url(#wave)" stroke-width="22" stroke-linecap="round" fill="none">
     <line x1="148" y1="228" x2="148" y2="284"/>
     <line x1="184" y1="208" x2="184" y2="304"/>

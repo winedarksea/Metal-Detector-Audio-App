@@ -261,7 +261,7 @@ class RibbonAnalyzer(
             val soft = avg / (avg + HAZE_SOFT_KNEE)
             val rowFrac = (h + 0.5f) / HAZE_BINS
             val lowMidWeight = 1f + LOW_MID_HAZE_LIFT * (1f - rowFrac)
-            val messyLift = 1f + HAZE_MESSINESS_LIFT * flatness
+            val messyLift = 1f + HAZE_MESSINESS_LIFT * (0.65f * flatness + 0.35f * flux)
             hazeBuf[hazeBase + h] = clamp01(soft * HAZE_MAX * lowMidWeight * messyLift)
         }
 

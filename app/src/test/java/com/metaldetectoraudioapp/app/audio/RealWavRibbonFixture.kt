@@ -17,6 +17,7 @@ object RealWavRibbonFixture {
         val lowMidHaze: Float,
         val highHaze: Float,
         val highCleanRibbonScore: Float,
+        val averagePeakMessiness: Float,
         val diffuseLowMidHazeScore: Float,
     )
 
@@ -59,6 +60,8 @@ object RealWavRibbonFixture {
         var highCount = 0
         var saturatedHazeCount = 0
         var highCleanScore = 0f
+        var peakMessinessSum = 0f
+        var peakMessinessCount = 0
 
         var g = first
         while (g < writeCounter) {
@@ -85,6 +88,8 @@ object RealWavRibbonFixture {
                     val stability = analyzer.peakStability(g, k)
                     val score = quality * (0.35f + 0.65f * pitchWeight) * (0.75f + 0.25f * stability)
                     if (score > highCleanScore) highCleanScore = score
+                    peakMessinessSum += analyzer.peakMessiness(g, k)
+                    peakMessinessCount += 1
                 }
             }
             g += 1L
@@ -92,13 +97,15 @@ object RealWavRibbonFixture {
 
         val lowMidHaze = if (lowMidCount > 0) lowMidHazeSum / lowMidCount else 0f
         val highHaze = if (highCount > 0) highHazeSum / highCount else 0f
+        val averagePeakMessiness = if (peakMessinessCount > 0) peakMessinessSum / peakMessinessCount else 0f
         return RibbonFixtureStats(
             hazeSaturationFraction = if (hazeCount > 0) saturatedHazeCount.toFloat() / hazeCount else 0f,
             averageHaze = if (hazeCount > 0) hazeSum / hazeCount else 0f,
             lowMidHaze = lowMidHaze,
             highHaze = highHaze,
             highCleanRibbonScore = highCleanScore,
-            diffuseLowMidHazeScore = lowMidHaze - highHaze,
+            averagePeakMessiness = averagePeakMessiness,
+            diffuseLowMidHazeScore = lowMidHaze - highHaze + averagePeakMessiness * 0.06f,
         )
     }
 

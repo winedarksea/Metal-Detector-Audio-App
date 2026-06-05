@@ -44,6 +44,6 @@ data class InferenceUiState(
         const val RECENT_WINDOW_MS = 30_000L
 
         /** Max entries kept in [recentDetections]. */
-        const val MAX_RECENT_DETECTIONS = 20
+        const val MAX_RECENT_DETECTIONS = 5
     }
 }

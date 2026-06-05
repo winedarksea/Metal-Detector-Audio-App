@@ -92,7 +92,13 @@ private fun pitchColor(t: Float): Color {
     }
 }
 
+private fun hazeColor(t: Float): Color =
+    lerp(Color(0xFF27313B), pitchColor(t), 0.42f)
+
 private fun lerpF(a: Float, b: Float, t: Float): Float = a + (b - a) * t
+
+private fun clean01(value: Float): Float =
+    if (value.isNaN() || value == Float.NEGATIVE_INFINITY) 0f else if (value == Float.POSITIVE_INFINITY || value > 1f) 1f else if (value < 0f) 0f else value
 
 private fun DrawScope.drawRibbon(analyzer: RibbonAnalyzer, headPos: Float, writeCounter: Long) {
     val w = size.width
@@ -128,11 +134,11 @@ private fun DrawScope.drawRibbon(analyzer: RibbonAnalyzer, headPos: Float, write
                 val t = (row + 0.5f) / hazeRows
                 val yTop = h * (1f - (row + 1f) / hazeRows)
                 drawRect(
-                    color = pitchColor(t),
+                    color = hazeColor(t),
                     topLeft = Offset(x, yTop),
                     size = Size(cellW, rowH + 1f),
-                    alpha = (v * 0.24f).coerceIn(0f, 1f),
-                    blendMode = BlendMode.Plus,
+                    alpha = clean01(v * 0.32f),
+                    blendMode = BlendMode.SrcOver,
                 )
             }
         }
@@ -177,9 +183,11 @@ private fun DrawScope.drawRibbonSegments(
         }
 
         val quality = ((analyzer.peakQuality(g, k) + analyzer.peakQuality(g + 1L, k)) * 0.5f)
-            .coerceIn(0f, 1f)
+            .let(::clean01)
+        val snr = ((analyzer.peakSnr(g, k) + analyzer.peakSnr(g + 1L, k)) * 0.5f)
+            .let(::clean01)
         val messiness = ((analyzer.peakMessiness(g, k) + analyzer.peakMessiness(g + 1L, k)) * 0.5f)
-            .coerceIn(0f, 1f)
+            .let(::clean01)
         val band = (aBand + bBand) * 0.5f
         val x1 = w - (headPos - g) * pxPerCol
         val x2 = w - (headPos - (g + 1L)) * pxPerCol
@@ -190,12 +198,12 @@ private fun DrawScope.drawRibbonSegments(
         val widthDp: Float
         val blendMode: BlendMode
         if (halo) {
-            alpha = lerpF(0.07f, 0.23f, quality) * lerpF(1.15f, 0.72f, messiness)
-            widthDp = lerpF(24f, 8f, quality) + messiness * 8f
+            alpha = lerpF(0.05f, 0.18f, quality) * lerpF(1.05f, 0.62f, messiness)
+            widthDp = lerpF(22f, 7f, quality) + messiness * 7f
             blendMode = BlendMode.Plus
         } else {
-            alpha = quality * lerpF(0.95f, 0.55f, messiness)
-            widthDp = lerpF(0.4f, 2.4f, quality)
+            alpha = (quality * lerpF(1.0f, 0.68f, messiness) + snr * quality * 0.18f)
+            widthDp = lerpF(0.6f, 2.8f, quality)
             blendMode = BlendMode.SrcOver
         }
         if (alpha > 0.001f && widthDp > 0.01f) {
@@ -205,7 +213,7 @@ private fun DrawScope.drawRibbonSegments(
                 end = Offset(x2, y2),
                 strokeWidth = widthDp.dp.toPx(),
                 cap = StrokeCap.Round,
-                alpha = alpha.coerceIn(0f, 1f),
+                alpha = clean01(alpha),
                 blendMode = blendMode,
             )
         }

@@ -5,26 +5,13 @@ import kotlin.math.exp
 import kotlin.math.ln
 
 /**
- * Streaming tone-quality analyzer for the detection-screen "ribbon" visual.
+ * Streaming tone-quality analyzer for the detection-screen ribbon visual.
  *
- * It turns the log-mel spectrogram (already computed for inference) into a scrolling
- * stream of columns. Each column carries:
- *   - up to [MAX_PEAKS] tracked spectral peaks (sub-bin position, tone-quality, SNR), and
- *   - a coarse [HAZE_BINS]-row "haze" energy profile (the junk cloud).
+ * Converts the model's log-mel spectrogram into tracked clean-tone peaks plus coarse haze
+ * energy. A clean, coherent tone becomes a bright sharp ribbon; messy/noisy energy becomes
+ * dim diffuse haze. Fixed scratch arrays keep the audio/UI handoff allocation-free.
  *
- * A clean, strong, coherent tone shows up as a bright sharp ribbon; messy/noisy energy
- * shows up as a dim fuzzy haze. Mapping is brand-agnostic: no metal/tone calibration.
- *
- * Real-time constraints:
- *   - No per-frame heap allocation: fixed scratch arrays + pre-allocated ring buffers.
- *   - Single-producer (audio/inference thread via [process]) / single-consumer (UI render
- *     thread via the `peak*`/`haze` accessors). [writeCounter] is volatile and bumped only
- *     after a column's data is written, giving the reader a happens-before barrier. A torn
- *     read of the single newest column is visually irrelevant.
- *
- * IMPORTANT: This file is duplicated verbatim in the Android `app/` module and the `shared/`
- * module because `app/` does not depend on `:shared`. Keep both copies byte-identical;
- * `RibbonAnalyzerSyncTest` enforces it. Edit logic here, then mirror.
+ * IMPORTANT: duplicated in `app/` and `shared/`; keep byte-identical.
  */
 // === RIBBON-SYNC START ===
 class RibbonAnalyzer(
@@ -38,6 +25,7 @@ class RibbonAnalyzer(
 
     // Per-column scratch (reused, never escapes).
     private val residual = FloatArray(numMelBins)
+    private val displayLogMel = FloatArray(numMelBins)
     private val prominence = FloatArray(numMelBins)
     private val smooth = FloatArray(numMelBins)
     private val candBin = FloatArray(numMelBins)
@@ -47,6 +35,7 @@ class RibbonAnalyzer(
     private val laneMatched = BooleanArray(MAX_PEAKS)
     private val noiseFloor = FloatArray(numMelBins)
     private val previousResidual = FloatArray(numMelBins)
+    private val rowCleanToneQuality = FloatArray(HAZE_BINS)
     private val laneBin = FloatArray(MAX_PEAKS) { -1f }
     private val laneStability = FloatArray(MAX_PEAKS)
     private val laneAge = IntArray(MAX_PEAKS)
@@ -68,9 +57,11 @@ class RibbonAnalyzer(
             laneAge[i] = 0
         }
         residual.fill(0f)
+        displayLogMel.fill(0f)
         prominence.fill(0f)
         smooth.fill(0f)
         previousResidual.fill(0f)
+        rowCleanToneQuality.fill(0f)
         noiseFloor.fill(0f)
         noiseFloorInitialized = false
         peaks.fill(0f)
@@ -78,11 +69,7 @@ class RibbonAnalyzer(
         writeCounter = 0L
     }
 
-    /**
-     * Consumes a log-mel spectrogram window ([timeFrames][melBins]) and appends only the
-     * newest [NEW_COLS] columns — the non-overlapping region versus the previous window —
-     * so consecutive 50%-overlapping inference windows produce one continuous timeline.
-     */
+    /** Appends only the newest [NEW_COLS] columns from a 50%-overlapping log-mel window. */
     fun process(logMel: Array<FloatArray>) {
         val frames = logMel.size
         if (frames == 0) return
@@ -108,14 +95,15 @@ class RibbonAnalyzer(
 
         ensureNoiseFloor(col, hi)
 
-        // 1. Adaptive residual: energy above each mel bin's rolling floor. This keeps loud
-        // detector responses from turning the whole haze layer into a saturated blob.
+        // Residual powers haze; log-mel prominence powers peaks so steady tones stay visible.
         var residualSum = 0f
         var fluxSum = 0f
         for (b in BAND_LO_BIN until hi) {
-            val floor = updateNoiseFloorBin(b, col[b])
-            val v = col[b] - floor
-            val r = if (v > 0f) v else 0f
+            val sample = safeLogMel(col[b])
+            displayLogMel[b] = sample
+            val floor = updateNoiseFloorBin(b, sample)
+            val v = sample - floor
+            val r = compressResidual(if (v > 0f) v else 0f)
             val diff = r - previousResidual[b]
             fluxSum += if (diff >= 0f) diff else -diff
             residual[b] = r
@@ -127,33 +115,30 @@ class RibbonAnalyzer(
         val flux = clamp01((if (bandWidth > 0) fluxSum / bandWidth else 0f) / FLUX_SCALE)
         val flatness = spectralFlatness(hi, residualMean)
 
-        // 2. Spectral prominence: a narrowband tone rises above local residual background.
+        // Use sanitized log-mel here so steady true tones cannot disappear into the floor.
         for (b in BAND_LO_BIN until hi) {
             var sum = 0f
             var cnt = 0
             var w = b - BG_WIN
             while (w <= b + BG_WIN) {
-                if (w in BAND_LO_BIN until hi) { sum += residual[w]; cnt++ }
+                if (w in BAND_LO_BIN until hi) { sum += displayLogMel[w]; cnt++ }
                 w++
             }
             val bg = if (cnt > 0) sum / cnt else 0f
-            val v = residual[b] - bg * LOCAL_BACKGROUND_WEIGHT
+            val v = displayLogMel[b] - bg * PEAK_LOCAL_BACKGROUND_WEIGHT
             prominence[b] = if (v > 0f) v else 0f
         }
 
-        // 3. Light 3-tap smoothing across frequency.
         smooth[BAND_LO_BIN] = prominence[BAND_LO_BIN]
         smooth[hi - 1] = prominence[hi - 1]
         for (b in BAND_LO_BIN + 1 until hi - 1) {
             smooth[b] = 0.25f * prominence[b - 1] + 0.5f * prominence[b] + 0.25f * prominence[b + 1]
         }
 
-        // 4. Band mean (for contrast).
         var sum = 0f
         for (b in BAND_LO_BIN until hi) sum += smooth[b]
         val mean = if (bandWidth > 0) sum / bandWidth else 0f
 
-        // 5. Collect local maxima above a floor.
         var candCount = 0
         for (b in BAND_LO_BIN + 1 until hi - 1) {
             val c = smooth[b]
@@ -164,11 +149,12 @@ class RibbonAnalyzer(
             }
         }
 
-        // 6. Assign candidates to stable lanes, then fill empty lanes with strongest leftovers.
         selectLaneCandidates(candCount)
 
         val base = ((writeCounter % HISTORY_COLS).toInt()) * MAX_PEAKS * PEAK_ATTRS
         for (k in 0 until MAX_PEAKS) laneMatched[k] = false
+        rowCleanToneQuality.fill(0f)
+        var columnCleanToneQuality = 0f
         for (k in 0 until MAX_PEAKS) {
             val o = base + k * PEAK_ATTRS
             val candidateIndex = chosenIdx[k]
@@ -224,6 +210,16 @@ class RibbonAnalyzer(
                 peaks[o + 2] = snrNorm
                 peaks[o + 3] = stability
                 peaks[o + 4] = messiness
+                val row = ((binFloat - BAND_LO_BIN) * HAZE_BINS / bandWidth).toInt()
+                    .coerceIn(0, HAZE_BINS - 1)
+                if (quality > rowCleanToneQuality[row]) rowCleanToneQuality[row] = quality
+                if (row > 0 && quality * HAZE_NEIGHBOR_TONE_FRACTION > rowCleanToneQuality[row - 1]) {
+                    rowCleanToneQuality[row - 1] = quality * HAZE_NEIGHBOR_TONE_FRACTION
+                }
+                if (row < HAZE_BINS - 1 && quality * HAZE_NEIGHBOR_TONE_FRACTION > rowCleanToneQuality[row + 1]) {
+                    rowCleanToneQuality[row + 1] = quality * HAZE_NEIGHBOR_TONE_FRACTION
+                }
+                if (quality > columnCleanToneQuality) columnCleanToneQuality = quality
                 laneBin[k] = binFloat
                 laneStability[k] = stability
                 laneAge[k] = 0
@@ -247,8 +243,7 @@ class RibbonAnalyzer(
             }
         }
 
-        // 7. Haze (the junk cloud): residual energy with a soft knee, so real recordings stay
-        // textured instead of saturating to one dark mass.
+        // Haze: soft-kneed residual energy with clean-tone suppression to keep targets distinct.
         val hazeBase = ((writeCounter % HISTORY_COLS).toInt()) * HAZE_BINS
         for (h in 0 until HAZE_BINS) {
             val lo = BAND_LO_BIN + (bandWidth * h) / HAZE_BINS
@@ -262,7 +257,14 @@ class RibbonAnalyzer(
             val rowFrac = (h + 0.5f) / HAZE_BINS
             val lowMidWeight = 1f + LOW_MID_HAZE_LIFT * (1f - rowFrac)
             val messyLift = 1f + HAZE_MESSINESS_LIFT * (0.65f * flatness + 0.35f * flux)
-            hazeBuf[hazeBase + h] = clamp01(soft * HAZE_MAX * lowMidWeight * messyLift)
+            val cleanToneSuppression = 1f - HAZE_CLEAN_TONE_SUPPRESSION * rowCleanToneQuality[h]
+            val cleanQ2 = columnCleanToneQuality * columnCleanToneQuality
+            val columnToneSuppression = 1f - HAZE_COLUMN_CLEAN_TONE_SUPPRESSION * cleanQ2
+            val lowMidCleanSuppression = 1f - HAZE_LOW_MID_CLEAN_TONE_SUPPRESSION * cleanQ2 * cleanQ2 * (1f - rowFrac)
+            hazeBuf[hazeBase + h] = clamp01(
+                soft * HAZE_MAX * lowMidWeight * messyLift *
+                    cleanToneSuppression * columnToneSuppression * lowMidCleanSuppression,
+            )
         }
 
         for (b in BAND_LO_BIN until hi) previousResidual[b] = residual[b]
@@ -274,18 +276,39 @@ class RibbonAnalyzer(
     private fun ensureNoiseFloor(col: FloatArray, hi: Int) {
         if (noiseFloorInitialized) return
         for (b in BAND_LO_BIN until hi) {
-            noiseFloor[b] = col[b]
+            val sample = safeLogMel(col[b])
+            noiseFloor[b] = if (sample <= QUIET_LOG_MEL_THRESHOLD) {
+                sample
+            } else {
+                sample - INITIAL_NOISE_FLOOR_HEADROOM
+            }
         }
         noiseFloorInitialized = true
     }
 
     private fun updateNoiseFloorBin(bin: Int, value: Float): Float {
+        val sample = safeLogMel(value)
         val floor = noiseFloor[bin]
-        val delta = value - floor
+        val delta = sample - floor
         val alpha = if (delta < 0f) NOISE_FLOOR_FALL_ALPHA else NOISE_FLOOR_RISE_ALPHA
         val updated = floor + delta * alpha
         noiseFloor[bin] = updated
         return updated
+    }
+
+    private fun safeLogMel(value: Float): Float =
+        when {
+            value.isNaN() -> MIN_LOG_MEL
+            value == Float.NEGATIVE_INFINITY -> MIN_LOG_MEL
+            value == Float.POSITIVE_INFINITY -> MAX_LOG_MEL
+            value < MIN_LOG_MEL -> MIN_LOG_MEL
+            value > MAX_LOG_MEL -> MAX_LOG_MEL
+            else -> value
+        }
+
+    private fun compressResidual(value: Float): Float {
+        if (value <= 0f || value.isNaN()) return 0f
+        return RESIDUAL_DISPLAY_CAP * value / (value + RESIDUAL_DISPLAY_KNEE)
     }
 
     /** Assign nearest candidates to existing lanes before filling remaining lanes by strength. */
@@ -334,7 +357,6 @@ class RibbonAnalyzer(
             }
         }
 
-        return
     }
 
     /** Parabolic (quadratic) interpolation of the true peak position for a smooth ribbon. */
@@ -362,8 +384,6 @@ class RibbonAnalyzer(
         return clamp01(exp(logSum / count) / (mean + FLATNESS_EPSILON))
     }
 
-    // ---- Reader accessors (UI thread). globalIndex is a column's writeCounter value. ----
-
     /** Sub-band peak position in 0..1 (relative pitch), or -1 if no peak. */
     fun peakBinFrac(globalIndex: Long, k: Int): Float =
         peaks[slotPeak(globalIndex, k)]
@@ -387,47 +407,30 @@ class RibbonAnalyzer(
     private fun slotPeak(globalIndex: Long, k: Int): Int =
         ((globalIndex % HISTORY_COLS).toInt()) * MAX_PEAKS * PEAK_ATTRS + k * PEAK_ATTRS
 
-    private fun clamp01(v: Float): Float = if (v < 0f) 0f else if (v > 1f) 1f else v
+    private fun clamp01(v: Float): Float =
+        if (v.isNaN() || v == Float.NEGATIVE_INFINITY) 0f else if (v == Float.POSITIVE_INFINITY || v > 1f) 1f else if (v < 0f) 0f else v
 
     companion object {
-        /** Ring-buffer depth in columns (~4 s of history at [COLUMNS_PER_SECOND]). */
         const val HISTORY_COLS = 512
 
-        /** Columns mapped across the visible width. */
-        const val VISIBLE_COLS = 240
+        const val VISIBLE_COLS = 360
 
-        /** Tracked spectral peaks per column (the ribbons). */
         const val MAX_PEAKS = 3
 
-        /** Floats stored per peak: [binFrac, quality, snr, stability, messiness]. */
         const val PEAK_ATTRS = 5
 
-        /** Coarse haze rows. */
         const val HAZE_BINS = 20
 
-        /** Mel-filterbank bin count (matches the feature extractor). */
         const val MEL_BINS = 40
 
-        /**
-         * Effective new columns per inference window = hop / frameStep = 4000 / 128 ≈ 31,
-         * and the corresponding scroll rate the renderer uses to interpolate between windows:
-         * NEW_COLS / (hop / sampleRate) = 31 / 0.25 s = 124 columns/s.
-         */
         const val NEW_COLS = 31
         const val COLUMNS_PER_SECOND = 124f
 
-        /**
-         * Populated mel band. Audio is band-limited to ~120–3500 Hz before framing, while the
-         * mel filterbank spans 80–7600 Hz over 40 bins, so only the lower ~28 bins carry signal.
-         * Restricting the visual to this band keeps the pitch/hue axis meaningful.
-         */
         const val BAND_LO_BIN = 0
         const val BAND_HI_BIN = 28
 
-        // Half-width (in mel bins) of the local-frequency background used for spectral prominence.
         private const val BG_WIN = 6
 
-        // Peak detection / quality shaping (tunable; tests assert ordering, not exact values).
         private const val MIN_PEAK = 0.08f
         private const val SNR_SCALE = 2.4f
         private const val CONTRAST_SCALE = 1.9f
@@ -438,6 +441,9 @@ class RibbonAnalyzer(
 
         private const val NOISE_FLOOR_RISE_ALPHA = 0.004f
         private const val NOISE_FLOOR_FALL_ALPHA = 0.08f
+        private const val INITIAL_NOISE_FLOOR_HEADROOM = 4.0f
+        private const val QUIET_LOG_MEL_THRESHOLD = -11.0f
+        private const val PEAK_LOCAL_BACKGROUND_WEIGHT = 1.0f
         private const val LOCAL_BACKGROUND_WEIGHT = 0.55f
         private const val FLATNESS_EPSILON = 0.0001f
         private const val FLUX_SCALE = 0.65f
@@ -447,12 +453,20 @@ class RibbonAnalyzer(
         private const val LANE_MAX_MISSES = 4
         private const val STABILITY_DECAY = 0.82f
         private const val STABILITY_MISS_DECAY = 0.55f
-        private const val HAZE_SOFT_KNEE = 0.95f
-        private const val HAZE_MAX = 0.72f
-        private const val LOW_MID_HAZE_LIFT = 0.18f
-        private const val HAZE_MESSINESS_LIFT = 0.25f
-        private const val LOW_PITCH_QUALITY = 0.84f
-        private const val HIGH_PITCH_QUALITY = 1.12f
+        private const val MIN_LOG_MEL = -13.9f
+        private const val MAX_LOG_MEL = 6.0f
+        private const val RESIDUAL_DISPLAY_CAP = 4.6f
+        private const val RESIDUAL_DISPLAY_KNEE = 2.2f
+        private const val HAZE_SOFT_KNEE = 1.15f
+        private const val HAZE_MAX = 0.58f
+        private const val LOW_MID_HAZE_LIFT = 0.14f
+        private const val HAZE_MESSINESS_LIFT = 0.16f
+        private const val HAZE_CLEAN_TONE_SUPPRESSION = 0.95f
+        private const val HAZE_NEIGHBOR_TONE_FRACTION = 0.85f
+        private const val HAZE_COLUMN_CLEAN_TONE_SUPPRESSION = 2.0f
+        private const val HAZE_LOW_MID_CLEAN_TONE_SUPPRESSION = 12.0f
+        private const val LOW_PITCH_QUALITY = 1.05f
+        private const val HIGH_PITCH_QUALITY = 1.05f
 
         private const val W_CONTRAST = 0.36f
         private const val W_SHARP = 0.26f

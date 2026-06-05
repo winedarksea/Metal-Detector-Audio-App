@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -101,17 +102,19 @@ fun SharedInferenceScreen(
                         containerColor = MaterialTheme.colorScheme.errorContainer
                     ),
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            "Inference error",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                        Text(
-                            error,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            fontSize = 13.sp,
-                        )
+                    SelectionContainer {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                "Inference error",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                            Text(
+                                error,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontSize = 13.sp,
+                            )
+                        }
                     }
                 }
             }

@@ -87,7 +87,9 @@ object RealWavRibbonFixture {
                     val quality = analyzer.peakQuality(g, k)
                     val stability = analyzer.peakStability(g, k)
                     val score = quality * (0.35f + 0.65f * pitchWeight) * (0.75f + 0.25f * stability)
-                    if (score > highCleanScore) highCleanScore = score
+                    if (score > highCleanScore) {
+                        highCleanScore = score
+                    }
                     peakMessinessSum += analyzer.peakMessiness(g, k)
                     peakMessinessCount += 1
                 }
@@ -105,7 +107,8 @@ object RealWavRibbonFixture {
             highHaze = highHaze,
             highCleanRibbonScore = highCleanScore,
             averagePeakMessiness = averagePeakMessiness,
-            diffuseLowMidHazeScore = lowMidHaze - highHaze + averagePeakMessiness * 0.06f,
+            // "Diffuse haze" should not credit a clean target ribbon as junk/background energy.
+            diffuseLowMidHazeScore = lowMidHaze - highHaze + averagePeakMessiness * 0.06f - highCleanScore * 0.25f,
         )
     }
 

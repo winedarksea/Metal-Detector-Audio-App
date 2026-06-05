@@ -73,6 +73,17 @@ class RibbonAnalyzerTest {
         return maxBand
     }
 
+    private fun assertFiniteRange(label: String, value: Float, min: Float, max: Float) {
+        assertTrue(
+            "$label should be finite and in [$min, $max], got $value",
+            value == value &&
+                value != Float.NEGATIVE_INFINITY &&
+                value != Float.POSITIVE_INFINITY &&
+                value >= min &&
+                value <= max,
+        )
+    }
+
     @Test
     fun process_appendsNewColumnsPerWindow() {
         val analyzer = analyze(
@@ -118,6 +129,41 @@ class RibbonAnalyzerTest {
         val analyzer = analyze(mixed)
         assertTrue("a tone embedded in noise should still raise a ribbon", maxPeakQuality(analyzer) > 0.3f)
         assertTrue("mixed signal should also show haze", avgHaze(analyzer) > 0f)
+    }
+
+    @Test
+    fun extremeAndNonFiniteMelColumns_doNotPoisonVisualizerState() {
+        val analyzer = RibbonAnalyzer()
+        val quiet = Array(61) { FloatArray(RibbonAnalyzer.MEL_BINS) { -12f } }
+        analyzer.process(quiet)
+
+        val overloaded = Array(61) { frame ->
+            FloatArray(RibbonAnalyzer.MEL_BINS) { -12f }.also { col ->
+                col[2] = if (frame % 2 == 0) Float.NaN else Float.NEGATIVE_INFINITY
+                col[10] = Float.POSITIVE_INFINITY
+                col[11] = 1000f
+            }
+        }
+        analyzer.process(overloaded)
+
+        val wc = analyzer.writeCounter
+        var maxQuality = 0f
+        var g = maxOf(0L, wc - RibbonAnalyzer.NEW_COLS)
+        while (g < wc) {
+            for (h in 0 until RibbonAnalyzer.HAZE_BINS) {
+                assertFiniteRange("haze[$g,$h]", analyzer.haze(g, h), 0f, 1f)
+            }
+            for (k in 0 until RibbonAnalyzer.MAX_PEAKS) {
+                assertFiniteRange("peakBin[$g,$k]", analyzer.peakBinFrac(g, k), -1f, 1f)
+                assertFiniteRange("peakQuality[$g,$k]", analyzer.peakQuality(g, k), 0f, 1f)
+                assertFiniteRange("peakSnr[$g,$k]", analyzer.peakSnr(g, k), 0f, 1f)
+                assertFiniteRange("peakStability[$g,$k]", analyzer.peakStability(g, k), 0f, 1f)
+                assertFiniteRange("peakMessiness[$g,$k]", analyzer.peakMessiness(g, k), 0f, 1f)
+                maxQuality = maxOf(maxQuality, analyzer.peakQuality(g, k))
+            }
+            g++
+        }
+        assertTrue("clamped overload should still produce a visible peak", maxQuality > 0.1f)
     }
 
     @Test

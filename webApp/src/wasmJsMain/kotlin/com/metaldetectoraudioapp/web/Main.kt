@@ -1,18 +1,24 @@
 package com.metaldetectoraudioapp.web
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,6 +48,8 @@ import com.metaldetectoraudioapp.web.viewmodel.WebRecordingViewModel
 import com.metaldetectoraudioapp.web.viewmodel.WebReviewViewModel
 import kotlinx.browser.document
 
+private const val ThemePreferenceStorageKey = "metal_detector_audio_theme"
+
 private enum class WebDestination(val label: String) {
     DETECT("Detect"),
     RECORD("Record"),
@@ -51,7 +59,11 @@ private enum class WebDestination(val label: String) {
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ComposeViewport(document.body!!) {
-        MetalDetectorAudioTheme {
+        var useDarkTheme by remember {
+            mutableStateOf(loadStoredThemePreference() ?: browserPrefersDarkTheme())
+        }
+
+        MetalDetectorAudioTheme(useDarkTheme = useDarkTheme) {
             val store = remember { IndexedDbDatasetStore() }
             val zipCodec = remember { WebZipCodec() }
             val audioPlayer: AudioPlayer = remember { WebAudioPlayer() }
@@ -108,42 +120,75 @@ fun main() {
                     }
                 }
             ) { padding ->
-                when (selected) {
-                    WebDestination.DETECT -> {
-                        val vm = inferenceViewModel
-                        if (vm != null) {
-                            val uiState by vm.uiState.collectAsState()
-                            val passthrough by vm.passthroughEnabled.collectAsState()
-                            val modelOptions by vm.availableModelOptions.collectAsState()
-                            val selectedModelId by vm.selectedModelOptionId.collectAsState()
-                            SharedInferenceScreen(
-                                uiState = uiState,
-                                ribbon = vm.ribbon,
-                                passthroughEnabled = passthrough,
-                                availableModelOptions = modelOptions,
-                                selectedModelOptionId = selectedModelId,
-                                onStart = vm::start,
-                                onStop = vm::stop,
-                                onThresholdChange = vm::updateThreshold,
-                                onPassthroughChange = vm::setPassthroughEnabled,
-                                onModelOptionSelected = vm::selectModelOption,
-                                contentPadding = PaddingValues(16.dp),
-                                modifier = Modifier.padding(padding),
-                                micSelector = { MicSelector(modifier = Modifier.fillMaxWidth()) },
-                            )
-                        } else {
-                            val err = inferenceError
-                            if (err != null) {
-                                Text(err)
+                Box(Modifier.fillMaxSize()) {
+                    when (selected) {
+                        WebDestination.DETECT -> {
+                            val vm = inferenceViewModel
+                            if (vm != null) {
+                                val uiState by vm.uiState.collectAsState()
+                                val passthrough by vm.passthroughEnabled.collectAsState()
+                                val modelOptions by vm.availableModelOptions.collectAsState()
+                                val selectedModelId by vm.selectedModelOptionId.collectAsState()
+                                SharedInferenceScreen(
+                                    uiState = uiState,
+                                    ribbon = vm.ribbon,
+                                    passthroughEnabled = passthrough,
+                                    availableModelOptions = modelOptions,
+                                    selectedModelOptionId = selectedModelId,
+                                    onStart = vm::start,
+                                    onStop = vm::stop,
+                                    onThresholdChange = vm::updateThreshold,
+                                    onPassthroughChange = vm::setPassthroughEnabled,
+                                    onModelOptionSelected = vm::selectModelOption,
+                                    contentPadding = PaddingValues(16.dp),
+                                    modifier = Modifier.padding(padding),
+                                    micSelector = { MicSelector(modifier = Modifier.fillMaxWidth()) },
+                                )
                             } else {
-                                Text("Loading model…")
+                                val err = inferenceError
+                                if (err != null) {
+                                    Text(err)
+                                } else {
+                                    Text("Loading model…")
+                                }
                             }
                         }
+                        WebDestination.RECORD -> WebRecordingScreen(recordingViewModel, padding)
+                        WebDestination.REVIEW -> WebReviewScreen(reviewViewModel, padding)
                     }
-                    WebDestination.RECORD -> WebRecordingScreen(recordingViewModel, padding)
-                    WebDestination.REVIEW -> WebReviewScreen(reviewViewModel, padding)
+
+                    SmallFloatingActionButton(
+                        onClick = {
+                            useDarkTheme = !useDarkTheme
+                            storeThemePreference(useDarkTheme)
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (useDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = if (useDarkTheme) "Switch to light mode" else "Switch to dark mode",
+                        )
+                    }
                 }
             }
         }
     }
 }
+
+private fun browserPrefersDarkTheme(): Boolean =
+    js("window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches")
+
+private fun loadStoredThemePreference(): Boolean? =
+    when (readStoredThemePreference()) {
+        "dark" -> true
+        "light" -> false
+        else -> null
+    }
+
+private fun readStoredThemePreference(): String =
+    js("window.localStorage.getItem(ThemePreferenceStorageKey) || ''")
+
+private fun storeThemePreference(useDarkTheme: Boolean): Unit =
+    js("window.localStorage.setItem(ThemePreferenceStorageKey, useDarkTheme ? 'dark' : 'light')")

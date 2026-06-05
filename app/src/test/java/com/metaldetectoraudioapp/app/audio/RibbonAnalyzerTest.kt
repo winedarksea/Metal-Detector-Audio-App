@@ -55,6 +55,24 @@ class RibbonAnalyzerTest {
         return if (cnt > 0) sum / cnt else 0f
     }
 
+    private fun maxRecentBand(a: RibbonAnalyzer): Float {
+        val wc = a.writeCounter
+        var maxBand = 0f
+        var g = maxOf(0L, wc - RibbonAnalyzer.NEW_COLS)
+        while (g < wc) {
+            for (k in 0 until RibbonAnalyzer.MAX_PEAKS) {
+                val binFrac = a.peakBinFrac(g, k)
+                if (binFrac >= 0f) {
+                    val band = (binFrac / (RibbonAnalyzer.BAND_HI_BIN.toFloat() / RibbonAnalyzer.MEL_BINS))
+                        .coerceIn(0f, 1f)
+                    if (band > maxBand) maxBand = band
+                }
+            }
+            g++
+        }
+        return maxBand
+    }
+
     @Test
     fun process_appendsNewColumnsPerWindow() {
         val analyzer = analyze(
@@ -100,5 +118,57 @@ class RibbonAnalyzerTest {
         val analyzer = analyze(mixed)
         assertTrue("a tone embedded in noise should still raise a ribbon", maxPeakQuality(analyzer) > 0.3f)
         assertTrue("mixed signal should also show haze", avgHaze(analyzer) > 0f)
+    }
+
+    @Test
+    fun noise_isMoreHazeDominantThanRibbonDominant() {
+        val analyzer = analyze(whiteNoise(window, amplitude = 0.6f, seed = 17), repeats = 5)
+        val haze = avgHaze(analyzer)
+        val quality = maxPeakQuality(analyzer)
+        assertTrue("noise should read more as diffuse haze than clean ribbon, haze=$haze quality=$quality", haze > quality)
+    }
+
+    @Test
+    fun pitchJump_updatesRecentRibbonPitch() {
+        val low = SyntheticAudioFixtureFactory.sineWave(16_000, 350f, durationMs = 300, amplitude = 0.55f)
+        val high = SyntheticAudioFixtureFactory.sineWave(16_000, 1_600f, durationMs = 300, amplitude = 0.55f)
+        val signal = FloatArray(window)
+        for (i in 0 until window / 2) signal[i] = low[i]
+        for (i in window / 2 until window) signal[i] = high[i - window / 2]
+
+        val analyzer = analyze(signal, repeats = 2)
+
+        assertTrue("recent columns should reflect the high-pitch half of the signal", maxRecentBand(analyzer) > 0.55f)
+    }
+
+    @Test
+    fun realFixtures_doNotSaturateHaze() {
+        val junk = RealWavRibbonFixture.stats(RealWavRibbonFixture.analyzeFixture("18_wig_smallnail.wav"))
+        val dime = RealWavRibbonFixture.stats(RealWavRibbonFixture.analyzeFixture("8_wig_dime.wav"))
+
+        assertTrue("junk haze should not saturate, stats=$junk", junk.hazeSaturationFraction < 0.08f)
+        assertTrue("dime haze should not saturate, stats=$dime", dime.hazeSaturationFraction < 0.08f)
+    }
+
+    @Test
+    fun realFixtures_dimeHasStrongerHighCleanRibbonThanSmallNail() {
+        val junk = RealWavRibbonFixture.stats(RealWavRibbonFixture.analyzeFixture("18_wig_smallnail.wav"))
+        val dime = RealWavRibbonFixture.stats(RealWavRibbonFixture.analyzeFixture("8_wig_dime.wav"))
+
+        assertTrue(
+            "dime should have stronger high clean ribbon than small nail, dime=$dime junk=$junk",
+            dime.highCleanRibbonScore > junk.highCleanRibbonScore + 0.03f,
+        )
+    }
+
+    @Test
+    fun realFixtures_smallNailHasMoreDiffuseLowMidHazeThanDime() {
+        val junk = RealWavRibbonFixture.stats(RealWavRibbonFixture.analyzeFixture("18_wig_smallnail.wav"))
+        val dime = RealWavRibbonFixture.stats(RealWavRibbonFixture.analyzeFixture("8_wig_dime.wav"))
+
+        assertTrue(
+            "small nail should show more low-mid diffuse haze than dime, junk=$junk dime=$dime",
+            junk.diffuseLowMidHazeScore > dime.diffuseLowMidHazeScore + 0.01f,
+        )
     }
 }

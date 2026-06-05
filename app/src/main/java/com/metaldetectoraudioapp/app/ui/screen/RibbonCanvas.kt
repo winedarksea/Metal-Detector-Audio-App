@@ -12,10 +12,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.audio.ribbon.RibbonAnalyzer
@@ -133,7 +131,7 @@ private fun DrawScope.drawRibbon(analyzer: RibbonAnalyzer, headPos: Float, write
                     color = pitchColor(t),
                     topLeft = Offset(x, yTop),
                     size = Size(cellW, rowH + 1f),
-                    alpha = (v * 0.35f).coerceIn(0f, 1f),
+                    alpha = (v * 0.24f).coerceIn(0f, 1f),
                     blendMode = BlendMode.Plus,
                 )
             }
@@ -144,12 +142,12 @@ private fun DrawScope.drawRibbon(analyzer: RibbonAnalyzer, headPos: Float, write
     // ---- Layer 2: ribbons (tracked tone peaks) ----
     for (k in 0 until RibbonAnalyzer.MAX_PEAKS) {
         // Halo pass then core pass, so cores sit on top of every halo.
-        drawRibbonStroke(analyzer, k, firstG, lastG, headPos, pxPerCol, halo = true)
-        drawRibbonStroke(analyzer, k, firstG, lastG, headPos, pxPerCol, halo = false)
+        drawRibbonSegments(analyzer, k, firstG, lastG, headPos, pxPerCol, halo = true)
+        drawRibbonSegments(analyzer, k, firstG, lastG, headPos, pxPerCol, halo = false)
     }
 }
 
-private fun DrawScope.drawRibbonStroke(
+private fun DrawScope.drawRibbonSegments(
     analyzer: RibbonAnalyzer,
     k: Int,
     firstG: Long,
@@ -160,60 +158,60 @@ private fun DrawScope.drawRibbonStroke(
 ) {
     val h = size.height
     val w = size.width
-    val path = Path()
-    var open = false
-    var segColor = Color.White
-    var segAlpha = 0f
-    var segWidth = 0f
 
     var g = firstG
-    while (g <= lastG) {
-        val binFrac = analyzer.peakBinFrac(g, k)
-        if (binFrac < 0f) {
-            if (open) {
-                strokeRibbon(path, segColor, segAlpha, segWidth, halo)
-                path.reset(); open = false
-            }
+    while (g < lastG) {
+        val aBin = analyzer.peakBinFrac(g, k)
+        val bBin = analyzer.peakBinFrac(g + 1L, k)
+        if (aBin < 0f || bBin < 0f) {
             g++
             continue
         }
-        val quality = analyzer.peakQuality(g, k)
-        val tBand = (binFrac / BandFrac).coerceIn(0f, 1f)
-        val x = w - (headPos - g) * pxPerCol
-        val y = h * (1f - tBand)
-        if (!open) {
-            path.moveTo(x, y)
-            open = true
-            segColor = pitchColor(tBand)
-            if (halo) {
-                segAlpha = lerpF(0.10f, 0.30f, quality)
-                segWidth = lerpF(28f, 9f, quality)
-            } else {
-                segAlpha = lerpF(0.0f, 1.0f, quality)
-                segWidth = lerpF(0f, 2.5f, quality)
-            }
+
+        val aBand = (aBin / BandFrac).coerceIn(0f, 1f)
+        val bBand = (bBin / BandFrac).coerceIn(0f, 1f)
+        // A large jump is a new tone component, not a ribbon segment to connect.
+        if (kotlin.math.abs(aBand - bBand) > MAX_SEGMENT_BAND_JUMP) {
+            g++
+            continue
+        }
+
+        val quality = ((analyzer.peakQuality(g, k) + analyzer.peakQuality(g + 1L, k)) * 0.5f)
+            .coerceIn(0f, 1f)
+        val messiness = ((analyzer.peakMessiness(g, k) + analyzer.peakMessiness(g + 1L, k)) * 0.5f)
+            .coerceIn(0f, 1f)
+        val band = (aBand + bBand) * 0.5f
+        val x1 = w - (headPos - g) * pxPerCol
+        val x2 = w - (headPos - (g + 1L)) * pxPerCol
+        val y1 = h * (1f - aBand)
+        val y2 = h * (1f - bBand)
+
+        val alpha: Float
+        val widthDp: Float
+        val blendMode: BlendMode
+        if (halo) {
+            alpha = lerpF(0.07f, 0.23f, quality) * lerpF(1.15f, 0.72f, messiness)
+            widthDp = lerpF(24f, 8f, quality) + messiness * 8f
+            blendMode = BlendMode.Plus
         } else {
-            path.lineTo(x, y)
+            alpha = quality * lerpF(0.95f, 0.55f, messiness)
+            widthDp = lerpF(0.4f, 2.4f, quality)
+            blendMode = BlendMode.SrcOver
+        }
+        if (alpha > 0.001f && widthDp > 0.01f) {
+            drawLine(
+                color = pitchColor(band),
+                start = Offset(x1, y1),
+                end = Offset(x2, y2),
+                strokeWidth = widthDp.dp.toPx(),
+                cap = StrokeCap.Round,
+                alpha = alpha.coerceIn(0f, 1f),
+                blendMode = blendMode,
+            )
         }
         g++
     }
-    if (open) strokeRibbon(path, segColor, segAlpha, segWidth, halo)
 }
 
-private fun DrawScope.strokeRibbon(
-    path: Path,
-    color: Color,
-    alpha: Float,
-    widthDp: Float,
-    halo: Boolean,
-) {
-    if (alpha <= 0.001f || widthDp <= 0.01f) return
-    drawPath(
-        path = path,
-        color = color,
-        alpha = alpha.coerceIn(0f, 1f),
-        style = Stroke(width = widthDp.dp.toPx(), cap = StrokeCap.Round),
-        blendMode = if (halo) BlendMode.Plus else BlendMode.SrcOver,
-    )
-}
+private const val MAX_SEGMENT_BAND_JUMP = 0.18f
 // === RIBBON-SYNC END ===

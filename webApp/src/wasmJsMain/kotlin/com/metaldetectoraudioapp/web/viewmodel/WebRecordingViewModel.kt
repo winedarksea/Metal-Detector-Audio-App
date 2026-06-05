@@ -21,8 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 
 class WebRecordingViewModel(
     private val recordingRepository: RecordingRepository,
@@ -43,6 +41,7 @@ class WebRecordingViewModel(
     val uiState: StateFlow<RecordingUiState> = _uiState.asStateFlow()
 
     fun startRecording() {
+        if (_uiState.value.isRecording) return
         clearPendingInternal(announce = false)
         pcmSamples.clear()
         recordingStartMs = Clocks.epochMillis()
@@ -55,7 +54,10 @@ class WebRecordingViewModel(
             pendingDurationMs = 0,
         )
         startDurationTicker()
-        startWebCapture { ctxRate, count -> onRecChunkGlobal(ctxRate, count) }
+        startWebCapture(
+            onChunk = { ctxRate, count -> onRecChunkGlobal(ctxRate, count) },
+            onError = { message -> onCaptureStartFailed(message) },
+        )
     }
 
     internal fun onRecChunk(ctxRate: Int, count: Int) {
@@ -65,10 +67,23 @@ class WebRecordingViewModel(
         pcmSamples.addAll(buf.asList())
     }
 
+    internal fun onCaptureStartFailed(message: String) {
+        if (!isCapturing) return
+        stopDurationTicker()
+        isCapturing = false
+        stopWebCapture()
+        if (globalRecordingViewModel === this) globalRecordingViewModel = null
+        _uiState.value = _uiState.value.copy(
+            isRecording = false,
+            errorMessage = "Recording microphone failed: $message",
+        )
+    }
+
     fun stopRecording() {
         stopDurationTicker()
         isCapturing = false
         stopWebCapture()
+        if (globalRecordingViewModel === this) globalRecordingViewModel = null
 
         val src = pcmSamples.toFloatArray()
         val resampled = resampleLinear(src, captureSampleRate, 16_000)
@@ -255,7 +270,7 @@ private fun readGlobalRecBuf(count: Int): FloatArray {
 
 private fun readRecBufAt(i: Int): Float = js("window.__recBuf[i]")
 
-private fun startWebCapture(onChunk: (Int, Int) -> Unit) {
+private fun startWebCapture(onChunk: (Int, Int) -> Unit, onError: (String) -> Unit) {
     js("""
         var __mic = window.__micDeviceId ? { deviceId: { exact: window.__micDeviceId } } : true;
         navigator.mediaDevices.getUserMedia({ audio: __mic, video: false }).then(function(stream) {
@@ -274,9 +289,14 @@ private fun startWebCapture(onChunk: (Int, Int) -> Unit) {
             if (ctx.audioWorklet) {
                 ctx.audioWorklet.addModule('/app/mic-worklet.js').then(function() {
                     var node = new AudioWorkletNode(ctx, 'mic-processor');
+                    var silentGain = ctx.createGain();
+                    silentGain.gain.value = 0;
                     window.__recNode = node;
+                    window.__recSilentGain = silentGain;
                     node.port.onmessage = function(e) { sendChunk(e.data); };
                     src.connect(node);
+                    node.connect(silentGain);
+                    silentGain.connect(ctx.destination);
                 }).catch(function() { fallback(ctx, src, sendChunk); });
             } else { fallback(ctx, src, sendChunk); }
 
@@ -287,15 +307,21 @@ private fun startWebCapture(onChunk: (Int, Int) -> Unit) {
                 src.connect(proc);
                 proc.connect(ctx.destination);
             }
-        }).catch(function(e) { console.error('Recording getUserMedia failed:', e); });
+        }).catch(function(e) {
+            var message = (e && e.message) ? e.message : String(e);
+            console.error('Recording getUserMedia failed:', e);
+            onError(message);
+        });
     """)
 }
 
 private fun stopWebCapture() {
     js("""
         if (window.__recNode)   { window.__recNode.disconnect();   window.__recNode = null; }
+        if (window.__recSilentGain) { window.__recSilentGain.disconnect(); window.__recSilentGain = null; }
         if (window.__recProc)   { window.__recProc.disconnect();   window.__recProc = null; }
         if (window.__recStream) { window.__recStream.getTracks().forEach(function(t) { t.stop(); }); window.__recStream = null; }
         if (window.__recCtx)    { window.__recCtx.close();         window.__recCtx = null; }
+        window.__recBuf = null;
     """)
 }

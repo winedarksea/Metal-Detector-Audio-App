@@ -84,9 +84,14 @@ private fun startInfMicJs(onChunk: (Int, Int) -> Unit) {
             if (ctx.audioWorklet) {
                 ctx.audioWorklet.addModule('/app/mic-worklet.js').then(function() {
                     var node = new AudioWorkletNode(ctx, 'mic-processor');
+                    var silentGain = ctx.createGain();
+                    silentGain.gain.value = 0;
                     window.__mdInfNode = node;
+                    window.__mdInfSilentGain = silentGain;
                     node.port.onmessage = function(e) { sendChunk(e.data); };
                     src.connect(node);
+                    node.connect(silentGain);
+                    silentGain.connect(ctx.destination);
                 }).catch(function() { fallback(ctx, src, sendChunk); });
             } else { fallback(ctx, src, sendChunk); }
 
@@ -104,6 +109,7 @@ private fun startInfMicJs(onChunk: (Int, Int) -> Unit) {
 private fun stopInfMicJs() {
     js("""
         if (window.__mdInfNode)   { window.__mdInfNode.disconnect();   window.__mdInfNode = null; }
+        if (window.__mdInfSilentGain) { window.__mdInfSilentGain.disconnect(); window.__mdInfSilentGain = null; }
         if (window.__mdInfProc)   { window.__mdInfProc.disconnect();   window.__mdInfProc = null; }
         if (window.__mdInfStream) { window.__mdInfStream.getTracks().forEach(function(t) { t.stop(); }); window.__mdInfStream = null; }
         if (window.__mdInfCtx)    { window.__mdInfCtx.close();         window.__mdInfCtx = null; }

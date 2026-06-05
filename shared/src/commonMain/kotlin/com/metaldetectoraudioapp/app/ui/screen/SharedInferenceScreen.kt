@@ -93,6 +93,30 @@ fun SharedInferenceScreen(
             }
         }
 
+        uiState.inferenceError?.let { error ->
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "Inference error",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        Text(
+                            error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
+            }
+        }
+
         if (uiState.stickyTargetActive) {
             item {
                 StickyTargetBanner(

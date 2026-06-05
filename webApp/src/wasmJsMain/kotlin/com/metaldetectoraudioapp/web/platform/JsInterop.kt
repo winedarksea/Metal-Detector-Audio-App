@@ -48,10 +48,14 @@ suspend fun <T : JsAny?> Promise<T>.await(): T =
             promise = this,
             onFulfilled = { value: T -> cont.resumeWith(Result.success(value)) },
             onRejected = { reason: JsAny? ->
-                cont.resumeWith(Result.failure(RuntimeException("JS Promise rejected: $reason")))
+                cont.resumeWith(Result.failure(RuntimeException("JS Promise rejected: ${jsErrorMessage(reason)}")))
             }
         )
     }
+
+/** Extracts a human-readable message from a rejected promise reason (Error.message or String). */
+private fun jsErrorMessage(reason: JsAny?): String =
+    js("String(reason && reason.message ? reason.message : reason)")
 
 // Top-level (non-extension) call avoids the "js() not allowed in extension" restriction.
 private fun <T : JsAny?> promiseThen(

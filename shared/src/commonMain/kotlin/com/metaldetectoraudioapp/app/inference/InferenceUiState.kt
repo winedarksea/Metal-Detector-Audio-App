@@ -15,6 +15,9 @@ data class InferenceUiState(
     val modelVersion: String = "",
     val modelName: String = "",
 
+    /** Non-null when the last inference attempt threw; surfaced so failures aren't silent. */
+    val inferenceError: String? = null,
+
     /**
      * Rolling list of recent non-AMBIENT detections (newest last).
      * Lets the UI show a history log so users don't miss transient chirps.

@@ -25,20 +25,35 @@ class WebOnnxClassifier(
     // Parameters fixed to training pipeline: 16kHz, 256 frame, 128 hop, 40 mel bins
     private val melExtractor = MelSpectrogramFeatureExtractor()
 
+    // The CNN graph has a FIXED input shape [1, timeFrames, melBins, 1]; onnxruntime-web rejects
+    // any other frame count. Read the expected dims from metadata (fall back to the 0.5 s / 16 kHz
+    // training config) and pad/truncate to them — mirrors DesktopOnnxClassifier.
+    private val expectedTimeFrames: Int =
+        metadata.artifacts.acceleratorInput.timeFrames ?: DEFAULT_TIME_FRAMES
+    private val expectedMelBins: Int =
+        metadata.artifacts.acceleratorInput.melBins ?: DEFAULT_MEL_BINS
+
     override val activeAccelerator: InferenceAccelerator = InferenceAccelerator.CPU
 
     override suspend fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         val startNs = Clocks.monotonicNanos()
 
         val melMatrix = melExtractor.extractLogMelSpectrogram(samples)
-        val numFrames = melMatrix.size
-        val numMels = if (numFrames > 0) melMatrix[0].size else 40
+        if (melMatrix.isEmpty()) {
+            return InferenceResult(
+                topLabel = "AMBIENT",
+                topScore = 0f,
+                perLabelScores = metadata.labels.associateWith { 0f },
+                inferenceTimeMs = 0L,
+            )
+        }
 
-        // Stage the flat float array in a global JS Float32Array
-        writeFloatArrayToGlobal(melMatrix, numFrames, numMels)
+        // Stage the flat float array (padded/truncated to the model's fixed shape) in a global
+        // JS Float32Array.
+        writeFloatArrayToGlobal(melMatrix, expectedTimeFrames, expectedMelBins)
 
-        val outputRef = runOnnxInference(session, numFrames, numMels).await()
-        val scores = FloatArray(3) { i -> getOutputFloat(outputRef, i) }
+        val outputRef = runOnnxInference(session, expectedTimeFrames, expectedMelBins).await()
+        val scores = FloatArray(metadata.labels.size) { i -> getOutputFloat(outputRef, i) }
 
         val topIdx = scores.indices.maxByOrNull { scores[it] } ?: 0
         val topLabel = (metadata.labels.getOrNull(topIdx) ?: "AMBIENT").uppercase()
@@ -55,6 +70,10 @@ class WebOnnxClassifier(
     override fun close() { /* ORT session lifecycle managed by JS GC */ }
 
     companion object {
+        // Defaults match the 0.5 s / 16 kHz training config (8000-sample window → 61 frames).
+        private const val DEFAULT_TIME_FRAMES = 61
+        private const val DEFAULT_MEL_BINS = 40
+
         suspend fun create(onnxBytes: ByteArray, metadata: ModelMetadata): WebOnnxClassifier {
             // Stage onnx bytes in global buf, then create session
             writeBytesToGlobal(onnxBytes)
@@ -64,12 +83,19 @@ class WebOnnxClassifier(
     }
 }
 
-private fun writeFloatArrayToGlobal(melMatrix: Array<FloatArray>, numFrames: Int, numMels: Int) {
-    initGlobalFloatBuf(numFrames * numMels)
+/**
+ * Stages the log-mel spectrogram as a flat Float32Array of exactly [timeFrames] × [melBins],
+ * padding short windows with zeros and truncating long ones so the tensor always matches the
+ * CNN's fixed input shape.
+ */
+private fun writeFloatArrayToGlobal(melMatrix: Array<FloatArray>, timeFrames: Int, melBins: Int) {
+    initGlobalFloatBuf(timeFrames * melBins)
     var idx = 0
-    for (frame in melMatrix) {
-        for (mel in frame) {
-            setGlobalFloatAt(idx, mel)
+    for (t in 0 until timeFrames) {
+        val frame = if (t < melMatrix.size) melMatrix[t] else null
+        for (m in 0 until melBins) {
+            val value = if (frame != null && m < frame.size) frame[m] else 0f
+            setGlobalFloatAt(idx, value)
             idx++
         }
     }

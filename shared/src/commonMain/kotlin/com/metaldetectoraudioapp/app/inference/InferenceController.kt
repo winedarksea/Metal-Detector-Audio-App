@@ -44,6 +44,10 @@ class InferenceController(
     private var latencyAccumulatorMs = 0L
     private var inferenceCount = 0L
 
+    /** Logged once so a persistent inference failure doesn't spam the console every frame. */
+    @Volatile
+    private var inferenceErrorLogged = false
+
     /** Epoch-ms until which the sticky TARGET banner should remain visible. */
     @Volatile
     private var stickyTargetEndMs = 0L
@@ -140,6 +144,7 @@ class InferenceController(
                     topLabel = winningLabel,
                     confidence = result.topScore,
                     lastInferenceMs = result.inferenceTimeMs,
+                    inferenceError = null,
                     averageLatencyMs = if (inferenceCount == 0L) 0f
                     else latencyAccumulatorMs.toFloat() / inferenceCount,
                     recentDetections = updatedRecent,
@@ -147,11 +152,21 @@ class InferenceController(
                     stickyTargetConfidence = stickyConfidence,
                     recentTargetCount = recentTargetCount
                 )
+                inferenceErrorLogged = false
                 AppLogger.d(
                     logTag,
                     "top=$winningLabel score=${result.topScore} inferMs=${result.inferenceTimeMs} " +
                             "latencyMs=$latencyMs sticky=$stickyActive recent=$recentTargetCount"
                 )
+            } catch (t: Throwable) {
+                // Without this, an exception in classifyAudioWindow is silently dropped by the
+                // coroutine scope, leaving the UI frozen at its default ("AMBIENT", 0.0, 0 ms).
+                val message = t.message ?: t.toString()
+                _uiState.value = _uiState.value.copy(inferenceError = message)
+                if (!inferenceErrorLogged) {
+                    inferenceErrorLogged = true
+                    AppLogger.e(logTag, "Inference failed: $message")
+                }
             } finally {
                 inferenceInFlight = false
             }

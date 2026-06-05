@@ -1,6 +1,5 @@
 package com.metaldetectoraudioapp.web
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -107,28 +106,21 @@ fun main() {
                             val passthrough by vm.passthroughEnabled.collectAsState()
                             val modelOptions by vm.availableModelOptions.collectAsState()
                             val selectedModelId by vm.selectedModelOptionId.collectAsState()
-                            Column(modifier = Modifier.padding(padding)) {
-                                MicSelector(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .padding(top = 16.dp)
-                                )
-                                SharedInferenceScreen(
-                                    uiState = uiState,
-                                    ribbon = vm.ribbon,
-                                    passthroughEnabled = passthrough,
-                                    availableModelOptions = modelOptions,
-                                    selectedModelOptionId = selectedModelId,
-                                    onStart = vm::start,
-                                    onStop = vm::stop,
-                                    onThresholdChange = vm::updateThreshold,
-                                    onPassthroughChange = vm::setPassthroughEnabled,
-                                    onModelOptionSelected = vm::selectModelOption,
-                                    contentPadding = PaddingValues(16.dp),
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
+                            SharedInferenceScreen(
+                                uiState = uiState,
+                                ribbon = vm.ribbon,
+                                passthroughEnabled = passthrough,
+                                availableModelOptions = modelOptions,
+                                selectedModelOptionId = selectedModelId,
+                                onStart = vm::start,
+                                onStop = vm::stop,
+                                onThresholdChange = vm::updateThreshold,
+                                onPassthroughChange = vm::setPassthroughEnabled,
+                                onModelOptionSelected = vm::selectModelOption,
+                                contentPadding = PaddingValues(16.dp),
+                                modifier = Modifier.padding(padding),
+                                micSelector = { MicSelector(modifier = Modifier.fillMaxWidth()) },
+                            )
                         } else {
                             val err = inferenceError
                             if (err != null) {

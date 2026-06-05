@@ -73,6 +73,7 @@ fun SharedInferenceScreen(
     onModelOptionSelected: (String) -> Unit,
     contentPadding: PaddingValues = PaddingValues(16.dp),
     modifier: Modifier = Modifier,
+    micSelector: @Composable () -> Unit = {},
 ) {
     LazyColumn(
         modifier = modifier.padding(contentPadding),
@@ -133,6 +134,8 @@ fun SharedInferenceScreen(
                     modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    micSelector()
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)

@@ -132,11 +132,14 @@ class DesktopAudioRecordingSession(
         }
 
         val durationMs = (System.currentTimeMillis() - startEpochMs).coerceAtLeast(0)
-        return CapturedRecording(outputFile, durationMs)
+        // Read the finished temp WAV into memory and discard the file — the dataset store owns
+        // persistence now, so captures are carried as bytes.
+        val wavBytes = runCatching { outputFile.readBytes() }.getOrNull()
+        outputFile.delete()
+        return wavBytes?.let { CapturedRecording(it, durationMs) }
     }
 
     fun cancelAndDelete() {
-        val captured = stop()
-        captured?.tempAudioFile?.delete()
+        stop()
     }
 }

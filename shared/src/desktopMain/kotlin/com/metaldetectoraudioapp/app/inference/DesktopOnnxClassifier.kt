@@ -42,7 +42,7 @@ class DesktopOnnxClassifier(
 
     private val labels: List<String> get() = metadata.labels
 
-    override fun classifyAudioWindow(samples: FloatArray): InferenceResult {
+    override suspend fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         val startNanos = System.nanoTime()
         val logMel = melExtractor.extractLogMelSpectrogram(samples)
 

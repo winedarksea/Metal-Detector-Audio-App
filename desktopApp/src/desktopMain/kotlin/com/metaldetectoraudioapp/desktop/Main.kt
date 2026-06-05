@@ -51,16 +51,20 @@ fun main() = application {
         val recordingViewModel = remember {
             DesktopRecordingViewModel(
                 recordingRepository = appContainer.recordingRepository,
+                audioPlayer = appContainer.audioPlayer,
                 recordingSessionCacheDirectoryPath = File(
                     appContainer.appDataDirectory,
                     "cache"
-                ).absolutePath
+                ).absolutePath,
+                datasetDirectoryPath = appContainer.datasetDirectoryPath,
             )
         }
         val reviewViewModel = remember {
             DesktopReviewViewModel(
                 recordingRepository = appContainer.recordingRepository,
-                bundleManager = appContainer.datasetBundleManager
+                bundleManager = appContainer.datasetBundleManager,
+                audioPlayer = appContainer.audioPlayer,
+                datasetDirectoryPath = appContainer.datasetDirectoryPath,
             )
         }
         var selectedDestination by remember { mutableStateOf(DesktopDestination.INFERENCE) }

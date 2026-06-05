@@ -1,6 +1,5 @@
 # Metal Detector Audio App
-
-Android-first, minimal on-device audio app for metal detector signals with two core paths:
+PWA [detectoraudio.com](detectoraudio.com) and Android-native, minimal on-device audio app for metal detector signals with two core paths:
 - Runtime inference (`TARGET` / `JUNK` / `AMBIENT`) from live audio.
 - High-quality labeled recording workflow for building a training dataset.
 

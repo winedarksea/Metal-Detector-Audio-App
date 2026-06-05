@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Metal Detector Audio">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E88E5"/>
+      <stop offset="1" stop-color="#0D47A1"/>
+    </linearGradient>
+    <linearGradient id="coil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ECEFF1"/>
+      <stop offset="0.5" stop-color="#B0BEC5"/>
+      <stop offset="1" stop-color="#78909C"/>
+    </linearGradient>
+    <linearGradient id="wave" gradientUnits="userSpaceOnUse" x1="148" y1="0" x2="364" y2="0">
+      <stop offset="0" stop-color="#FF5252"/>
+      <stop offset="0.25" stop-color="#FFB300"/>
+      <stop offset="0.5" stop-color="#69F0AE"/>
+      <stop offset="0.75" stop-color="#40C4FF"/>
+      <stop offset="1" stop-color="#E040FB"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Metal detector coil: centered circle with a thick line down the middle -->
+  <g fill="none" stroke="url(#coil)" stroke-linecap="round">
+    <circle cx="256" cy="256" r="178" stroke-width="28" opacity="0.95"/>
+    <circle cx="256" cy="256" r="122" stroke-width="13" opacity="0.4"/>
+    <line x1="256" y1="78" x2="256" y2="434" stroke-width="32" opacity="0.95"/>
+  </g>
+
+  <!-- Colorful audio waveform across the top -->
+  <!-- cd web/app-extra/icons; npx @resvg/resvg-js-cli icon.svg icon-192.png fit-width 192 -->
+  <g stroke="url(#wave)" stroke-width="22" stroke-linecap="round" fill="none">
+    <line x1="148" y1="228" x2="148" y2="284"/>
+    <line x1="184" y1="208" x2="184" y2="304"/>
+    <line x1="220" y1="164" x2="220" y2="348"/>
+    <line x1="256" y1="228" x2="256" y2="284"/>
+    <line x1="292" y1="192" x2="292" y2="320"/>
+    <line x1="328" y1="164" x2="328" y2="348"/>
+    <line x1="364" y1="228" x2="364" y2="284"/>
+  </g>
+</svg>

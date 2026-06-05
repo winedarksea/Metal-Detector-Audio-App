@@ -1,0 +1,71 @@
+name: Deploy Web to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & Deploy detectoraudio.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: wrapper
+
+      - name: Build wasmJs distribution
+        run: ./gradlew :webApp:wasmJsBrowserDistribution
+
+      # ── Assemble the dist/ directory ──────────────────────────────────────
+      - name: Create dist/ layout
+        run: |
+          mkdir -p dist/app/icons
+
+          # Landing page at site root
+          cp -r web/landing/. dist/
+
+          # Compose WASM bundle → /app/
+          cp -r webApp/build/dist/wasmJs/productionExecutable/. dist/app/
+
+          # PWA extras (sw.js, manifest, mic-worklet.js, _headers, icons/)
+          cp -r web/app-extra/. dist/app/
+
+          # Model assets
+          cp models/starter_model_cnn.onnx        dist/app/
+          cp models/starter_model_metadata.json   dist/app/
+
+          # Download onnxruntime-web (single-threaded, vendored to avoid CDN dependency at runtime)
+          ORT_VERSION=1.18.0
+          curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort.min.js"         -o dist/app/ort.min.js
+          curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort-wasm.wasm"      -o dist/app/ort-wasm.wasm
+          curl -fsSL "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort-wasm-simd.wasm" -o dist/app/ort-wasm-simd.wasm
+
+          # Root _headers (merge app-level headers)
+          cat web/app-extra/_headers >> dist/_headers 2>/dev/null || true
+
+          echo "=== dist/ top-level ==="
+          ls dist/
+          echo "=== dist/app/ ==="
+          ls dist/app/
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=detectoraudio --branch=main

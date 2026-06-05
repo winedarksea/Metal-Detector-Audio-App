@@ -1,9 +1,11 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.android.kotlin.multiplatform.library")
 }
 
@@ -32,6 +34,11 @@ kotlin {
         }
     }
 
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+    }
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -40,15 +47,14 @@ kotlin {
                 implementation(compose.material3)
                 implementation(compose.ui)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
             }
         }
 
         // JVM source set shared by both Android and Desktop targets.
         val jvmMain by creating {
             dependsOn(commonMain)
-            dependencies {
-                implementation("org.json:json:20240303")
-            }
         }
 
         val androidMain by getting {
@@ -68,6 +74,11 @@ kotlin {
                 // Provides Dispatchers.Main on desktop JVM
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
             }
+        }
+
+        // applyDefaultHierarchyTemplate=false → wire explicitly
+        val wasmJsMain by getting {
+            dependsOn(commonMain)
         }
     }
 }

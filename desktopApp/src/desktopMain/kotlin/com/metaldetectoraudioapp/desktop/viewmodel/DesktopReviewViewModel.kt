@@ -1,61 +1,74 @@
 package com.metaldetectoraudioapp.desktop.viewmodel
 
+import com.metaldetectoraudioapp.app.audio.AudioPlayer
 import com.metaldetectoraudioapp.app.export.DatasetBundleManager
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.recording.RecordingRepository
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.ReviewUiState
-import com.metaldetectoraudioapp.desktop.audio.DesktopAudioPlaybackController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 
 class DesktopReviewViewModel(
     private val recordingRepository: RecordingRepository,
     private val bundleManager: DatasetBundleManager,
+    private val audioPlayer: AudioPlayer,
+    val datasetDirectoryPath: String,
 ) {
-    private val playbackController = DesktopAudioPlaybackController()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var playbackJob: Job? = null
 
     private val _uiState = MutableStateFlow(ReviewUiState())
     val uiState: StateFlow<ReviewUiState> = _uiState.asStateFlow()
-
-    val datasetDirectoryPath: String =
-        recordingRepository.metadataFile().parentFile?.absolutePath.orEmpty()
 
     init {
         refresh()
     }
 
     fun refresh() {
-        _uiState.value = _uiState.value.copy(
-            recordings = recordingRepository.listRecordings(),
-            errorMessage = null
-        )
+        scope.launch {
+            val recordings = recordingRepository.listRecordings()
+            _uiState.value = _uiState.value.copy(recordings = recordings, errorMessage = null)
+        }
     }
 
     fun playOrStop(recording: RecordingMetadata) {
         if (_uiState.value.selectedPlayingId == recording.recordingId) {
-            playbackController.stop()
+            audioPlayer.stop()
+            playbackJob?.cancel()
+            playbackJob = null
             _uiState.value = _uiState.value.copy(selectedPlayingId = null)
             return
         }
 
-        val file = recordingRepository.resolveAudioFile(recording)
-        if (file == null) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Audio file missing: ${recording.audioFileName}")
-            return
-        }
-
-        playbackController.play(file) {
+        playbackJob?.cancel()
+        playbackJob = scope.launch {
+            val bytes = recordingRepository.readAudioBytes(recording)
+            if (bytes == null) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Audio file missing: ${recording.audioFileName}"
+                )
+                return@launch
+            }
+            _uiState.value = _uiState.value.copy(selectedPlayingId = recording.recordingId)
+            audioPlayer.play(bytes)
             _uiState.value = _uiState.value.copy(selectedPlayingId = null)
         }
-        _uiState.value = _uiState.value.copy(selectedPlayingId = recording.recordingId)
     }
 
     fun toggleIncludeInTraining(recording: RecordingMetadata, includeInTraining: Boolean) {
-        recordingRepository.updateRecording(recording.copy(includeInTraining = includeInTraining))
-        refresh()
+        scope.launch {
+            recordingRepository.updateRecording(recording.copy(includeInTraining = includeInTraining))
+            refresh()
+        }
     }
 
     fun relabelTargetNames(recording: RecordingMetadata, targetNamesInput: String) {
@@ -63,21 +76,28 @@ class DesktopReviewViewModel(
             .split(',', ';', '|')
             .map { it.trim() }
             .filter { it.isNotBlank() }
-
-        recordingRepository.updateRecording(
-            recording.copy(targetNames = if (targetNames.isEmpty()) listOf("ambient:background:unknown") else targetNames)
-        )
-        refresh()
+        scope.launch {
+            recordingRepository.updateRecording(
+                recording.copy(
+                    targetNames = if (targetNames.isEmpty()) listOf("ambient:background:unknown") else targetNames
+                )
+            )
+            refresh()
+        }
     }
 
     fun relabelClass(recording: RecordingMetadata, classLabel: ClassLabel) {
-        recordingRepository.updateRecording(recording.copy(classLabel = classLabel))
-        refresh()
+        scope.launch {
+            recordingRepository.updateRecording(recording.copy(classLabel = classLabel))
+            refresh()
+        }
     }
 
     fun relabelNotes(recording: RecordingMetadata, notes: String) {
-        recordingRepository.updateRecording(recording.copy(notes = notes.ifBlank { null }))
-        refresh()
+        scope.launch {
+            recordingRepository.updateRecording(recording.copy(notes = notes.ifBlank { null }))
+            refresh()
+        }
     }
 
     fun relabelEnvironment(
@@ -90,50 +110,59 @@ class DesktopReviewViewModel(
         recoverySpeed: String,
         stabilizer: String,
     ) {
-        recordingRepository.updateRecording(
-            recording.copy(
-                soilType = soilType.ifBlank { null },
-                moisture = moisture.ifBlank { null },
-                detectorModel = detectorModel.ifBlank { null },
-                searchMode = searchMode.ifBlank { null },
-                sensitivity = sensitivity.ifBlank { null },
-                recoverySpeed = recoverySpeed.ifBlank { null },
-                stabilizer = stabilizer.ifBlank { null },
+        scope.launch {
+            recordingRepository.updateRecording(
+                recording.copy(
+                    soilType = soilType.ifBlank { null },
+                    moisture = moisture.ifBlank { null },
+                    detectorModel = detectorModel.ifBlank { null },
+                    searchMode = searchMode.ifBlank { null },
+                    sensitivity = sensitivity.ifBlank { null },
+                    recoverySpeed = recoverySpeed.ifBlank { null },
+                    stabilizer = stabilizer.ifBlank { null },
+                )
             )
-        )
-        refresh()
+            refresh()
+        }
     }
 
     fun delete(recordingId: String) {
-        recordingRepository.deleteRecording(recordingId)
-        refresh()
+        scope.launch {
+            recordingRepository.deleteRecording(recordingId)
+            refresh()
+        }
     }
 
     fun exportBundle(destinationZipFile: File) {
-        runCatching {
-            destinationZipFile.parentFile?.mkdirs()
-            destinationZipFile.outputStream().use { bundleManager.exportBundle(it) }
-        }.onSuccess {
-            _uiState.value = _uiState.value.copy(
-                message = "Dataset export complete: ${destinationZipFile.absolutePath}",
-                errorMessage = null
-            )
-        }.onFailure { error ->
-            _uiState.value = _uiState.value.copy(errorMessage = "Export failed: ${error.message}")
+        scope.launch {
+            runCatching {
+                val bytes = bundleManager.exportBundle()
+                destinationZipFile.parentFile?.mkdirs()
+                destinationZipFile.writeBytes(bytes)
+            }.onSuccess {
+                _uiState.value = _uiState.value.copy(
+                    message = "Dataset export complete: ${destinationZipFile.absolutePath}",
+                    errorMessage = null
+                )
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(errorMessage = "Export failed: ${error.message}")
+            }
         }
     }
 
     fun importBundle(bundleZipFile: File) {
-        runCatching {
-            bundleZipFile.inputStream().use { bundleManager.importBundle(it) }
-        }.onSuccess { importedCount ->
-            refresh()
-            _uiState.value = _uiState.value.copy(
-                message = "Imported $importedCount recordings",
-                errorMessage = null
-            )
-        }.onFailure { error ->
-            _uiState.value = _uiState.value.copy(errorMessage = "Import failed: ${error.message}")
+        scope.launch {
+            runCatching {
+                bundleManager.importBundle(bundleZipFile.readBytes())
+            }.onSuccess { importedCount ->
+                refresh()
+                _uiState.value = _uiState.value.copy(
+                    message = "Imported $importedCount recordings",
+                    errorMessage = null
+                )
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(errorMessage = "Import failed: ${error.message}")
+            }
         }
     }
 
@@ -142,6 +171,8 @@ class DesktopReviewViewModel(
     }
 
     fun close() {
-        playbackController.stop()
+        audioPlayer.stop()
+        playbackJob?.cancel()
+        scope.cancel()
     }
 }

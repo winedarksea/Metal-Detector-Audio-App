@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Metal Detector Audio — AI-powered audio signal classification for metal detecting. Record, label, and train your own detector model.">
+  <meta name="theme-color" content="#1565C0">
+
+  <title>Metal Detector Audio</title>
+
+  <link rel="icon" type="image/svg+xml" href="/app/icons/icon.svg">
+  <link rel="apple-touch-icon" href="/app/icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-BQJ05CWCEM"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-BQJ05CWCEM');
+  </script>
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header>
+    <div class="container">
+      <div class="logo">
+        <span class="logo-icon">🎯</span>
+        <span class="logo-text">Metal Detector Audio</span>
+      </div>
+      <nav>
+        <a href="https://github.com/winedarksea/Metal-Detector-Audio-App" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ── Hero ───────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-text">
+        <h1>AI audio classification<br>for metal detecting</h1>
+        <p class="subtitle">
+          Record audio from your detector coil, label it, and train a model that learns
+          <em>your</em> specific detector's signals for coins, trash, and ambient noise.
+        </p>
+        <div class="cta-group">
+          <a href="/app/" class="btn-primary">Open the App</a>
+          <a href="https://github.com/winedarksea/Metal-Detector-Audio-App" class="btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
+        </div>
+      </div>
+      <div class="hero-badge">
+        <div class="badge-inner">
+          <div class="signal-bar" style="height:60%"></div>
+          <div class="signal-bar" style="height:90%"></div>
+          <div class="signal-bar target" style="height:100%"></div>
+          <div class="signal-bar" style="height:70%"></div>
+          <div class="signal-bar" style="height:40%"></div>
+        </div>
+        <div class="badge-label">TARGET DETECTED</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Features ───────────────────────────────────────────────────────── -->
+  <section class="features">
+    <div class="container">
+      <h2>How it works</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🎙️</div>
+          <h3>Detect</h3>
+          <p>Run real-time audio classification through a CNN model as you swing the coil. TARGET, JUNK, and AMBIENT classifications update live.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💾</div>
+          <h3>Record</h3>
+          <p>Capture labelled audio samples with depth, soil type, detector settings, and GPS. Recordings are stored locally in IndexedDB.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📦</div>
+          <h3>Export &amp; Train</h3>
+          <p>Bundle your dataset as a ZIP (CSV metadata + WAV files) and use the included training script to fine-tune the ONNX model on your own finds.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Platform notes ─────────────────────────────────────────────────── -->
+  <section class="platforms">
+    <div class="container">
+      <h2>Available on every device</h2>
+      <div class="platform-grid">
+        <div class="platform-card">
+          <div class="platform-icon">🤖</div>
+          <h3>Android</h3>
+          <p>Native app with NPU acceleration. <a href="https://github.com/winedarksea/Metal-Detector-Audio-App/releases" target="_blank" rel="noopener">Download APK</a></p>
+        </div>
+        <div class="platform-card">
+          <div class="platform-icon">🖥️</div>
+          <h3>Desktop</h3>
+          <p>Compose Multiplatform app for macOS, Windows, and Linux. Build from source.</p>
+        </div>
+        <div class="platform-card ios-card">
+          <div class="platform-icon">🍎</div>
+          <h3>iPhone / iPad</h3>
+          <p>Open <a href="/app/">/app/</a> in Safari, then tap <strong>Share →</strong> <strong>Add to Home Screen</strong> to install as a standalone app.</p>
+        </div>
+        <div class="platform-card">
+          <div class="platform-icon">🌐</div>
+          <h3>Any browser</h3>
+          <p>The full app runs in any modern browser — no install required. Microphone access needed for live detection.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer>
+    <div class="container">
+      <p>
+        Open source · <a href="https://github.com/winedarksea/Metal-Detector-Audio-App" target="_blank" rel="noopener">GitHub</a>
+        · <a href="/app/">Launch App</a>
+      </p>
+      <p class="footer-note">Built with Kotlin Multiplatform + Compose · ONNX Runtime · Cloudflare Pages</p>
+    </div>
+  </footer>
+
+</body>
+</html>

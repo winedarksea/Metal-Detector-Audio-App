@@ -1,0 +1,13 @@
+/app/*.wasm
+  Content-Type: application/wasm
+  Cache-Control: public, max-age=31536000, immutable
+
+/app/starter_model_cnn.onnx
+  Content-Type: application/octet-stream
+  Cache-Control: public, max-age=86400
+
+/app/manifest.webmanifest
+  Content-Type: application/manifest+json
+
+/app/sw.js
+  Cache-Control: no-cache, no-store

@@ -65,8 +65,8 @@ fun DesktopRecordingScreen(
     contentPadding: PaddingValues,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val previewImage = remember(uiState.pendingImageFile?.absolutePath) {
-        loadDesktopImageBitmap(uiState.pendingImageFile)
+    val previewImage = remember(uiState.pendingImage) {
+        loadDesktopImageBitmap(uiState.pendingImage?.bytes)
     }
 
     LazyColumn(
@@ -108,13 +108,13 @@ fun DesktopRecordingScreen(
                                     viewModel.playPreview()
                                 }
                             },
-                            enabled = uiState.pendingAudioFile != null
+                            enabled = uiState.pendingAudio != null
                         ) {
                             Text(if (uiState.isPlayingPreview) "Stop Preview" else "Play Preview")
                         }
                         Button(
                             onClick = viewModel::clearPendingCapture,
-                            enabled = uiState.pendingAudioFile != null || uiState.pendingImageFile != null
+                            enabled = uiState.pendingAudio != null || uiState.pendingImage != null
                         ) {
                             Text("Clear Pending")
                         }
@@ -167,7 +167,7 @@ fun DesktopRecordingScreen(
                             Text("Add Image")
                         }
 
-                        if (uiState.pendingImageFile != null) {
+                        if (uiState.pendingImage != null) {
                             Button(onClick = viewModel::removePendingImage) {
                                 Text("Remove Image")
                             }
@@ -183,7 +183,10 @@ fun DesktopRecordingScreen(
                                 .clip(MaterialTheme.shapes.small),
                             contentScale = ContentScale.Crop
                         )
-                        Text(uiState.pendingImageFile?.name.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            uiState.pendingImage?.let { "find-image.${it.extension}" }.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
 
                     Text("GPS: not available on desktop capture")
@@ -221,7 +224,7 @@ fun DesktopRecordingScreen(
                         Text("include_in_training")
                     }
 
-                    Button(onClick = viewModel::saveRecording, enabled = uiState.pendingAudioFile != null) {
+                    Button(onClick = viewModel::saveRecording, enabled = uiState.pendingAudio != null) {
                         Text("Save Recording")
                     }
                 }
@@ -392,12 +395,12 @@ private fun chooseOpenImageFile(defaultDirectory: String): File? {
     return File(selectedDirectory, selectedFileName)
 }
 
-private fun loadDesktopImageBitmap(imageFile: File?): androidx.compose.ui.graphics.ImageBitmap? {
-    if (imageFile == null || !imageFile.exists()) {
+private fun loadDesktopImageBitmap(imageBytes: ByteArray?): androidx.compose.ui.graphics.ImageBitmap? {
+    if (imageBytes == null || imageBytes.isEmpty()) {
         return null
     }
 
     return runCatching {
-        SkiaImage.makeFromEncoded(imageFile.readBytes()).toComposeImageBitmap()
+        SkiaImage.makeFromEncoded(imageBytes).toComposeImageBitmap()
     }.getOrNull()
 }

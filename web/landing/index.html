@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Metal Detector Audio — AI-powered audio signal classification for metal detecting. Record, label, and train your own detector model.">
-  <meta name="theme-color" content="#1565C0">
+  <meta name="theme-color" content="#2F5F4B">
 
   <title>Metal Detector Audio</title>
 
@@ -27,7 +27,7 @@
   <header>
     <div class="container">
       <div class="logo">
-        <span class="logo-icon">🎯</span>
+        <img class="logo-icon" src="/app/icons/icon.svg" alt="" width="32" height="32">
         <span class="logo-text">Metal Detector Audio</span>
       </div>
       <nav>
@@ -51,6 +51,7 @@
         </div>
       </div>
       <div class="hero-badge">
+        <img class="hero-app-icon" src="/app/icons/icon.svg" alt="Metal Detector Audio app icon" width="120" height="120">
         <div class="badge-inner">
           <div class="signal-bar" style="height:60%"></div>
           <div class="signal-bar" style="height:90%"></div>
@@ -111,6 +112,48 @@
           <div class="platform-icon">🌐</div>
           <h3>Any browser</h3>
           <p>The full app runs in any modern browser — no install required. Microphone access needed for live detection.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Connection ─────────────────────────────────────────────────────── -->
+  <section class="connection">
+    <div class="container connection-inner">
+      <div class="connection-copy">
+        <h2>Connection</h2>
+        <p>
+          The easiest way to connect a phone or computer to a detector is from the audio out using a
+          <a href="https://www.amazon.com/gp/product/B01GW69IQ2" target="_blank" rel="noopener">microphone attenuator cable</a>.
+          It looks like a standard audio cord, but has an inline resistor because the headphone out is too strong a signal
+          for most microphone inputs. The “camera” end of this cable is the metal detector.
+        </p>
+        <p>
+          Most phones also need a
+          <a href="https://www.amazon.com/Apple-USB-C-Headphone-Jack-Adapter/dp/B0D7FF5Y3X" target="_blank" rel="noopener">3.5 TRRS to USB-C adapter</a>
+          between the attenuator cable and the device.
+        </p>
+        <p>
+          Questions? Opening an
+          <a href="https://github.com/winedarksea/Metal-Detector-Audio-App/issues" target="_blank" rel="noopener">Issue</a>
+          or
+          <a href="https://github.com/winedarksea/Metal-Detector-Audio-App/discussions" target="_blank" rel="noopener">Discussion</a>
+          on GitHub is the best place to start. Ask anything.
+        </p>
+      </div>
+      <div class="connection-panel" aria-hidden="true">
+        <div class="connector-device detector-port">
+          <span class="connector-label">Detector</span>
+          <span class="connector-jack"></span>
+        </div>
+        <div class="connector-cable">
+          <span class="connector-line"></span>
+          <span class="inline-resistor"></span>
+          <span class="connector-line"></span>
+        </div>
+        <div class="connector-device phone-port">
+          <span class="connector-label">Phone / Computer</span>
+          <span class="connector-jack"></span>
         </div>
       </div>
     </div>

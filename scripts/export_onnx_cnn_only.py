@@ -7,6 +7,8 @@ ONNX export:    log_mel_spectrogram → CNN → softmax
 The STFT/mel/log feature extraction will be computed in Kotlin on the desktop
 side, matching the parameters baked into the training script.
 
+This is the production script for the models for the current apps.
+
 Usage:
     conda run -n gpu311 python scripts/export_onnx_cnn_only.py
 """

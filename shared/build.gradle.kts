@@ -49,13 +49,17 @@ kotlin {
                 implementation(compose.ui)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
             }
         }
 
         // JVM source set shared by both Android and Desktop targets.
         val jvmMain by creating {
             dependsOn(commonMain)
+            dependencies {
+                // kotlinx-datetime is JVM-only here: its Instant.Companion symbol fails to link
+                // under Kotlin/Wasm. The wasmJs target formats timestamps via the JS Date API.
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+            }
         }
 
         val androidMain by getting {

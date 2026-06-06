@@ -1,9 +1,6 @@
 package com.metaldetectoraudioapp.app.recording
 
 import com.metaldetectoraudioapp.app.util.Clocks
-import kotlinx.datetime.Instant
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 
 /**
  * Multiplatform recording dataset repository.
@@ -101,19 +98,7 @@ class RecordingRepository(
     }
 
     private fun buildRecordingId(nowMs: Long): String {
-        val dateTime = Instant.fromEpochMilliseconds(nowMs)
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-        val timestamp = buildString {
-            append(dateTime.year.toString().padStart(4, '0'))
-            append(dateTime.monthNumber.toString().padStart(2, '0'))
-            append(dateTime.dayOfMonth.toString().padStart(2, '0'))
-            append('_')
-            append(dateTime.hour.toString().padStart(2, '0'))
-            append(dateTime.minute.toString().padStart(2, '0'))
-            append(dateTime.second.toString().padStart(2, '0'))
-            append('_')
-            append((dateTime.nanosecond / 1_000_000).toString().padStart(3, '0'))
-        }
+        val timestamp = formatRecordingTimestamp(nowMs)
         val entropy = (Clocks.monotonicNanos() and 0xFFFF).toString(16).padStart(4, '0')
         return "rec_${timestamp}_$entropy"
     }

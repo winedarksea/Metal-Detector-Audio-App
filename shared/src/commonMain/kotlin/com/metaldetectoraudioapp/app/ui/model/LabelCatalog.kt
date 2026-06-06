@@ -37,7 +37,7 @@ object,name,material
 currency,quarter,cupronickel-clad-copper
 currency,quarter,silver-900
 currency,dime,cupronickel-clad-copper
-currency,dime-mercurcy,silver-900
+currency,dime-mercury,silver-900
 currency,nickel,cupronickel
 currency,nickel-buffalo,cupronickel
 currency,penny,copper-plated-zinc
@@ -97,7 +97,8 @@ ambient,background,unknown
 """.trimIndent()
 
 /** Canonical label options used by all platforms. */
-fun defaultLabelCatalog(): LabelSuggestionCatalog = parseCsvCatalog(LABEL_CATALOG_CSV)!!
+fun defaultLabelCatalog(): LabelSuggestionCatalog =
+    parseCsvCatalog(LABEL_CATALOG_CSV) ?: error("Built-in LABEL_CATALOG_CSV is malformed")
 
 /**
  * Parses a CSV string (object,name,material header + data rows) into a

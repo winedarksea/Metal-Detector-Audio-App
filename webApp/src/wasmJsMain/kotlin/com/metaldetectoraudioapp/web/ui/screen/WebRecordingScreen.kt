@@ -88,13 +88,10 @@ fun WebRecordingScreen(
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Labels", style = MaterialTheme.typography.titleMedium)
 
-                    OutlinedTextField(
+                    WebLabelPickerField(
                         value = uiState.draft.targetNameInput,
                         onValueChange = viewModel::updateTargetNames,
-                        label = { Text("target_name (category:object:material)") },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("e.g. coin:nickel:cupronickel") },
-                        singleLine = true,
                     )
 
                     OutlinedTextField(

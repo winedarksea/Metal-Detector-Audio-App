@@ -24,14 +24,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-
-private data class LabelEntry(val obj: String = "", val name: String = "", val material: String = "")
-
-private data class LabelSuggestionCatalog(
-    val objects: List<String>,
-    val namesByObject: Map<String, List<String>>,
-    val materialsByObject: Map<String, List<String>>,
-)
+import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.LabelSuggestionCatalog
+import com.metaldetectoraudioapp.app.ui.model.defaultLabelCatalog
+import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
+import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 
 private object LabelSuggestionConfigLoader {
     private const val CONFIG_ASSET = "label_dropdown_options.csv"
@@ -41,13 +38,13 @@ private object LabelSuggestionConfigLoader {
             context.assets.open(CONFIG_ASSET).bufferedReader().use { it.readText() }
         }.getOrNull()
 
-        return rawCsv?.let { parseCatalog(it) } ?: defaultCatalog()
+        return rawCsv?.let { parseCatalog(it) } ?: defaultLabelCatalog()
     }
 
     private fun parseCatalog(csv: String): LabelSuggestionCatalog {
         val rows = parseCsvRows(csv)
         if (rows.isEmpty()) {
-            return defaultCatalog()
+            return defaultLabelCatalog()
         }
 
         val header = rows.first().map { it.trim().lowercase() }
@@ -56,7 +53,7 @@ private object LabelSuggestionConfigLoader {
         val materialIndex = header.indexOf("material")
 
         if (objectIndex < 0 || nameIndex < 0 || materialIndex < 0) {
-            return defaultCatalog()
+            return defaultLabelCatalog()
         }
 
         val objects = linkedSetOf<String>()
@@ -81,7 +78,7 @@ private object LabelSuggestionConfigLoader {
         }
 
         if (objects.isEmpty()) {
-            return defaultCatalog()
+            return defaultLabelCatalog()
         }
 
         return LabelSuggestionCatalog(
@@ -144,55 +141,7 @@ private object LabelSuggestionConfigLoader {
 
         return rows
     }
-
-    private fun defaultCatalog(): LabelSuggestionCatalog {
-        return LabelSuggestionCatalog(
-            objects = listOf("coin", "trash", "hardware", "jewelry", "test_fixture", "ambient"),
-            namesByObject = mapOf(
-                "coin" to listOf("dime", "nickel", "quarter", "penny"),
-                "trash" to listOf("pull-tab", "pull-tab-ring", "beaver-tail", "foil", "bottle-cap", "fragment"),
-                "hardware" to listOf("nail", "nail-bent", "nail-straight"),
-                "jewelry" to listOf("ring"),
-                "ambient" to listOf("background")
-            ),
-            materialsByObject = mapOf(
-                "coin" to listOf(
-                    "cupronickel-clad-copper",
-                    "cupronickel",
-                    "bronze-copper",
-                    "bronze-indian-head",
-                    "copper-plated-zinc",
-                    "silver-900",
-                ),
-                "trash" to listOf("aluminum", "steel"),
-                "hardware" to listOf("steel"),
-                "jewelry" to listOf("silver", "gold", "brass"),
-                "ambient" to listOf("unknown")
-            )
-        )
-    }
 }
-
-private fun parseEntries(raw: String): List<LabelEntry> {
-    if (raw.isBlank()) return listOf(LabelEntry())
-    return raw.split(',', ';', '|')
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
-        .map { token ->
-            val parts = token.split(":")
-            LabelEntry(
-                obj = parts.getOrElse(0) { "" },
-                name = parts.getOrElse(1) { "" },
-                material = parts.getOrElse(2) { "" },
-            )
-        }
-        .ifEmpty { listOf(LabelEntry()) }
-}
-
-private fun serializeEntries(entries: List<LabelEntry>): String =
-    entries
-        .filter { it.obj.isNotBlank() || it.name.isNotBlank() || it.material.isNotBlank() }
-        .joinToString("|") { "${it.obj}:${it.name}:${it.material}" }
 
 @Composable
 fun LabelPickerField(
@@ -202,18 +151,18 @@ fun LabelPickerField(
 ) {
     val context = LocalContext.current
     val suggestions = remember(context) { LabelSuggestionConfigLoader.load(context) }
-    var entries by remember { mutableStateOf(parseEntries(value)) }
+    var entries by remember { mutableStateOf(parseLabelEntries(value)) }
 
     LaunchedEffect(value) {
-        val serialized = serializeEntries(entries)
+        val serialized = serializeLabelEntries(entries)
         if (serialized != value) {
-            entries = parseEntries(value)
+            entries = parseLabelEntries(value)
         }
     }
 
     fun updateEntry(index: Int, updated: LabelEntry) {
         entries = entries.toMutableList().also { it[index] = updated }
-        onValueChange(serializeEntries(entries))
+        onValueChange(serializeLabelEntries(entries))
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -262,7 +211,7 @@ fun LabelPickerField(
                 if (entries.size > 1) {
                     IconButton(onClick = {
                         entries = entries.toMutableList().also { it.removeAt(index) }
-                        onValueChange(serializeEntries(entries))
+                        onValueChange(serializeLabelEntries(entries))
                     }) {
                         Text("\u00D7")
                     }

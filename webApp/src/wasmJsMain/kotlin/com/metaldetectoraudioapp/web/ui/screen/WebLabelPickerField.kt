@@ -1,4 +1,4 @@
-package com.metaldetectoraudioapp.app.ui.screen
+package com.metaldetectoraudioapp.web.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,139 +22,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
-import com.metaldetectoraudioapp.app.ui.model.LabelSuggestionCatalog
 import com.metaldetectoraudioapp.app.ui.model.defaultLabelCatalog
 import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
-import java.io.File
-
-private object LabelSuggestionConfigLoader {
-    private const val CONFIG_RESOURCE = "label_dropdown_options.csv"
-
-    fun load(): LabelSuggestionCatalog {
-        val classpathCsv = javaClass.classLoader
-            ?.getResourceAsStream(CONFIG_RESOURCE)
-            ?.bufferedReader()
-            ?.use { it.readText() }
-
-        val fileCsv = runCatching {
-            val file = File(System.getProperty("user.dir"), "assets/$CONFIG_RESOURCE")
-            if (file.exists()) file.readText() else null
-        }.getOrNull()
-
-        val rawCsv = classpathCsv ?: fileCsv
-        return rawCsv?.let { parseCatalog(it) } ?: defaultLabelCatalog()
-    }
-
-    private fun parseCatalog(csv: String): LabelSuggestionCatalog {
-        val rows = parseCsvRows(csv)
-        if (rows.isEmpty()) {
-            return defaultLabelCatalog()
-        }
-
-        val header = rows.first().map { it.trim().lowercase() }
-        val objectIndex = header.indexOf("object")
-        val nameIndex = header.indexOf("name")
-        val materialIndex = header.indexOf("material")
-
-        if (objectIndex < 0 || nameIndex < 0 || materialIndex < 0) {
-            return defaultLabelCatalog()
-        }
-
-        val objects = linkedSetOf<String>()
-        val namesByObject = linkedMapOf<String, LinkedHashSet<String>>()
-        val materialsByObject = linkedMapOf<String, LinkedHashSet<String>>()
-
-        rows.drop(1).forEach { row ->
-            val obj = row.getOrElse(objectIndex) { "" }.trim()
-            val name = row.getOrElse(nameIndex) { "" }.trim()
-            val material = row.getOrElse(materialIndex) { "" }.trim()
-            if (obj.isBlank()) {
-                return@forEach
-            }
-
-            objects += obj
-            if (name.isNotBlank()) {
-                namesByObject.getOrPut(obj) { linkedSetOf() }.add(name)
-            }
-            if (material.isNotBlank()) {
-                materialsByObject.getOrPut(obj) { linkedSetOf() }.add(material)
-            }
-        }
-
-        if (objects.isEmpty()) {
-            return defaultLabelCatalog()
-        }
-
-        return LabelSuggestionCatalog(
-            objects = objects.toList(),
-            namesByObject = namesByObject.mapValues { it.value.toList() },
-            materialsByObject = materialsByObject.mapValues { it.value.toList() },
-        )
-    }
-
-    private fun parseCsvRows(raw: String): List<List<String>> {
-        if (raw.isBlank()) {
-            return emptyList()
-        }
-
-        val rows = mutableListOf<List<String>>()
-        val currentRow = mutableListOf<String>()
-        val currentCell = StringBuilder()
-        var inQuotes = false
-        var index = 0
-
-        while (index < raw.length) {
-            val ch = raw[index]
-            when {
-                ch == '"' -> {
-                    val nextIsQuote = index + 1 < raw.length && raw[index + 1] == '"'
-                    if (inQuotes && nextIsQuote) {
-                        currentCell.append('"')
-                        index += 1
-                    } else {
-                        inQuotes = !inQuotes
-                    }
-                }
-
-                ch == ',' && !inQuotes -> {
-                    currentRow += currentCell.toString()
-                    currentCell.clear()
-                }
-
-                (ch == '\n' || ch == '\r') && !inQuotes -> {
-                    if (ch == '\r' && index + 1 < raw.length && raw[index + 1] == '\n') {
-                        index += 1
-                    }
-                    currentRow += currentCell.toString()
-                    currentCell.clear()
-                    if (currentRow.any { it.isNotBlank() }) {
-                        rows += currentRow.toList()
-                    }
-                    currentRow.clear()
-                }
-
-                else -> currentCell.append(ch)
-            }
-            index += 1
-        }
-
-        currentRow += currentCell.toString()
-        if (currentRow.any { it.isNotBlank() }) {
-            rows += currentRow
-        }
-
-        return rows
-    }
-}
 
 @Composable
-fun LabelPickerField(
+fun WebLabelPickerField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val suggestions = remember { LabelSuggestionConfigLoader.load() }
+    val suggestions = remember { defaultLabelCatalog() }
     var entries by remember { mutableStateOf(parseLabelEntries(value)) }
 
     LaunchedEffect(value) {
@@ -182,7 +60,7 @@ fun LabelPickerField(
                     val nameSuggestions = suggestions.namesByObject[entry.obj] ?: emptyList()
                     val materialSuggestions = suggestions.materialsByObject[entry.obj] ?: emptyList()
 
-                    DropdownField(
+                    WebDropdownField(
                         label = "Object",
                         value = entry.obj,
                         suggestions = suggestions.objects,
@@ -197,14 +75,14 @@ fun LabelPickerField(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    DropdownField(
+                    WebDropdownField(
                         label = "Name",
                         value = entry.name,
                         suggestions = nameSuggestions,
                         onValueChange = { updateEntry(index, entry.copy(name = it)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    DropdownField(
+                    WebDropdownField(
                         label = "Material",
                         value = entry.material,
                         suggestions = materialSuggestions,
@@ -217,7 +95,7 @@ fun LabelPickerField(
                         entries = entries.toMutableList().also { it.removeAt(index) }
                         onValueChange(serializeLabelEntries(entries))
                     }) {
-                        Text("\u00D7")
+                        Text("×")
                     }
                 }
             }
@@ -232,7 +110,7 @@ fun LabelPickerField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DropdownField(
+private fun WebDropdownField(
     label: String,
     value: String,
     suggestions: List<String>,
@@ -245,7 +123,7 @@ private fun DropdownField(
     ExposedDropdownMenuBox(
         expanded = expanded && filtered.isNotEmpty(),
         onExpandedChange = { expanded = it },
-        modifier = modifier
+        modifier = modifier,
     ) {
         OutlinedTextField(
             value = value,
@@ -261,12 +139,12 @@ private fun DropdownField(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor()
+                .menuAnchor(),
         )
         if (filtered.isNotEmpty()) {
             ExposedDropdownMenu(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onDismissRequest = { expanded = false },
             ) {
                 filtered.forEach { option ->
                     DropdownMenuItem(
@@ -274,7 +152,7 @@ private fun DropdownField(
                         onClick = {
                             onValueChange(option)
                             expanded = false
-                        }
+                        },
                     )
                 }
             }

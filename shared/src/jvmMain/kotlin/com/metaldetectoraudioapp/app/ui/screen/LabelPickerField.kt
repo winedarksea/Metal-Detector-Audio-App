@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
 import com.metaldetectoraudioapp.app.ui.model.LabelSuggestionCatalog
 import com.metaldetectoraudioapp.app.ui.model.defaultLabelCatalog
+import com.metaldetectoraudioapp.app.ui.model.parseCsvCatalog
 import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import java.io.File
@@ -43,108 +44,7 @@ private object LabelSuggestionConfigLoader {
         }.getOrNull()
 
         val rawCsv = classpathCsv ?: fileCsv
-        return rawCsv?.let { parseCatalog(it) } ?: defaultLabelCatalog()
-    }
-
-    private fun parseCatalog(csv: String): LabelSuggestionCatalog {
-        val rows = parseCsvRows(csv)
-        if (rows.isEmpty()) {
-            return defaultLabelCatalog()
-        }
-
-        val header = rows.first().map { it.trim().lowercase() }
-        val objectIndex = header.indexOf("object")
-        val nameIndex = header.indexOf("name")
-        val materialIndex = header.indexOf("material")
-
-        if (objectIndex < 0 || nameIndex < 0 || materialIndex < 0) {
-            return defaultLabelCatalog()
-        }
-
-        val objects = linkedSetOf<String>()
-        val namesByObject = linkedMapOf<String, LinkedHashSet<String>>()
-        val materialsByObject = linkedMapOf<String, LinkedHashSet<String>>()
-
-        rows.drop(1).forEach { row ->
-            val obj = row.getOrElse(objectIndex) { "" }.trim()
-            val name = row.getOrElse(nameIndex) { "" }.trim()
-            val material = row.getOrElse(materialIndex) { "" }.trim()
-            if (obj.isBlank()) {
-                return@forEach
-            }
-
-            objects += obj
-            if (name.isNotBlank()) {
-                namesByObject.getOrPut(obj) { linkedSetOf() }.add(name)
-            }
-            if (material.isNotBlank()) {
-                materialsByObject.getOrPut(obj) { linkedSetOf() }.add(material)
-            }
-        }
-
-        if (objects.isEmpty()) {
-            return defaultLabelCatalog()
-        }
-
-        return LabelSuggestionCatalog(
-            objects = objects.toList(),
-            namesByObject = namesByObject.mapValues { it.value.toList() },
-            materialsByObject = materialsByObject.mapValues { it.value.toList() },
-        )
-    }
-
-    private fun parseCsvRows(raw: String): List<List<String>> {
-        if (raw.isBlank()) {
-            return emptyList()
-        }
-
-        val rows = mutableListOf<List<String>>()
-        val currentRow = mutableListOf<String>()
-        val currentCell = StringBuilder()
-        var inQuotes = false
-        var index = 0
-
-        while (index < raw.length) {
-            val ch = raw[index]
-            when {
-                ch == '"' -> {
-                    val nextIsQuote = index + 1 < raw.length && raw[index + 1] == '"'
-                    if (inQuotes && nextIsQuote) {
-                        currentCell.append('"')
-                        index += 1
-                    } else {
-                        inQuotes = !inQuotes
-                    }
-                }
-
-                ch == ',' && !inQuotes -> {
-                    currentRow += currentCell.toString()
-                    currentCell.clear()
-                }
-
-                (ch == '\n' || ch == '\r') && !inQuotes -> {
-                    if (ch == '\r' && index + 1 < raw.length && raw[index + 1] == '\n') {
-                        index += 1
-                    }
-                    currentRow += currentCell.toString()
-                    currentCell.clear()
-                    if (currentRow.any { it.isNotBlank() }) {
-                        rows += currentRow.toList()
-                    }
-                    currentRow.clear()
-                }
-
-                else -> currentCell.append(ch)
-            }
-            index += 1
-        }
-
-        currentRow += currentCell.toString()
-        if (currentRow.any { it.isNotBlank() }) {
-            rows += currentRow
-        }
-
-        return rows
+        return rawCsv?.let { parseCsvCatalog(it) } ?: defaultLabelCatalog()
     }
 }
 

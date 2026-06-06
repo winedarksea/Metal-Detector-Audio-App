@@ -32,6 +32,12 @@ hardware,structural-bolt,steel
 jewelry,ring,gold
 jewelry,ring,silver
 jewelry,ring,brass
+jewelry,earring,gold
+jewelry,earring,silver
+jewelry,earring,brass
+jewelry,necklace,gold
+jewelry,necklace,silver
+jewelry,necklace,brass
 test_fixture,calibration-disc,steel
 test_fixture,calibration-disc,copper
 relic,button,pewter

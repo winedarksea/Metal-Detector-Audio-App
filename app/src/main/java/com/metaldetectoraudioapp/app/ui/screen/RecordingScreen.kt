@@ -117,6 +117,10 @@ fun RecordingScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
+            RecordingHintCard()
+        }
+
+        item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
@@ -457,6 +461,50 @@ private fun SuggestiveTextField(
                 }
             }
         }
+    }
+}
+
+/**
+ * Guidance for capturing good ML training data, shown atop the recording screen.
+ * Mirrors the shared `RecordingHintCard` used by web/desktop; the app module keeps
+ * its own copy in line with the rest of its UI.
+ */
+@Composable
+private fun RecordingHintCard(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "Tips for good training data",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            RecordingHintBullet(
+                "Record only the target signal, with as little extra audio as possible — aim for clips just a second or two long."
+            )
+            RecordingHintBullet(
+                "If several objects share one signal, add a label for each, but keep separate recordings for separate objects where you can."
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecordingHintBullet(text: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text("•", style = MaterialTheme.typography.bodyMedium)
+        Text(text, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

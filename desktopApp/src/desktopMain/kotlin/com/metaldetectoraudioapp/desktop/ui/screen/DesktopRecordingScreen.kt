@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.screen.LabelPickerField
+import com.metaldetectoraudioapp.app.ui.screen.RecordingHintCard
 import com.metaldetectoraudioapp.desktop.viewmodel.DesktopRecordingViewModel
 import org.jetbrains.skia.Image as SkiaImage
 import java.awt.FileDialog
@@ -73,6 +74,10 @@ fun DesktopRecordingScreen(
         modifier = Modifier.padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item {
+            RecordingHintCard()
+        }
+
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(

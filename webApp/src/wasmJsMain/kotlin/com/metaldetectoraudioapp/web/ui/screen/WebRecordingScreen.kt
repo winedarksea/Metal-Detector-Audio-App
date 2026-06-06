@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
+import com.metaldetectoraudioapp.app.ui.screen.RecordingHintCard
 import com.metaldetectoraudioapp.web.viewmodel.WebRecordingViewModel
 
 @Composable
@@ -37,15 +38,7 @@ fun WebRecordingScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Dataset Storage", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Recordings are stored in IndexedDB in your browser. Use Export Bundle to download your data.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
+            RecordingHintCard()
         }
 
         item {

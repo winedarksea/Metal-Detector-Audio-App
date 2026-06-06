@@ -73,8 +73,45 @@ val validateStarterTrainingInputs by tasks.registering(Exec::class) {
     )
 }
 
+// ── LabelCatalog single-source-of-truth enforcement ─────────────────────────
+// :app does not depend on :shared (their ui.model packages would collide), so it
+// keeps a byte-identical duplicate of LabelCatalog.kt. These tasks keep the two
+// copies aligned: the build fails fast if they drift, and syncLabelCatalog
+// regenerates the app copy from the shared source of truth with one command.
+val sharedLabelCatalogFile =
+    file("${rootDir}/shared/src/commonMain/kotlin/com/metaldetectoraudioapp/app/ui/model/LabelCatalog.kt")
+val appLabelCatalogFile =
+    file("src/main/java/com/metaldetectoraudioapp/app/ui/model/LabelCatalog.kt")
+
+val syncLabelCatalog by tasks.registering(Copy::class) {
+    group = "build setup"
+    description = "Copies the shared LabelCatalog.kt over the app duplicate."
+    from(sharedLabelCatalogFile)
+    into(appLabelCatalogFile.parentFile)
+}
+
+val checkLabelCatalogInSync by tasks.registering {
+    group = "verification"
+    description = "Fails the build if app/ LabelCatalog.kt drifted from the shared source of truth."
+    val sharedFile = sharedLabelCatalogFile
+    val appFile = appLabelCatalogFile
+    inputs.file(sharedFile)
+    inputs.file(appFile)
+    doLast {
+        fun normalize(file: File) = file.readText().replace("\r\n", "\n").trimEnd()
+        if (normalize(sharedFile) != normalize(appFile)) {
+            throw GradleException(
+                "app/ LabelCatalog.kt is out of sync with the shared source of truth " +
+                    "(shared/src/commonMain/.../ui/model/LabelCatalog.kt).\n" +
+                    "Edit the shared file, then run:  ./gradlew :app:syncLabelCatalog"
+            )
+        }
+    }
+}
+
 tasks.named("preBuild").configure {
     dependsOn(validateStarterTrainingInputs)
+    dependsOn(checkLabelCatalogInSync)
 }
 
 dependencies {

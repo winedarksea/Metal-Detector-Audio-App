@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.GraphicEq
@@ -48,8 +49,6 @@ import com.metaldetectoraudioapp.web.viewmodel.WebRecordingViewModel
 import com.metaldetectoraudioapp.web.viewmodel.WebReviewViewModel
 import kotlinx.browser.document
 
-private const val ThemePreferenceStorageKey = "metal_detector_audio_theme"
-
 private enum class WebDestination(val label: String) {
     DETECT("Detect"),
     RECORD("Record"),
@@ -59,9 +58,9 @@ private enum class WebDestination(val label: String) {
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ComposeViewport(document.body!!) {
-        var useDarkTheme by remember {
-            mutableStateOf(loadStoredThemePreference() ?: browserPrefersDarkTheme())
-        }
+        val systemUsesDarkTheme = isSystemInDarkTheme()
+        var themeOverride by remember { mutableStateOf<Boolean?>(null) }
+        val useDarkTheme = themeOverride ?: systemUsesDarkTheme
 
         MetalDetectorAudioTheme(useDarkTheme = useDarkTheme) {
             val store = remember { IndexedDbDatasetStore() }
@@ -159,8 +158,7 @@ fun main() {
 
                     SmallFloatingActionButton(
                         onClick = {
-                            useDarkTheme = !useDarkTheme
-                            storeThemePreference(useDarkTheme)
+                            themeOverride = !useDarkTheme
                         },
                         modifier = Modifier
                             .align(Alignment.BottomStart)
@@ -176,19 +174,3 @@ fun main() {
         }
     }
 }
-
-private fun browserPrefersDarkTheme(): Boolean =
-    js("window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches")
-
-private fun loadStoredThemePreference(): Boolean? =
-    when (readStoredThemePreference()) {
-        "dark" -> true
-        "light" -> false
-        else -> null
-    }
-
-private fun readStoredThemePreference(): String =
-    js("window.localStorage.getItem(ThemePreferenceStorageKey) || ''")
-
-private fun storeThemePreference(useDarkTheme: Boolean): Unit =
-    js("window.localStorage.setItem(ThemePreferenceStorageKey, useDarkTheme ? 'dark' : 'light')")

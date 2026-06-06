@@ -1,0 +1,133 @@
+"""
+Static-analysis smoke tests for the PWA (Kotlin/Wasm + Compose) entry point.
+
+These guard against the "blank white screen" class of bug that has hit production twice:
+  1. Silent ONNX model-load exception → screen never rendered anything.
+  2. Kotlin const val referenced inside a js() string literal → ReferenceError crashed the
+     WASM module on init (blank white screen, mic permission dialog still appeared).
+
+In Kotlin/Wasm, only local function *parameters* are bridged into the JS scope of a js()
+block. File-scope `const val`s are NOT in scope and will be `undefined` at runtime, causing
+uncaught JS exceptions that prevent the Compose viewport from mounting.
+"""
+
+import re
+import unittest
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+WASM_MAIN_ROOT = (
+    REPO_ROOT
+    / "webApp"
+    / "src"
+    / "wasmJsMain"
+    / "kotlin"
+    / "com"
+    / "metaldetectoraudioapp"
+    / "web"
+)
+MAIN_KT = WASM_MAIN_ROOT / "Main.kt"
+
+
+def _wasm_kt_files() -> list[Path]:
+    return sorted(WASM_MAIN_ROOT.rglob("*.kt"))
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _js_block_contents(source: str) -> list[str]:
+    """Return the raw contents of every js("...") and js(\"\"\"...\"\"\") call."""
+    triple = re.findall(r'js\s*\(\s*"""(.*?)"""\s*\)', source, re.DOTALL)
+    single = re.findall(r'js\s*\(\s*"((?:[^"\\]|\\.)*?)"\s*\)', source)
+    return triple + single
+
+
+def _const_val_names(source: str) -> list[str]:
+    """Return all names declared as `const val` (any visibility) in the file."""
+    return re.findall(r'\bconst\s+val\s+(\w+)', source)
+
+
+class WasmJsInteropSafetyTest(unittest.TestCase):
+    """Guard against const-val-in-js() crashes that blank the screen on startup."""
+
+    def test_no_const_val_names_inside_js_blocks(self):
+        """
+        Kotlin/Wasm: file-scope const vals referenced inside js() blocks are undefined
+        at runtime and throw a ReferenceError that kills WASM init → blank white screen.
+        Only local function parameters should appear as identifiers in js() bodies.
+        """
+        violations: list[str] = []
+        for path in _wasm_kt_files():
+            source = _read(path)
+            const_names = _const_val_names(source)
+            if not const_names:
+                continue
+            js_blocks = _js_block_contents(source)
+            for name in const_names:
+                pattern = re.compile(r'\b' + re.escape(name) + r'\b')
+                for block in js_blocks:
+                    if pattern.search(block):
+                        violations.append(
+                            f"{path.relative_to(REPO_ROOT)}: "
+                            f"const val '{name}' referenced inside js() block"
+                        )
+        self.assertFalse(
+            violations,
+            "const vals used in js() blocks cause ReferenceError → blank white screen:\n"
+            + "\n".join(violations),
+        )
+
+
+class PwaStartupRenderTest(unittest.TestCase):
+    """Guard against silent failures that leave the screen blank."""
+
+    def test_model_load_failure_is_surfaced_not_swallowed(self):
+        """
+        If WebInferenceControllerFactory.create() throws, the error must reach the UI as
+        visible text (not silently drop, which blanks the screen).
+        Regression: prior ONNX 'Ambient 0.0/0ms' silent-exception blank-screen bug.
+        """
+        source = _read(MAIN_KT)
+        self.assertIn(
+            "runCatching",
+            source,
+            "Model init must be wrapped in runCatching so exceptions don't escape silently.",
+        )
+        self.assertIn(
+            "inferenceError",
+            source,
+            "An inferenceError state variable must exist to display the failure message.",
+        )
+        self.assertIn(
+            "Loading model",
+            source,
+            "A 'Loading model' message must be shown while the model initialises "
+            "(never a blank screen).",
+        )
+
+    def test_main_uses_compose_dark_theme_not_js_interop(self):
+        """
+        Regression: js() interop for theme detection (using const val ThemePreferenceStorageKey
+        in a js() block) crashed WASM startup → blank white screen.
+        The fix is to use Compose-native isSystemInDarkTheme() instead.
+        """
+        source = _read(MAIN_KT)
+        self.assertIn(
+            "isSystemInDarkTheme()",
+            source,
+            "Main.kt must use isSystemInDarkTheme() for theme detection, "
+            "not js() interop (which risks blank-screen crashes).",
+        )
+        for forbidden in ("browserPrefersDarkTheme", "loadStoredThemePreference", "storeThemePreference"):
+            self.assertNotIn(
+                forbidden,
+                source,
+                f"'{forbidden}' is a known-bad js() interop helper that caused a blank "
+                f"white screen in production — do not re-introduce it.",
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

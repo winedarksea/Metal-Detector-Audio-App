@@ -110,7 +110,7 @@ fun WebLabelPickerField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WebDropdownField(
+internal fun WebDropdownField(
     label: String,
     value: String,
     suggestions: List<String>,

@@ -182,6 +182,16 @@ private fun parseCsvRows(raw: String): List<List<String>> {
     return rows
 }
 
+val DETECTOR_MODEL_OPTIONS = listOf(
+    "minelab manticore",
+    "minelab equinox 900",
+    "minelab vanquish",
+    "xp deus II",
+    "garrett at",
+    "garrett apex",
+    "garrett ace",
+)
+
 // Parses a raw label string (wire format) into a list of LabelEntry objects.
 // Accepts comma, semicolon, or pipe as multi-target delimiters.
 fun parseLabelEntries(raw: String): List<LabelEntry> {

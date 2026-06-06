@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.web.viewmodel.WebRecordingViewModel
 
@@ -177,12 +178,12 @@ fun WebRecordingScreen(
                             )
                         }
                     }
-                    OutlinedTextField(
+                    WebDropdownField(
+                        label = "detector_model",
                         value = uiState.draft.detectorModel,
+                        suggestions = DETECTOR_MODEL_OPTIONS,
                         onValueChange = viewModel::updateDetectorModel,
-                        label = { Text("detector_model") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
                     )
                     OutlinedTextField(
                         value = uiState.draft.searchMode,

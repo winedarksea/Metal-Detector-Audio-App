@@ -39,16 +39,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.ReviewViewModel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 
 private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
 )
 private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
-private val DETECTOR_MODEL_OPTIONS = listOf(
-    "minelab manticore",
-    "minelab equinox",
-    "xp deus 2",
-)
 private val SEARCH_MODE_OPTIONS = listOf(
     "all terrain high conductivity",
     "beach",

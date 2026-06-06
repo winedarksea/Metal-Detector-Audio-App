@@ -2,7 +2,7 @@ package com.metaldetectoraudioapp.app.ui.model
 
 data class RecordingDraftUiState(
     val targetNameInput: String = "",
-    val classLabel: ClassLabel = ClassLabel.TARGET,
+    val classLabel: ClassLabel? = null,
     val pattern: SweepPattern = SweepPattern.SWING,
     val depthInches: String = "",
     val notesInput: String = "",

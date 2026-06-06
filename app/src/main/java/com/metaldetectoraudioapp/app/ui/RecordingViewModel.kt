@@ -102,11 +102,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateTargetNames(value: String) {
         val isMixed = value.split(',', ';', '|').count { it.trim().isNotBlank() } > 1
-        updateDraft(_uiState.value.draft.copy(
-            targetNameInput = value,
-            mixedFlag = isMixed,
-            includeInTraining = if (isMixed) false else _uiState.value.draft.includeInTraining
-        ))
+        updateDraft(_uiState.value.draft.copy(targetNameInput = value, mixedFlag = isMixed))
     }
 
     fun updateClassLabel(value: ClassLabel) {
@@ -123,15 +119,6 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateNotes(value: String) {
         updateDraft(_uiState.value.draft.copy(notesInput = value))
-    }
-
-    fun updateMixedFlag(value: Boolean) {
-        updateDraft(
-            _uiState.value.draft.copy(
-                mixedFlag = value,
-                includeInTraining = if (value) false else _uiState.value.draft.includeInTraining
-            )
-        )
     }
 
     fun updateIncludeInTraining(value: Boolean) {
@@ -289,7 +276,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                     notes = draft.notesInput.ifBlank { null },
                     gpsLatitude = draft.gpsLatitude,
                     gpsLongitude = draft.gpsLongitude,
-                    mixedFlag = draft.mixedFlag,
+                    mixedFlag = targetNames.size > 1,
                     includeInTraining = draft.includeInTraining,
                     soilType = draft.soilType.ifBlank { null },
                     moisture = draft.moisture.ifBlank { null },
@@ -306,7 +293,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.value = RecordingUiState(
                 draft = RecordingDraftUiState(
                     includeInTraining = true,
-                    classLabel = metadata.classLabel,
+                    classLabel = null,
                     pattern = metadata.pattern
                 ),
                 saveResultMessage = "Saved ${metadata.audioFileName}",

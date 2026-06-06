@@ -191,7 +191,7 @@ fun DesktopRecordingScreen(
 
                     Text("GPS: not available on desktop capture")
 
-                    Text("class_label")
+                    Text("class_label (required)")
                     EnumChips(
                         selectedLabel = uiState.draft.classLabel,
                         labels = ClassLabel.entries,
@@ -207,19 +207,18 @@ fun DesktopRecordingScreen(
                         onSelect = viewModel::updatePattern
                     )
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = uiState.draft.mixedFlag,
-                            onCheckedChange = viewModel::updateMixedFlag
+                    if (uiState.draft.mixedFlag) {
+                        Text(
+                            "mixed_flag: auto-set (multiple labels)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
                         )
-                        Text("mixed_flag")
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
                             checked = uiState.draft.includeInTraining,
                             onCheckedChange = viewModel::updateIncludeInTraining,
-                            enabled = !uiState.draft.mixedFlag
                         )
                         Text("include_in_training")
                     }
@@ -319,7 +318,7 @@ fun DesktopRecordingScreen(
 
 @Composable
 private fun <T> EnumChips(
-    selectedLabel: T,
+    selectedLabel: T?,
     labels: List<T>,
     toText: (T) -> String,
     onSelect: (T) -> Unit,

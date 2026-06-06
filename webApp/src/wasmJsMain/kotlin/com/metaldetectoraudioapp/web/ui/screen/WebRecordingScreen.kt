@@ -111,7 +111,7 @@ fun WebRecordingScreen(
                         maxLines = 3,
                     )
 
-                    Text("class_label")
+                    Text("class_label (required)")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ClassLabel.entries.forEach { label ->
                             FilterChip(
@@ -133,23 +133,28 @@ fun WebRecordingScreen(
                         }
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = uiState.draft.mixedFlag,
-                            onCheckedChange = viewModel::updateMixedFlag
+                    if (uiState.draft.mixedFlag) {
+                        Text(
+                            "mixed_flag: auto-set (multiple labels)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
                         )
-                        Text("mixed_flag")
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
                             checked = uiState.draft.includeInTraining,
                             onCheckedChange = viewModel::updateIncludeInTraining,
-                            enabled = !uiState.draft.mixedFlag
                         )
                         Text("include_in_training")
                     }
 
+                    uiState.saveResultMessage?.let { msg ->
+                        Text(msg, color = MaterialTheme.colorScheme.primary)
+                    }
+                    uiState.errorMessage?.let { err ->
+                        Text(err, color = MaterialTheme.colorScheme.error)
+                    }
                     Button(onClick = viewModel::saveRecording, enabled = uiState.pendingAudio != null) {
                         Text("Save Recording")
                     }
@@ -194,13 +199,6 @@ fun WebRecordingScreen(
                     )
                 }
             }
-        }
-
-        uiState.saveResultMessage?.let { msg ->
-            item { Text(msg, color = MaterialTheme.colorScheme.primary) }
-        }
-        uiState.errorMessage?.let { err ->
-            item { Text(err, color = MaterialTheme.colorScheme.error) }
         }
     }
 }

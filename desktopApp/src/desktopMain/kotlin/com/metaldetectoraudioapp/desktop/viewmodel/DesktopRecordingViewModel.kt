@@ -94,7 +94,8 @@ class DesktopRecordingViewModel(
     }
 
     fun updateTargetNames(value: String) {
-        updateDraft(_uiState.value.draft.copy(targetNameInput = value))
+        val isMixed = value.split(',', ';', '|').count { it.trim().isNotBlank() } > 1
+        updateDraft(_uiState.value.draft.copy(targetNameInput = value, mixedFlag = isMixed))
     }
 
     fun updateClassLabel(value: ClassLabel) {
@@ -111,15 +112,6 @@ class DesktopRecordingViewModel(
 
     fun updateNotes(value: String) {
         updateDraft(_uiState.value.draft.copy(notesInput = value))
-    }
-
-    fun updateMixedFlag(value: Boolean) {
-        updateDraft(
-            _uiState.value.draft.copy(
-                mixedFlag = value,
-                includeInTraining = if (value) false else _uiState.value.draft.includeInTraining
-            )
-        )
     }
 
     fun updateIncludeInTraining(value: Boolean) {
@@ -187,18 +179,23 @@ class DesktopRecordingViewModel(
         }
 
         val draft = _uiState.value.draft
+        val classLabel = draft.classLabel
+        if (classLabel == null) {
+            _uiState.value = _uiState.value.copy(errorMessage = "class_label is required")
+            return
+        }
         val targetNames = draft.targetNameInput
             .split(',', ';', '|')
             .map { it.trim() }
             .filter { it.isNotBlank() }
 
-        if (targetNames.isEmpty() && draft.classLabel != ClassLabel.AMBIENT) {
+        if (targetNames.isEmpty() && classLabel != ClassLabel.AMBIENT) {
             _uiState.value = _uiState.value.copy(errorMessage = "target_name is required")
             return
         }
 
         val invalidToken = targetNames.firstOrNull { !isCategoryObjectMaterialLabel(it) }
-        if (draft.classLabel != ClassLabel.AMBIENT && invalidToken != null) {
+        if (classLabel != ClassLabel.AMBIENT && invalidToken != null) {
             _uiState.value = _uiState.value.copy(
                 errorMessage = "target_name '$invalidToken' must be category:object:material"
             )
@@ -207,48 +204,52 @@ class DesktopRecordingViewModel(
 
         val pendingImage = _uiState.value.pendingImage
         scope.launch {
-            val metadata = recordingRepository.saveCapturedRecording(
-                capturedRecording = captured,
-                labelDraft = RecordingLabelDraft(
-                    targetNames = if (targetNames.isEmpty()) {
-                        listOf("ambient:background:unknown")
-                    } else {
-                        targetNames
-                    },
-                    classLabel = draft.classLabel,
-                    pattern = draft.pattern,
-                    depthInches = draft.depthInches.ifBlank { null },
-                    notes = draft.notesInput.ifBlank { null },
-                    gpsLatitude = null,
-                    gpsLongitude = null,
-                    mixedFlag = draft.mixedFlag,
-                    includeInTraining = draft.includeInTraining,
-                    soilType = draft.soilType.ifBlank { null },
-                    moisture = draft.moisture.ifBlank { null },
-                    detectorModel = draft.detectorModel.ifBlank { null },
-                    searchMode = draft.searchMode.ifBlank { null },
-                    sensitivity = draft.sensitivity.ifBlank { null },
-                    recoverySpeed = draft.recoverySpeed.ifBlank { null },
-                    stabilizer = draft.stabilizer.ifBlank { null },
-                    imageBytes = pendingImage?.bytes,
-                    imageExtension = pendingImage?.extension,
+            try {
+                val metadata = recordingRepository.saveCapturedRecording(
+                    capturedRecording = captured,
+                    labelDraft = RecordingLabelDraft(
+                        targetNames = if (targetNames.isEmpty()) {
+                            listOf("ambient:background:unknown")
+                        } else {
+                            targetNames
+                        },
+                        classLabel = classLabel,
+                        pattern = draft.pattern,
+                        depthInches = draft.depthInches.ifBlank { null },
+                        notes = draft.notesInput.ifBlank { null },
+                        gpsLatitude = null,
+                        gpsLongitude = null,
+                        mixedFlag = targetNames.size > 1,
+                        includeInTraining = draft.includeInTraining,
+                        soilType = draft.soilType.ifBlank { null },
+                        moisture = draft.moisture.ifBlank { null },
+                        detectorModel = draft.detectorModel.ifBlank { null },
+                        searchMode = draft.searchMode.ifBlank { null },
+                        sensitivity = draft.sensitivity.ifBlank { null },
+                        recoverySpeed = draft.recoverySpeed.ifBlank { null },
+                        stabilizer = draft.stabilizer.ifBlank { null },
+                        imageBytes = pendingImage?.bytes,
+                        imageExtension = pendingImage?.extension,
+                    )
                 )
-            )
 
-            lastCapturedRecording = null
-            _uiState.value = RecordingUiState(
-                draft = RecordingDraftUiState(
-                    includeInTraining = true,
-                    classLabel = metadata.classLabel,
-                    pattern = metadata.pattern
-                ),
-                saveResultMessage = "Saved ${metadata.audioFileName}",
-                pendingAudio = null,
-                pendingImage = null,
-                pendingDurationMs = 0,
-                isRecording = false,
-                isPlayingPreview = false
-            )
+                lastCapturedRecording = null
+                _uiState.value = RecordingUiState(
+                    draft = RecordingDraftUiState(
+                        includeInTraining = true,
+                        classLabel = null,
+                        pattern = metadata.pattern
+                    ),
+                    saveResultMessage = "Saved ${metadata.audioFileName}",
+                    pendingAudio = null,
+                    pendingImage = null,
+                    pendingDurationMs = 0,
+                    isRecording = false,
+                    isPlayingPreview = false
+                )
+            } catch (e: Throwable) {
+                _uiState.value = _uiState.value.copy(errorMessage = "Save failed: ${e.message}")
+            }
         }
     }
 

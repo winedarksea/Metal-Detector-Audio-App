@@ -79,7 +79,8 @@ class DesktopReviewViewModel(
         scope.launch {
             recordingRepository.updateRecording(
                 recording.copy(
-                    targetNames = if (targetNames.isEmpty()) listOf("ambient:background:unknown") else targetNames
+                    targetNames = if (targetNames.isEmpty()) listOf("ambient:background:unknown") else targetNames,
+                    mixedFlag = targetNames.size > 1,
                 )
             )
             refresh()

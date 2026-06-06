@@ -72,7 +72,10 @@ class WebReviewViewModel(
         val names = input.split(',', ';', '|').map { it.trim() }.filter { it.isNotBlank() }
         scope.launch {
             recordingRepository.updateRecording(
-                recording.copy(targetNames = names.ifEmpty { listOf("ambient:background:unknown") })
+                recording.copy(
+                    targetNames = names.ifEmpty { listOf("ambient:background:unknown") },
+                    mixedFlag = names.size > 1,
+                )
             )
             refresh()
         }

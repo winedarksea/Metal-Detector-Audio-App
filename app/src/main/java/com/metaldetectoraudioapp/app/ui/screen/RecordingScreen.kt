@@ -318,7 +318,6 @@ fun RecordingScreen(
                         Checkbox(
                             checked = uiState.draft.includeInTraining,
                             onCheckedChange = viewModel::updateIncludeInTraining,
-                            enabled = !uiState.draft.mixedFlag
                         )
                         Text("include_in_training")
                     }

@@ -92,6 +92,12 @@ fun main() {
 
             var selected by remember { mutableStateOf(WebDestination.DETECT) }
 
+            // The review list is built once on init; re-read the store each time the tab is shown
+            // so a recording just saved on the Record tab appears here.
+            LaunchedEffect(selected) {
+                if (selected == WebDestination.REVIEW) reviewViewModel.refresh()
+            }
+
             DisposableEffect(Unit) {
                 onDispose {
                     inferenceViewModel?.close()

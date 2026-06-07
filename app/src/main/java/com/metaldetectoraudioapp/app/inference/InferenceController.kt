@@ -56,6 +56,18 @@ class InferenceController(
         _uiState.value = _uiState.value.copy(threshold = value)
     }
 
+    fun setBackendPreference(
+        preference: InferenceBackendPreference,
+        appContext: android.content.Context,
+    ) {
+        if (_uiState.value.backendPreference == preference) return
+        replaceClassifier(
+            metadata = modelMetadata,
+            appContext = appContext,
+            backendPreference = preference,
+        )
+    }
+
     fun setPassthroughEnabled(enabled: Boolean) {
         audioPipeline.setPassthroughEnabled(enabled)
     }
@@ -103,6 +115,18 @@ class InferenceController(
     }
 
     fun switchModel(metadata: ModelMetadata, appContext: android.content.Context) {
+        replaceClassifier(
+            metadata = metadata,
+            appContext = appContext,
+            backendPreference = _uiState.value.backendPreference,
+        )
+    }
+
+    private fun replaceClassifier(
+        metadata: ModelMetadata,
+        appContext: android.content.Context,
+        backendPreference: InferenceBackendPreference,
+    ) {
         val wasRunning = _uiState.value.isRunning
         if (wasRunning) {
             stop()
@@ -141,6 +165,7 @@ class InferenceController(
         classifier = AndroidClassifierFactory.create(
             appContext = appContext,
             modelMetadata = metadata,
+            backendPreference = backendPreference,
         )
         oldClassifier.close()
 
@@ -152,6 +177,9 @@ class InferenceController(
             modelName = metadata.modelName,
             modelVersion = metadata.modelVersion,
             activeAccelerator = classifier.activeAccelerator,
+            backendPreference = backendPreference,
+            perLabelScores = emptyMap(),
+            lastInferenceError = null,
             threshold = metadata.recommendedThreshold,
             droppedFrames = 0,
             averageLatencyMs = 0f,
@@ -231,6 +259,8 @@ class InferenceController(
                 _uiState.value = currentState.copy(
                     topLabel = winningLabel,
                     confidence = result.topScore,
+                    perLabelScores = result.perLabelScores,
+                    lastInferenceError = null,
                     lastInferenceMs = result.inferenceTimeMs,
                     averageLatencyMs = if (inferenceCount == 0L) 0f else latencyAccumulatorMs.toFloat() / inferenceCount,
                     recentDetections = updatedRecent,
@@ -242,6 +272,12 @@ class InferenceController(
                     logTag,
                     "top=$winningLabel score=${result.topScore} inferMs=${result.inferenceTimeMs} latencyMs=$latencyMs sticky=$stickyActive recent=$recentTargetCount"
                 )
+            } catch (throwable: Throwable) {
+                val diagnosticMessage =
+                    "${classifier.activeAccelerator.shortLabel} inference failed: " +
+                        (throwable.message ?: throwable::class.simpleName)
+                Log.e(logTag, diagnosticMessage, throwable)
+                _uiState.value = _uiState.value.copy(lastInferenceError = diagnosticMessage)
             } finally {
                 inferenceInFlight = false
             }

@@ -8,6 +8,10 @@ data class InferenceUiState(
     val confidence: Float = 0f,
     val threshold: Float = 0.55f,
     val activeAccelerator: InferenceAccelerator = InferenceAccelerator.UNKNOWN,
+    val backendPreference: InferenceBackendPreference =
+        InferenceBackendPreference.HARDWARE_ACCELERATION,
+    val perLabelScores: Map<String, Float> = emptyMap(),
+    val lastInferenceError: String? = null,
     val signalStatus: AudioSignalStatus = AudioSignalStatus(),
     val lastInferenceMs: Long = 0,
     val averageLatencyMs: Float = 0f,

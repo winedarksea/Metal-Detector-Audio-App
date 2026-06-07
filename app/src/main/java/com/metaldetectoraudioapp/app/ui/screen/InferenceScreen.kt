@@ -171,6 +171,12 @@ fun InferenceScreen(
                         onOptionSelected = viewModel::selectModelOption
                     )
 
+                    HardwareAccelerationPreferenceControl(
+                        backendPreference = uiState.backendPreference,
+                        onHardwareAccelerationEnabledChanged =
+                            viewModel::setHardwareAccelerationEnabled,
+                    )
+
                     AudioDevicePicker(
                         label = "Input Device",
                         devices = inputDevices,
@@ -220,6 +226,7 @@ fun InferenceScreen(
                     Text("Inference time: ${uiState.lastInferenceMs} ms", style = MaterialTheme.typography.bodyMedium)
                     Text("Average latency: ${"%.1f".format(uiState.averageLatencyMs)} ms", style = MaterialTheme.typography.bodyMedium)
                     Text("Dropped frames: ${uiState.droppedFrames}", style = MaterialTheme.typography.bodyMedium)
+                    InferenceScoreDiagnostics(uiState)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Spacing.sm)

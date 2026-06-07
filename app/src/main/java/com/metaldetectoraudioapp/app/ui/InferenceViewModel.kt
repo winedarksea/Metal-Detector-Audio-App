@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
 import com.metaldetectoraudioapp.app.inference.InferenceController
 import com.metaldetectoraudioapp.app.inference.InferenceControllerFactory
+import com.metaldetectoraudioapp.app.inference.InferenceBackendPreference
 import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,6 +96,17 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateThreshold(value: Float) {
         controller.setThreshold(value)
+    }
+
+    fun setHardwareAccelerationEnabled(enabled: Boolean) {
+        val preference = if (enabled) {
+            InferenceBackendPreference.HARDWARE_ACCELERATION
+        } else {
+            InferenceBackendPreference.CPU
+        }
+        viewModelScope.launch {
+            controller.setBackendPreference(preference, getApplication())
+        }
     }
 
     fun setPassthroughEnabled(enabled: Boolean) {

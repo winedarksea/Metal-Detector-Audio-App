@@ -41,6 +41,7 @@ class LiteRtCnnClassifier(
 
     private val activeModel = createFirstAvailableModel(appContext, modelAssetName)
     private val melExtractor = AndroidMelSpectrogramFeatureExtractor()
+    private var completedInferenceCount = 0L
 
     override val activeAccelerator: InferenceAccelerator = when (activeModel.backend) {
         Accelerator.NPU -> InferenceAccelerator.NPU
@@ -50,10 +51,11 @@ class LiteRtCnnClassifier(
 
     override fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         val expectedInput = modelMetadata.artifacts.acceleratorInput
+        lateinit var flattenedInput: FloatArray
 
         // Timing covers the full classifier cost: feature extraction + model execution.
         val nanos = measureNanoTime {
-            val flattenedInput = melExtractor.extractFlattenedForModel(
+            flattenedInput = melExtractor.extractFlattenedForModel(
                 signal = samples,
                 expectedTimeFrames = expectedInput.timeFrames ?: DEFAULT_TIME_FRAMES,
                 expectedMelBins = expectedInput.melBins ?: DEFAULT_MEL_BINS,
@@ -63,6 +65,14 @@ class LiteRtCnnClassifier(
         }
 
         val scores = readOutput(activeModel.outputBuffers[0])
+        completedInferenceCount += 1
+        if (
+            activeModel.backend == Accelerator.NPU &&
+            (completedInferenceCount <= INITIAL_DIAGNOSTIC_INFERENCES ||
+                completedInferenceCount % PERIODIC_DIAGNOSTIC_INTERVAL == 0L)
+        ) {
+            logNpuDiagnostics(flattenedInput, scores)
+        }
         if (scores.size != modelMetadata.labels.size) {
             throw IllegalStateException(
                 "LiteRT model output size (${scores.size}) does not match " +
@@ -125,6 +135,30 @@ class LiteRtCnnClassifier(
         return buffer.readFloat()
     }
 
+    private fun logNpuDiagnostics(features: FloatArray, scores: FloatArray) {
+        val quantization = acceleratorInput.quantization
+        var clippedFeatureCount = 0
+        if (quantization != null) {
+            for (feature in features) {
+                val quantized = (feature / quantization.scale + quantization.zeroPoint).roundToInt()
+                if (quantized !in INT8_MIN..INT8_MAX) clippedFeatureCount += 1
+            }
+        }
+        val clippedPercent = if (features.isEmpty()) {
+            0.0f
+        } else {
+            clippedFeatureCount * 100.0f / features.size
+        }
+        Log.i(
+            TAG,
+            "NPU inference #$completedInferenceCount " +
+                "features[min=${features.minOrNull()}, max=${features.maxOrNull()}, " +
+                "clipped=${"%.2f".format(clippedPercent)}%] " +
+                "scores=${modelMetadata.labels.zip(scores.toList()).toMap()} " +
+                "sum=${scores.sum()}",
+        )
+    }
+
     override fun close() {
         activeModel.close()
     }
@@ -167,11 +201,9 @@ class LiteRtCnnClassifier(
         // here would cause CompiledModel.create() to silently run on CPU while
         // activeModel.backend (and therefore the UI badge) still reports NPU or GPU.
         val options = when (backend) {
-            Accelerator.NPU -> CompiledModel.Options(setOf(Accelerator.NPU)).apply {
-                qualcommOptions = CompiledModel.QualcommOptions(
-                    htpPerformanceMode = CompiledModel.QualcommOptions.HtpPerformanceMode.HIGH_PERFORMANCE,
-                )
-            }
+            // Vendor-specific options must only be set after identifying that vendor. Applying
+            // Qualcomm HTP tuning to Google Tensor is not applicable and obscures diagnosis.
+            Accelerator.NPU -> CompiledModel.Options(setOf(Accelerator.NPU))
             Accelerator.GPU -> CompiledModel.Options(setOf(Accelerator.GPU))
             else -> CompiledModel.Options(Accelerator.CPU)
         }
@@ -213,5 +245,7 @@ class LiteRtCnnClassifier(
         const val DEFAULT_MEL_BINS = 40
         const val INT8_MIN = -128
         const val INT8_MAX = 127
+        const val INITIAL_DIAGNOSTIC_INFERENCES = 3L
+        const val PERIODIC_DIAGNOSTIC_INTERVAL = 20L
     }
 }

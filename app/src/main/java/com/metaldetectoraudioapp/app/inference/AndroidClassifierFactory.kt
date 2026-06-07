@@ -9,13 +9,17 @@ object AndroidClassifierFactory {
     fun create(
         appContext: Context,
         modelMetadata: ModelMetadata,
+        backendPreference: InferenceBackendPreference = InferenceBackendPreference.HARDWARE_ACCELERATION,
     ): AudioWindowClassifier {
         val waveformAssetName = modelMetadata.artifacts.waveformTfliteFileName
             ?: modelMetadata.fileName
             ?: "starter_model.tflite"
         val acceleratorAssetName = preferredAcceleratorAssetName(modelMetadata)
 
-        if (acceleratorAssetName != null) {
+        if (
+            backendPreference == InferenceBackendPreference.HARDWARE_ACCELERATION &&
+            acceleratorAssetName != null
+        ) {
             runCatching {
                 return LiteRtCnnClassifier(
                     modelMetadata = modelMetadata,
@@ -30,6 +34,7 @@ object AndroidClassifierFactory {
             }
         }
 
+        Log.i(TAG, "Using waveform TFLite CPU classifier for '$waveformAssetName'")
         return MetalClassifierInterpreter(
             modelMetadata = modelMetadata,
             appContext = appContext,

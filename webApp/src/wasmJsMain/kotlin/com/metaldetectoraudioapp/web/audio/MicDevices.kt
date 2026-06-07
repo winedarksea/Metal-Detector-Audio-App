@@ -76,10 +76,23 @@ suspend fun listOutputDevices(): List<MicDevice> {
     }
 }
 
-/** Registers a `devicechange` listener so the picker can auto-refresh on hot-plug. */
+/**
+ * Registers a `devicechange` listener so the picker can auto-refresh on hot-plug.
+ *
+ * Idempotent: the underlying JS `addEventListener` is attached only once for the page
+ * lifetime (a fresh attach on every composition would leak listeners). Subsequent calls
+ * just replace the callback the single listener invokes, so the latest mounted picker wins.
+ */
 fun registerDeviceChangeListener(onChange: () -> Unit) {
-    addDeviceChangeListener(onChange)
+    deviceChangeCallback = onChange
+    if (!deviceChangeListenerAttached) {
+        deviceChangeListenerAttached = true
+        addDeviceChangeListener { deviceChangeCallback?.invoke() }
+    }
 }
+
+private var deviceChangeCallback: (() -> Unit)? = null
+private var deviceChangeListenerAttached = false
 
 /** True if the browser supports choosing an output sink (`AudioContext.setSinkId`). */
 fun outputSelectionSupported(): Boolean = outputSinkSupportedJs() == 1

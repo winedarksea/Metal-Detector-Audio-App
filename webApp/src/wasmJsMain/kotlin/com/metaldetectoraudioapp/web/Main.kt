@@ -127,13 +127,6 @@ fun main() {
                 }
             ) { padding ->
                 Box(Modifier.fillMaxSize()) {
-                  // Constrain form content to a readable max width, centered on wide screens.
-                  Box(
-                      modifier = Modifier
-                          .align(Alignment.TopCenter)
-                          .widthIn(max = 640.dp)
-                          .fillMaxSize()
-                  ) {
                     when (selected) {
                         WebDestination.DETECT -> {
                             val vm = inferenceViewModel
@@ -166,10 +159,25 @@ fun main() {
                                 }
                             }
                         }
-                        WebDestination.RECORD -> WebRecordingScreen(recordingViewModel, padding)
-                        WebDestination.REVIEW -> WebReviewScreen(reviewViewModel, padding)
+                        // Form screens cap width so fields stay readable on wide monitors,
+                        // but still fill the screen on small devices (widthIn is a maximum only).
+                        WebDestination.RECORD -> Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .widthIn(max = 800.dp)
+                                .fillMaxSize()
+                        ) {
+                            WebRecordingScreen(recordingViewModel, padding)
+                        }
+                        WebDestination.REVIEW -> Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .widthIn(max = 800.dp)
+                                .fillMaxSize()
+                        ) {
+                            WebReviewScreen(reviewViewModel, padding)
+                        }
                     }
-                  }
 
                     SmallFloatingActionButton(
                         onClick = {

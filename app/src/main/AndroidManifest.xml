@@ -8,9 +8,9 @@
     <application
         android:name=".MetalDetectorAudioApplication"
         android:allowBackup="true"
-        android:icon="@android:drawable/ic_btn_speak_now"
+        android:icon="@mipmap/ic_launcher"
         android:label="Metal Detector Audio"
-        android:roundIcon="@android:drawable/ic_btn_speak_now"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.MetalDetectorAudio">

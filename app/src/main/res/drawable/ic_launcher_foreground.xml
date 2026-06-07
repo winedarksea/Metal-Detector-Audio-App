@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Foreground layer for the adaptive launcher icon.
+  Viewport 512x512 matches the web SVG; all content sits within the adaptive-icon
+  safe zone (center 72/108 dp) so nothing important gets clipped.
+
+  Coil gradient (vertical, #ECEFF1 → #B0BEC5 → #78909C) encoded with per-stop alpha:
+    outer circle: 95% opacity (A=F2)
+    inner circle: 40% opacity (A=66)
+
+  Wave bar colors are sampled from the SVG's horizontal rainbow gradient
+  (#FF5252 → #FFB300 → #69F0AE → #40C4FF → #E040FB at x=148..364).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Outer coil circle, cx=256 cy=256 r=178, stroke-width=28, opacity=0.95 -->
+    <path
+        android:pathData="M 256,256 m -178,0 a 178,178 0 1,0 356,0 a 178,178 0 1,0 -356,0"
+        android:fillColor="#00000000"
+        android:strokeWidth="28">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="256" android:startY="78"
+                android:endX="256" android:endY="434">
+                <item android:offset="0"   android:color="#F2ECEFF1"/>
+                <item android:offset="0.5" android:color="#F2B0BEC5"/>
+                <item android:offset="1"   android:color="#F278909C"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Inner coil circle, r=122, stroke-width=13, opacity=0.4 -->
+    <path
+        android:pathData="M 256,256 m -122,0 a 122,122 0 1,0 244,0 a 122,122 0 1,0 -244,0"
+        android:fillColor="#00000000"
+        android:strokeWidth="13">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="256" android:startY="134"
+                android:endX="256" android:endY="378">
+                <item android:offset="0"   android:color="#66ECEFF1"/>
+                <item android:offset="0.5" android:color="#66B0BEC5"/>
+                <item android:offset="1"   android:color="#6678909C"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Vertical stem, x=256 y=78..434, stroke-width=32, opacity=0.95 -->
+    <path
+        android:pathData="M 256,78 L 256,434"
+        android:fillColor="#00000000"
+        android:strokeWidth="32"
+        android:strokeLineCap="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="256" android:startY="78"
+                android:endX="256" android:endY="434">
+                <item android:offset="0"   android:color="#F2ECEFF1"/>
+                <item android:offset="0.5" android:color="#F2B0BEC5"/>
+                <item android:offset="1"   android:color="#F278909C"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Waveform bars — colors sampled from the SVG horizontal rainbow gradient -->
+    <!-- bar 1: x=148, t=0.000 → #FF5252 -->
+    <path
+        android:pathData="M 148,228 L 148,284"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF5252"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"/>
+
+    <!-- bar 2: x=184, t=0.167 → #FF931B -->
+    <path
+        android:pathData="M 184,208 L 184,304"
+        android:fillColor="#00000000"
+        android:strokeColor="#FF931B"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"/>
+
+    <!-- bar 3: x=220, t=0.333 → #CDC73A -->
+    <path
+        android:pathData="M 220,164 L 220,348"
+        android:fillColor="#00000000"
+        android:strokeColor="#CDC73A"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"/>
+
+    <!-- bar 4: x=256, t=0.500 → #69F0AE -->
+    <path
+        android:pathData="M 256,228 L 256,284"
+        android:fillColor="#00000000"
+        android:strokeColor="#69F0AE"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"/>
+
+    <!-- bar 5: x=292, t=0.667 → #4ED3E4 -->
+    <path
+        android:pathData="M 292,192 L 292,320"
+        android:fillColor="#00000000"
+        android:strokeColor="#4ED3E4"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"/>
+
+    <!-- bar 6: x=328, t=0.833 → #7598FE -->
+    <path
+        android:pathData="M 328,164 L 328,348"
+        android:fillColor="#00000000"
+        android:strokeColor="#7598FE"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"/>
+
+    <!-- bar 7: x=364, t=1.000 → #E040FB -->
+    <path
+        android:pathData="M 364,228 L 364,284"
+        android:fillColor="#00000000"
+        android:strokeColor="#E040FB"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"/>
+
+</vector>

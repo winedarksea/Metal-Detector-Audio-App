@@ -21,7 +21,15 @@
       "kind": "log_mel_spectrogram",
       "time_frames": 61,
       "mel_bins": 40,
-      "channels": 1
+      "channels": 1,
+      "dtype": "int8",
+      "scale": 0.09044861048460007,
+      "zero_point": 25
+    },
+    "accelerator_output": {
+      "dtype": "int8",
+      "scale": 0.00390625,
+      "zero_point": -128
     }
   },
   "inference": {

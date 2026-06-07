@@ -64,6 +64,33 @@ except ImportError:
     )
 
 
+def tflite_tensor_descriptor(detail: dict) -> dict:
+    """Builds the accelerator tensor descriptor (dtype + affine quant params) the Android/web
+    apps read from model metadata to (de)quantize int8 accelerator I/O. See
+    LiteRtCnnClassifier.kt and ModelMetadataRepository.kt."""
+    import numpy as np
+
+    scale, zero_point = detail.get("quantization", (0.0, 0))
+    is_int8 = detail["dtype"] is np.int8
+    descriptor: dict = {"dtype": "int8" if is_int8 else "float32"}
+    if is_int8:
+        descriptor["scale"] = float(scale)
+        descriptor["zero_point"] = int(zero_point)
+    return descriptor
+
+
+def tflite_io_descriptors(model_bytes: bytes) -> tuple[dict, dict]:
+    """Returns (input_descriptor, output_descriptor) for a TFLite model."""
+    import tensorflow as tf
+
+    interpreter = tf.lite.Interpreter(model_content=model_bytes)
+    interpreter.allocate_tensors()
+    return (
+        tflite_tensor_descriptor(interpreter.get_input_details()[0]),
+        tflite_tensor_descriptor(interpreter.get_output_details()[0]),
+    )
+
+
 def write_json(path: Path, content: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(content, indent=2) + "\n", encoding="utf-8")
@@ -311,6 +338,7 @@ def main() -> int:
     }
 
     timestamp = datetime.now(timezone.utc).isoformat()
+    int8_input_descriptor, int8_output_descriptor = tflite_io_descriptors(accelerator_int8_bytes)
     artifacts = {
         "waveform_tflite": args.tflite_output.name,
         "accelerator_float_tflite": args.accelerator_float_output.name,
@@ -321,7 +349,10 @@ def main() -> int:
             "time_frames": int(add_channel_output_shape[0]),
             "mel_bins": int(add_channel_output_shape[1]),
             "channels": int(add_channel_output_shape[2]),
+            # dtype + quantization params let the accelerator runtime feed the int8 model.
+            **int8_input_descriptor,
         },
+        "accelerator_output": int8_output_descriptor,
     }
 
     write_json(args.metadata_output, {

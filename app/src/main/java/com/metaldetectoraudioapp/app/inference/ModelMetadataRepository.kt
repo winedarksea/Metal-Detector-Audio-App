@@ -32,6 +32,7 @@ class ModelMetadataRepository(
         val trainingJson = json.optJSONObject("training")
         val artifactsJson = json.optJSONObject("artifacts")
         val acceleratorInputJson = artifactsJson?.optJSONObject("accelerator_input")
+        val acceleratorOutputJson = artifactsJson?.optJSONObject("accelerator_output")
         
         // Derive model name to distinguish "no mixed" version if flag is set
         val baseName = json.getString("model_name")
@@ -67,6 +68,12 @@ class ModelMetadataRepository(
                     timeFrames = acceleratorInputJson?.optNullableInt("time_frames"),
                     melBins = acceleratorInputJson?.optNullableInt("mel_bins"),
                     channels = acceleratorInputJson?.optInt("channels", 1) ?: 1,
+                    dataType = parseTensorDataType(acceleratorInputJson?.optStringOrNull("dtype")),
+                    quantization = parseQuantization(acceleratorInputJson),
+                ),
+                acceleratorOutput = ModelArtifactOutputConfig(
+                    dataType = parseTensorDataType(acceleratorOutputJson?.optStringOrNull("dtype")),
+                    quantization = parseQuantization(acceleratorOutputJson),
                 ),
             ),
         )
@@ -80,6 +87,27 @@ class ModelMetadataRepository(
     private fun JSONObject.optNullableInt(key: String): Int? {
         if (isNull(key)) return null
         return optInt(key)
+    }
+
+    private fun parseTensorDataType(rawValue: String?): ModelTensorDataType {
+        return when (rawValue?.lowercase()) {
+            "int8" -> ModelTensorDataType.INT8
+            else -> ModelTensorDataType.FLOAT32
+        }
+    }
+
+    /**
+     * Reads affine quantization params from a tensor descriptor. Returns null unless a non-zero
+     * scale is present (a 0.0 scale is how TFLite reports a non-quantized float tensor).
+     */
+    private fun parseQuantization(tensorJson: JSONObject?): TensorQuantization? {
+        if (tensorJson == null) return null
+        val scale = tensorJson.optDouble("scale", 0.0).toFloat()
+        if (scale == 0.0f) return null
+        return TensorQuantization(
+            scale = scale,
+            zeroPoint = tensorJson.optInt("zero_point", 0),
+        )
     }
 
     private fun parseInputRepresentation(rawValue: String?): ModelInputRepresentation {

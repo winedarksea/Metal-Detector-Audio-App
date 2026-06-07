@@ -8,6 +8,7 @@ import com.google.ai.edge.litert.CompiledModel
 import com.google.ai.edge.litert.Environment
 import com.google.ai.edge.litert.TensorBuffer
 import com.metaldetectoraudioapp.app.audio.pipeline.AndroidMelSpectrogramFeatureExtractor
+import kotlin.math.roundToInt
 import kotlin.system.measureNanoTime
 
 class LiteRtCnnClassifier(
@@ -15,6 +16,28 @@ class LiteRtCnnClassifier(
     appContext: Context,
     modelAssetName: String,
 ) : AudioWindowClassifier {
+
+    private val acceleratorInput = modelMetadata.artifacts.acceleratorInput
+    private val acceleratorOutput = modelMetadata.artifacts.acceleratorOutput
+
+    init {
+        // Fail fast at construction so AndroidClassifierFactory can fall back to the waveform
+        // interpreter instead of crashing the inference coroutine on the first window. The int8
+        // model has int8 input/output tensors, so we must (de)quantize using params that only
+        // live in the model metadata — LiteRT 2.1.0 does not expose them on the TensorBuffer.
+        if (acceleratorInput.dataType == ModelTensorDataType.INT8 && acceleratorInput.quantization == null) {
+            throw IllegalStateException(
+                "Accelerator model '$modelAssetName' has an int8 input but no quantization params " +
+                    "(artifacts.accelerator_input.scale/zero_point) in metadata. Re-export the model."
+            )
+        }
+        if (acceleratorOutput.dataType == ModelTensorDataType.INT8 && acceleratorOutput.quantization == null) {
+            throw IllegalStateException(
+                "Accelerator model '$modelAssetName' has an int8 output but no quantization params " +
+                    "(artifacts.accelerator_output.scale/zero_point) in metadata. Re-export the model."
+            )
+        }
+    }
 
     private val activeModel = createFirstAvailableModel(appContext, modelAssetName)
     private val melExtractor = AndroidMelSpectrogramFeatureExtractor()
@@ -35,11 +58,11 @@ class LiteRtCnnClassifier(
                 expectedTimeFrames = expectedInput.timeFrames ?: DEFAULT_TIME_FRAMES,
                 expectedMelBins = expectedInput.melBins ?: DEFAULT_MEL_BINS,
             )
-            activeModel.inputBuffers[0].writeFloat(flattenedInput)
+            writeInput(activeModel.inputBuffers[0], flattenedInput)
             activeModel.compiledModel.run(activeModel.inputBuffers, activeModel.outputBuffers)
         }
 
-        val scores = activeModel.outputBuffers[0].readFloat()
+        val scores = readOutput(activeModel.outputBuffers[0])
         if (scores.size != modelMetadata.labels.size) {
             throw IllegalStateException(
                 "LiteRT model output size (${scores.size}) does not match " +
@@ -68,6 +91,38 @@ class LiteRtCnnClassifier(
             perLabelScores = map,
             inferenceTimeMs = nanos / 1_000_000,
         )
+    }
+
+    /**
+     * Feeds the float feature vector into the model input buffer, quantizing to int8 when the
+     * accelerator model expects a quantized input. Matches the TFLite affine scheme used by
+     * scripts/mel_cnn_pipeline.run_tflite_predictions: q = round(x / scale + zeroPoint).
+     */
+    private fun writeInput(buffer: TensorBuffer, features: FloatArray) {
+        val quant = acceleratorInput.quantization
+        if (acceleratorInput.dataType == ModelTensorDataType.INT8 && quant != null) {
+            val quantized = ByteArray(features.size)
+            for (i in features.indices) {
+                val q = (features[i] / quant.scale + quant.zeroPoint).roundToInt()
+                quantized[i] = q.coerceIn(INT8_MIN, INT8_MAX).toByte()
+            }
+            buffer.writeInt8(quantized)
+        } else {
+            buffer.writeFloat(features)
+        }
+    }
+
+    /**
+     * Reads the model output, dequantizing int8 logits back to floats:
+     * real = (quantized - zeroPoint) * scale.
+     */
+    private fun readOutput(buffer: TensorBuffer): FloatArray {
+        val quant = acceleratorOutput.quantization
+        if (acceleratorOutput.dataType == ModelTensorDataType.INT8 && quant != null) {
+            val raw = buffer.readInt8()
+            return FloatArray(raw.size) { (raw[it].toInt() - quant.zeroPoint) * quant.scale }
+        }
+        return buffer.readFloat()
     }
 
     override fun close() {
@@ -156,5 +211,7 @@ class LiteRtCnnClassifier(
         const val TAG = "LiteRtCnnClassifier"
         const val DEFAULT_TIME_FRAMES = 61
         const val DEFAULT_MEL_BINS = 40
+        const val INT8_MIN = -128
+        const val INT8_MAX = 127
     }
 }

@@ -12,11 +12,34 @@ enum class ModelInputRepresentation {
     LOG_MEL_SPECTROGRAM,
 }
 
+/** Element dtype of an accelerator model's input/output tensor. */
+enum class ModelTensorDataType {
+    FLOAT32,
+    INT8,
+}
+
+/**
+ * Affine quantization parameters for an int8 tensor: real = (quantized - zeroPoint) * scale.
+ * Mirrors the values baked into the int8 TFLite model and emitted into model metadata by
+ * scripts/export_onnx_cnn_only.py. Required to feed/read the int8 accelerator model correctly.
+ */
+data class TensorQuantization(
+    val scale: Float,
+    val zeroPoint: Int,
+)
+
 data class ModelArtifactInputConfig(
     val kind: ModelInputRepresentation = ModelInputRepresentation.WAVEFORM,
     val timeFrames: Int? = null,
     val melBins: Int? = null,
     val channels: Int = 1,
+    val dataType: ModelTensorDataType = ModelTensorDataType.FLOAT32,
+    val quantization: TensorQuantization? = null,
+)
+
+data class ModelArtifactOutputConfig(
+    val dataType: ModelTensorDataType = ModelTensorDataType.FLOAT32,
+    val quantization: TensorQuantization? = null,
 )
 
 data class ModelArtifacts(
@@ -25,6 +48,7 @@ data class ModelArtifacts(
     val acceleratorFloatTfliteFileName: String? = null,
     val desktopOnnxFileName: String? = null,
     val acceleratorInput: ModelArtifactInputConfig = ModelArtifactInputConfig(),
+    val acceleratorOutput: ModelArtifactOutputConfig = ModelArtifactOutputConfig(),
 )
 
 data class ModelMetadata(

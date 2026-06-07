@@ -1,3 +1,4 @@
+import json
 import re
 import unittest
 from pathlib import Path
@@ -9,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ANDROID_AUDIO_CONSTANTS = REPO_ROOT / "app" / "src" / "main" / "java" / "com" / "metaldetectoraudioapp" / "app" / "audio" / "AudioConstants.kt"
 ANDROID_LITERT_MEL_EXTRACTOR = REPO_ROOT / "app" / "src" / "main" / "java" / "com" / "metaldetectoraudioapp" / "app" / "audio" / "pipeline" / "AndroidMelSpectrogramFeatureExtractor.kt"
 DESKTOP_MEL_EXTRACTOR = REPO_ROOT / "shared" / "src" / "commonMain" / "kotlin" / "com" / "metaldetectoraudioapp" / "app" / "audio" / "pipeline" / "MelSpectrogramFeatureExtractor.kt"
+MODEL_METADATA = REPO_ROOT / "models" / "starter_model_metadata.json"
 
 
 def read_file(path: Path) -> str:
@@ -171,6 +173,31 @@ class ModelConfigSyncTest(unittest.TestCase):
                 r"private val melUpperHz: Float = ([0-9_\.f]+)",
             ),
         )
+
+
+class AcceleratorQuantizationSyncTest(unittest.TestCase):
+    """The Android LiteRT path (LiteRtCnnClassifier) (de)quantizes int8 accelerator I/O using the
+    scale/zero_point stored in model metadata, because LiteRT does not expose them at runtime. If
+    these drift from the actual int8 .tflite the model crashes or returns garbage, so lock them."""
+
+    def test_metadata_quant_params_match_int8_tflite(self):
+        try:
+            from scripts.export_onnx_cnn_only import tflite_io_descriptors
+        except Exception as exc:  # pragma: no cover - tensorflow optional locally
+            self.skipTest(f"tensorflow/export deps unavailable: {exc}")
+
+        artifacts = json.loads(MODEL_METADATA.read_text(encoding="utf-8"))["artifacts"]
+        int8_tflite = REPO_ROOT / "models" / artifacts["accelerator_tflite"]
+        if not int8_tflite.exists():
+            self.skipTest(f"int8 tflite not present: {int8_tflite}")
+
+        input_descriptor, output_descriptor = tflite_io_descriptors(int8_tflite.read_bytes())
+
+        meta_input = artifacts["accelerator_input"]
+        self.assertEqual(input_descriptor["dtype"], meta_input.get("dtype"))
+        self.assertEqual(input_descriptor.get("scale"), meta_input.get("scale"))
+        self.assertEqual(input_descriptor.get("zero_point"), meta_input.get("zero_point"))
+        self.assertEqual(output_descriptor, artifacts.get("accelerator_output"))
 
 
 if __name__ == "__main__":

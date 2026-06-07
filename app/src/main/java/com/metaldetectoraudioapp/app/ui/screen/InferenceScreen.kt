@@ -22,11 +22,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -181,7 +183,13 @@ fun InferenceScreen(
                         label = "Input Device",
                         devices = inputDevices,
                         selectedDevice = selectedInputDevice,
-                        onDeviceSelected = viewModel::setInputDevice
+                        onDeviceSelected = viewModel::setInputDevice,
+                        onRefresh = viewModel::refreshAudioDevices
+                    )
+
+                    UsbInputDiagnosticBanner(
+                        inputDevices = inputDevices,
+                        outputDevices = outputDevices
                     )
 
                     if (passthroughEnabled) {
@@ -405,7 +413,8 @@ internal fun AudioDevicePicker(
     label: String,
     devices: List<AudioDeviceInfo>,
     selectedDevice: AudioDeviceInfo?,
-    onDeviceSelected: (AudioDeviceInfo?) -> Unit
+    onDeviceSelected: (AudioDeviceInfo?) -> Unit,
+    onRefresh: (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     val displayName = selectedDevice?.let { AudioDeviceManager.deviceDisplayName(it) } ?: "Default"
@@ -443,6 +452,34 @@ internal fun AudioDevicePicker(
                 }
             }
         }
+        if (onRefresh != null) {
+            IconButton(onClick = onRefresh, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Refresh, contentDescription = "Refresh audio sources")
+            }
+        }
+    }
+}
+
+/** Banner explaining an output-only USB adapter (no input to record from). See issue #4. */
+@Composable
+internal fun UsbInputDiagnosticBanner(
+    inputDevices: List<AudioDeviceInfo>,
+    outputDevices: List<AudioDeviceInfo>
+) {
+    if (!AudioDeviceManager.usbOutputWithoutInput(inputDevices, outputDevices)) return
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+    ) {
+        Text(
+            "USB audio output detected but no input channel — this adapter is output-only. " +
+                "Use a USB-C audio interface that has a microphone/line input.",
+            modifier = Modifier.padding(Spacing.md),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

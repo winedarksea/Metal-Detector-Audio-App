@@ -38,6 +38,7 @@ import com.metaldetectoraudioapp.app.ui.SharedInferenceViewModel
 import com.metaldetectoraudioapp.app.ui.screen.SharedInferenceScreen
 import com.metaldetectoraudioapp.app.ui.theme.MetalDetectorAudioTheme
 import com.metaldetectoraudioapp.web.audio.WebAudioPlayer
+import com.metaldetectoraudioapp.web.audio.WebPassthroughMonitor
 import com.metaldetectoraudioapp.web.export.WebZipCodec
 import com.metaldetectoraudioapp.web.inference.WebInferenceControllerFactory
 import com.metaldetectoraudioapp.web.platform.WebFileDownloader
@@ -144,11 +145,19 @@ fun main() {
                                     onStart = vm::start,
                                     onStop = vm::stop,
                                     onThresholdChange = vm::updateThreshold,
-                                    onPassthroughChange = vm::setPassthroughEnabled,
+                                    onPassthroughChange = { enabled ->
+                                        vm.setPassthroughEnabled(enabled)
+                                        WebPassthroughMonitor.setEnabled(enabled)
+                                    },
                                     onModelOptionSelected = vm::selectModelOption,
                                     contentPadding = PaddingValues(16.dp),
                                     modifier = Modifier.padding(padding),
-                                    micSelector = { MicSelector(modifier = Modifier.fillMaxWidth()) },
+                                    micSelector = {
+                                        MicSelector(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            passthroughEnabled = passthrough,
+                                        )
+                                    },
                                 )
                             } else {
                                 val err = inferenceError

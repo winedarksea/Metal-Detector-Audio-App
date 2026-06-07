@@ -76,6 +76,18 @@ private fun startInfMicJs(onChunk: (Int, Int) -> Unit) {
             if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
             var src = ctx.createMediaStreamSource(stream);
 
+            // Speaker pass-through ("monitor") branch: src -> monitorGain -> destination.
+            // Gain defaults to 0 (silent) so it never feeds back unless explicitly enabled.
+            // Kept separate from the silent inference sink below. See WebPassthroughMonitor.
+            var monitorGain = ctx.createGain();
+            monitorGain.gain.value = window.__mdInfPassthroughOn ? 1 : 0;
+            window.__mdInfMonitorGain = monitorGain;
+            src.connect(monitorGain);
+            monitorGain.connect(ctx.destination);
+            if (window.__mdInfSinkId && ctx.setSinkId) {
+                ctx.setSinkId(window.__mdInfSinkId).catch(function() {});
+            }
+
             function sendChunk(channelData) {
                 window.__mdInfBuf = channelData;
                 onChunk(Math.round(ctx.sampleRate), channelData.length);
@@ -109,6 +121,7 @@ private fun startInfMicJs(onChunk: (Int, Int) -> Unit) {
 private fun stopInfMicJs() {
     js("""
         if (window.__mdInfNode)   { window.__mdInfNode.disconnect();   window.__mdInfNode = null; }
+        if (window.__mdInfMonitorGain) { window.__mdInfMonitorGain.disconnect(); window.__mdInfMonitorGain = null; }
         if (window.__mdInfSilentGain) { window.__mdInfSilentGain.disconnect(); window.__mdInfSilentGain = null; }
         if (window.__mdInfProc)   { window.__mdInfProc.disconnect();   window.__mdInfProc = null; }
         if (window.__mdInfStream) { window.__mdInfStream.getTracks().forEach(function(t) { t.stop(); }); window.__mdInfStream = null; }

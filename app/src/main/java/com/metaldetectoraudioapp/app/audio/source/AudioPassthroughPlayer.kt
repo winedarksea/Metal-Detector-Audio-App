@@ -4,6 +4,7 @@ import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.util.Log
 
 class AudioPassthroughPlayer(sampleRateHz: Int) {
     private val channelConfig = AudioFormat.CHANNEL_OUT_MONO
@@ -29,6 +30,7 @@ class AudioPassthroughPlayer(sampleRateHz: Int) {
         .build()
 
     private var isActive = false
+    private var preferredDevice: AudioDeviceInfo? = null
 
     fun setEnabled(enabled: Boolean) {
         if (enabled == isActive) {
@@ -37,6 +39,9 @@ class AudioPassthroughPlayer(sampleRateHz: Int) {
         isActive = enabled
         if (enabled) {
             track.play()
+            // Re-assert routing after play(): a preferred device chosen while the track was
+            // stopped is applied more reliably once the track is running on some devices.
+            applyPreferredDevice()
         } else {
             track.pause()
             track.flush()
@@ -44,7 +49,18 @@ class AudioPassthroughPlayer(sampleRateHz: Int) {
     }
 
     fun setPreferredDevice(device: AudioDeviceInfo?) {
-        track.preferredDevice = device
+        preferredDevice = device
+        applyPreferredDevice()
+    }
+
+    private fun applyPreferredDevice() {
+        // setPreferredDevice returns false if the route was rejected; fall back to the
+        // system default (null) so audio still plays somewhere rather than silently failing.
+        val accepted = track.setPreferredDevice(preferredDevice)
+        if (!accepted && preferredDevice != null) {
+            Log.w(TAG, "Output device ${preferredDevice?.productName} rejected; using system default")
+            track.setPreferredDevice(null)
+        }
     }
 
     fun write(pcmSamples: ShortArray, sampleCount: Int) {
@@ -56,5 +72,9 @@ class AudioPassthroughPlayer(sampleRateHz: Int) {
 
     fun release() {
         track.release()
+    }
+
+    private companion object {
+        const val TAG = "AudioPassthroughPlayer"
     }
 }

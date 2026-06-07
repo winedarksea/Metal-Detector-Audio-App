@@ -81,6 +81,7 @@ fun RecordingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val inputDevices by viewModel.inputDevices.collectAsStateWithLifecycle()
+    val outputDevices by viewModel.outputDevices.collectAsStateWithLifecycle()
     val selectedInputDevice by viewModel.selectedInputDevice.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -132,7 +133,12 @@ fun RecordingScreen(
                         label = "Input Device",
                         devices = inputDevices,
                         selectedDevice = selectedInputDevice,
-                        onDeviceSelected = viewModel::setInputDevice
+                        onDeviceSelected = viewModel::setInputDevice,
+                        onRefresh = viewModel::refreshAudioDevices
+                    )
+                    UsbInputDiagnosticBanner(
+                        inputDevices = inputDevices,
+                        outputDevices = outputDevices
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Button(
@@ -499,6 +505,9 @@ private fun RecordingHintCard(modifier: Modifier = Modifier) {
             )
             RecordingHintBullet(
                 "If several objects share one signal, add a label for each, but keep separate recordings for separate objects where you can."
+            )
+            RecordingHintBullet(
+                "Use consistent detector settings. The recommended mode is All Metal Mode with minimal filtering"
             )
         }
     }

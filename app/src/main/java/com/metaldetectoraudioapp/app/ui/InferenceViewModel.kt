@@ -128,6 +128,11 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /** Manually re-enumerate audio devices (e.g. after plugging in a USB adapter). */
+    fun refreshAudioDevices() {
+        deviceManager.refresh()
+    }
+
     fun setInputDevice(device: AudioDeviceInfo?) {
         _selectedInputDevice.value = device
         controller.setInputDevice(device)

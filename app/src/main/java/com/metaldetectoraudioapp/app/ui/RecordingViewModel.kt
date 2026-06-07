@@ -38,9 +38,15 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val audioDeviceManager = AudioDeviceManager(application.applicationContext)
     val inputDevices: StateFlow<List<AudioDeviceInfo>> = audioDeviceManager.inputDevices
+    val outputDevices: StateFlow<List<AudioDeviceInfo>> = audioDeviceManager.outputDevices
 
     private val _selectedInputDevice = MutableStateFlow<AudioDeviceInfo?>(null)
     val selectedInputDevice: StateFlow<AudioDeviceInfo?> = _selectedInputDevice.asStateFlow()
+
+    /** Manually re-enumerate audio devices (e.g. after plugging in a USB adapter). */
+    fun refreshAudioDevices() {
+        audioDeviceManager.refresh()
+    }
 
     private val _uiState = MutableStateFlow(RecordingUiState())
     val uiState: StateFlow<RecordingUiState> = _uiState.asStateFlow()

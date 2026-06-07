@@ -123,3 +123,4 @@ app.*.symbols
 # Local training data generated during collection (keep curated sample assets tracked)
 assets/rec_*.wav
 assets/recordings_metadata.csv
+*.aup3

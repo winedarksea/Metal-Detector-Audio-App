@@ -31,9 +31,16 @@ class AudioDeviceManager(context: Context) {
     }
 
     init {
-        refreshDevices()
+        refresh()
         audioManager.registerAudioDeviceCallback(deviceCallback, Handler(Looper.getMainLooper()))
     }
+
+    /**
+     * Re-enumerates input and output devices. The [deviceCallback] calls this on hot-plug, but it is
+     * also exposed publicly so the UI can offer a manual "refresh sources" button — the explicit,
+     * user-trusted path for the field, where a device may be plugged in after the app is already open.
+     */
+    fun refresh() = refreshDevices()
 
     private fun refreshDevices() {
         _inputDevices.value = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
@@ -49,6 +56,21 @@ class AudioDeviceManager(context: Context) {
     }
 
     companion object {
+        private fun isUsb(device: AudioDeviceInfo): Boolean =
+            device.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                device.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
+                device.type == AudioDeviceInfo.TYPE_USB_ACCESSORY
+
+        /**
+         * True when a USB audio **output** is connected but no USB audio **input** is exposed —
+         * i.e. an output-only USB-C dongle. In that case the metal detector's audio can't be
+         * captured and the UI should explain that a USB interface with a line/mic input is needed.
+         */
+        fun usbOutputWithoutInput(
+            inputs: List<AudioDeviceInfo>,
+            outputs: List<AudioDeviceInfo>
+        ): Boolean = outputs.any { isUsb(it) } && inputs.none { isUsb(it) }
+
         fun deviceDisplayName(device: AudioDeviceInfo): String {
             val productName = device.productName?.toString()?.takeIf { it.isNotBlank() }
             val typeName = when (device.type) {

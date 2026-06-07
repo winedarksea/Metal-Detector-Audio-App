@@ -13,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
 /**
  * Guidance for capturing good ML training data, shown atop the recording screen.
@@ -33,8 +33,8 @@ fun RecordingHintCard(modifier: Modifier = Modifier) {
         ),
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text(
                 "Tips for good training data",
@@ -54,7 +54,7 @@ fun RecordingHintCard(modifier: Modifier = Modifier) {
 @Composable
 private fun RecordingHintBullet(text: String) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.Top,
     ) {
         Text("•", style = MaterialTheme.typography.bodyMedium)

@@ -10,8 +10,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +26,7 @@ import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.screen.RecordingHintCard
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.web.viewmodel.WebRecordingViewModel
 
 @Composable
@@ -35,7 +38,7 @@ fun WebRecordingScreen(
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             RecordingHintCard()
@@ -43,17 +46,17 @@ fun WebRecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
                     MicSelector(modifier = Modifier.fillMaxWidth())
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Button(onClick = viewModel::startRecording, enabled = !uiState.isRecording) {
                             Text("Start")
                         }
-                        Button(onClick = viewModel::stopRecording, enabled = uiState.isRecording) {
+                        FilledTonalButton(onClick = viewModel::stopRecording, enabled = uiState.isRecording) {
                             Text("Stop")
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 if (uiState.isPlayingPreview) viewModel.stopPreview() else viewModel.playPreview()
                             },
@@ -61,14 +64,17 @@ fun WebRecordingScreen(
                         ) {
                             Text(if (uiState.isPlayingPreview) "Stop Preview" else "Play Preview")
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = viewModel::clearPendingCapture,
                             enabled = uiState.pendingAudio != null
                         ) {
                             Text("Clear")
                         }
                     }
-                    Text("Duration: ${uiState.pendingDurationMs} ms")
+                    Text(
+                        "Duration: ${uiState.pendingDurationMs} ms",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                     Text(
                         "Microphone access is requested on first Start. Tap the detector coil against a target during recording.",
                         style = MaterialTheme.typography.bodySmall
@@ -79,7 +85,7 @@ fun WebRecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Labels", style = MaterialTheme.typography.titleMedium)
 
                     WebLabelPickerField(
@@ -104,8 +110,8 @@ fun WebRecordingScreen(
                         maxLines = 3,
                     )
 
-                    Text("class_label (required)")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("class_label (required)", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         ClassLabel.entries.forEach { label ->
                             FilterChip(
                                 selected = uiState.draft.classLabel == label,
@@ -115,8 +121,8 @@ fun WebRecordingScreen(
                         }
                     }
 
-                    Text("pattern")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("pattern", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         SweepPattern.entries.forEach { pattern ->
                             FilterChip(
                                 selected = uiState.draft.pattern == pattern,
@@ -139,7 +145,7 @@ fun WebRecordingScreen(
                             checked = uiState.draft.includeInTraining,
                             onCheckedChange = viewModel::updateIncludeInTraining,
                         )
-                        Text("include_in_training")
+                        Text("include_in_training", style = MaterialTheme.typography.labelLarge)
                     }
 
                     uiState.saveResultMessage?.let { msg ->
@@ -157,7 +163,7 @@ fun WebRecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Text("Environment (optional)", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(
                         value = uiState.draft.soilType,
@@ -166,8 +172,8 @@ fun WebRecordingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
-                    Text("moisture")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("moisture", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         listOf("dry", "moist", "wet").forEach { option ->
                             FilterChip(
                                 selected = uiState.draft.moisture == option,

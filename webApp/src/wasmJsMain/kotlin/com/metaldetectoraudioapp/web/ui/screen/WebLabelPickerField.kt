@@ -20,11 +20,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
 import com.metaldetectoraudioapp.app.ui.model.defaultLabelCatalog
 import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
 @Composable
 fun WebLabelPickerField(
@@ -47,15 +47,15 @@ fun WebLabelPickerField(
         onValueChange(serializeLabelEntries(entries))
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         entries.forEachIndexed { index, entry ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
                     val nameSuggestions = suggestions.namesByObject[entry.obj] ?: emptyList()
                     val materialSuggestions = suggestions.materialsByObject[entry.obj] ?: emptyList()

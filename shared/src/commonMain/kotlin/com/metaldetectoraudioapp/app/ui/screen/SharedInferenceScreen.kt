@@ -28,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +49,7 @@ import com.metaldetectoraudioapp.app.inference.InferenceModelOption
 import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
 import com.metaldetectoraudioapp.app.ui.theme.DetectionColors
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
 private fun Float.fmt2d(): String {
     val i = (this * 100).toLong()
@@ -84,25 +86,25 @@ fun SharedInferenceScreen(
 ) {
     LazyColumn(
         modifier = modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 Button(onClick = onStart, enabled = !uiState.isRunning) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(Spacing.xs))
                     Text("Start")
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     micSelector()
                 }
-                Button(onClick = onStop, enabled = uiState.isRunning) {
+                FilledTonalButton(onClick = onStop, enabled = uiState.isRunning) {
                     Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(Spacing.xs))
                     Text("Stop")
                 }
             }
@@ -117,7 +119,7 @@ fun SharedInferenceScreen(
                     ),
                 ) {
                     SelectionContainer {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(Spacing.md)) {
                             Text(
                                 "Inference error",
                                 fontWeight = FontWeight.Bold,
@@ -147,10 +149,10 @@ fun SharedInferenceScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
-                    Text("RMS Level")
+                    Text("RMS Level", style = MaterialTheme.typography.titleMedium)
                     LinearProgressIndicator(
                         progress = { uiState.signalStatus.rmsLevel.coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth()
@@ -172,12 +174,12 @@ fun SharedInferenceScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.md)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         FilterChip(
                             selected = uiState.signalStatus.signalPresent,
@@ -192,7 +194,11 @@ fun SharedInferenceScreen(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Speaker Passthrough", modifier = Modifier.weight(1f))
+                        Text(
+                            "Speaker Passthrough",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge
+                        )
                         Switch(
                             checked = passthroughEnabled,
                             onCheckedChange = onPassthroughChange,
@@ -212,10 +218,13 @@ fun SharedInferenceScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
-                    Text("Confidence Threshold: ${uiState.threshold.fmt2d()}")
+                    Text(
+                        "Confidence Threshold: ${uiState.threshold.fmt2d()}",
+                        style = MaterialTheme.typography.labelLarge
+                    )
                     Slider(
                         value = uiState.threshold,
                         valueRange = 0.05f..0.95f,
@@ -232,14 +241,14 @@ fun SharedInferenceScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
-                    Text("Performance")
-                    Text("Inference time: ${uiState.lastInferenceMs} ms")
-                    Text("Average latency: ${uiState.averageLatencyMs.fmt1d()} ms")
-                    Text("Dropped frames: ${uiState.droppedFrames}")
-                    Text("Model: ${uiState.modelName} v${uiState.modelVersion}")
+                    Text("Performance", style = MaterialTheme.typography.titleMedium)
+                    Text("Inference time: ${uiState.lastInferenceMs} ms", style = MaterialTheme.typography.bodyMedium)
+                    Text("Average latency: ${uiState.averageLatencyMs.fmt1d()} ms", style = MaterialTheme.typography.bodyMedium)
+                    Text("Dropped frames: ${uiState.droppedFrames}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Model: ${uiState.modelName} v${uiState.modelVersion}", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -256,9 +265,9 @@ private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
             Text("TARGET DETECTED", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text("Confidence: ${(confidence * 100).fmt0d()}%", color = Color.White.copy(alpha = 0.9f))
@@ -280,11 +289,11 @@ private fun PredictionContent(uiState: InferenceUiState) {
         "JUNK" -> DetectionColors.Junk
         else -> DetectionColors.Ambient
     }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text("Current Prediction", style = MaterialTheme.typography.titleMedium)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md)
         ) {
             Canvas(modifier = Modifier.size(14.dp)) { drawCircle(color = color) }
             Text(uiState.topLabel)
@@ -301,15 +310,15 @@ private fun PredictionContent(uiState: InferenceUiState) {
 private fun RecentDetectionsCard(detections: List<RecentDetection>) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
             Text("Recent Detections (last 30 s)", style = MaterialTheme.typography.titleMedium)
             detections.asReversed().forEach { det ->
                 val dotColor = if (det.label == "TARGET") DetectionColors.Target else DetectionColors.Junk
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     Canvas(modifier = Modifier.size(10.dp)) { drawCircle(color = dotColor) }
                     Text(det.label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))

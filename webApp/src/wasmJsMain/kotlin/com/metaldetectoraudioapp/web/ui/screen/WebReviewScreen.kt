@@ -11,8 +11,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.web.viewmodel.WebReviewViewModel
 
 @Composable
@@ -37,20 +40,20 @@ fun WebReviewScreen(
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Dataset", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Recordings are stored in browser IndexedDB. Export as a zip to transfer data for training.",
                         style = MaterialTheme.typography.bodySmall
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Button(onClick = viewModel::exportBundle) { Text("Export Bundle") }
-                        Button(onClick = viewModel::importBundle) { Text("Import Bundle") }
-                        Button(onClick = viewModel::refresh) { Text("Refresh") }
+                        FilledTonalButton(onClick = viewModel::importBundle) { Text("Import Bundle") }
+                        OutlinedButton(onClick = viewModel::refresh) { Text("Refresh") }
                     }
                 }
             }
@@ -97,9 +100,12 @@ private fun WebRecordingCard(
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
-            Text("Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | ${recording.durationMs} ms")
+            Text(
+                "Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | ${recording.durationMs} ms",
+                style = MaterialTheme.typography.bodyMedium
+            )
 
             OutlinedTextField(
                 value = targetInput,
@@ -117,14 +123,14 @@ private fun WebRecordingCard(
                 maxLines = 2,
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onRelabelTargets(targetInput) }) { Text("Apply Names") }
-                Button(onClick = { onRelabelNotes(notesInput) }) { Text("Apply Notes") }
-                Button(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
-                Button(onClick = onDelete) { Text("Delete") }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FilledTonalButton(onClick = { onRelabelTargets(targetInput) }) { Text("Apply Names") }
+                FilledTonalButton(onClick = { onRelabelNotes(notesInput) }) { Text("Apply Notes") }
+                OutlinedButton(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
+                OutlinedButton(onClick = onDelete) { Text("Delete") }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 ClassLabel.entries.forEach { label ->
                     FilterChip(
                         selected = recording.classLabel == label,
@@ -139,7 +145,7 @@ private fun WebRecordingCard(
                     checked = recording.includeInTraining,
                     onCheckedChange = onToggleInclude
                 )
-                Text("include_in_training")
+                Text("include_in_training", style = MaterialTheme.typography.labelLarge)
             }
         }
     }

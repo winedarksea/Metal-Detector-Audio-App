@@ -30,12 +30,15 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +59,7 @@ import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.theme.DetectionColors
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
 private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
@@ -114,7 +118,7 @@ fun RecordingScreen(
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             RecordingHintCard()
@@ -122,7 +126,7 @@ fun RecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
                     AudioDevicePicker(
                         label = "Input Device",
@@ -130,24 +134,24 @@ fun RecordingScreen(
                         selectedDevice = selectedInputDevice,
                         onDeviceSelected = viewModel::setInputDevice
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Button(
                             onClick = viewModel::startRecording,
                             enabled = !uiState.isRecording,
                             colors = ButtonDefaults.buttonColors(containerColor = DetectionColors.Recording)
                         ) {
                             Icon(Icons.Default.Mic, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(Spacing.xs))
                             Text("Record")
                         }
-                        Button(onClick = viewModel::stopRecording, enabled = uiState.isRecording) {
+                        FilledTonalButton(onClick = viewModel::stopRecording, enabled = uiState.isRecording) {
                             Icon(Icons.Default.Stop, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(Spacing.xs))
                             Text("Stop")
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        OutlinedButton(
                             onClick = {
                                 if (uiState.isPlayingPreview) {
                                     viewModel.stopPreview()
@@ -159,7 +163,7 @@ fun RecordingScreen(
                         ) {
                             Text(if (uiState.isPlayingPreview) "Stop Preview" else "Play Preview")
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = viewModel::clearPendingCapture,
                             enabled = uiState.pendingAudioFile != null || uiState.pendingImageFile != null
                         ) {
@@ -169,7 +173,7 @@ fun RecordingScreen(
                     if (uiState.isRecording) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                         ) {
                             Text("●", color = DetectionColors.Recording)
                             Text("RECORDING", color = DetectionColors.Recording, fontWeight = FontWeight.Bold)
@@ -184,7 +188,7 @@ fun RecordingScreen(
                         ) {
                             Text(
                                 "Recording captured — add labels below, then tap Save Recording",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -197,7 +201,10 @@ fun RecordingScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    Text("Duration: ${uiState.pendingDurationMs} ms")
+                    Text(
+                        "Duration: ${uiState.pendingDurationMs} ms",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                     Text(
                         "Audio and image stay temporary until Save Recording. Starting a new recording clears unsaved capture.",
                         style = MaterialTheme.typography.bodySmall
@@ -208,7 +215,7 @@ fun RecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Labels", style = MaterialTheme.typography.titleMedium)
                     LabelPickerField(
                         value = uiState.draft.targetNameInput,
@@ -231,8 +238,8 @@ fun RecordingScreen(
                         maxLines = 3
                     )
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        OutlinedButton(
                             onClick = {
                                 val hasCameraPermission = ContextCompat.checkSelfPermission(
                                     context,
@@ -249,7 +256,7 @@ fun RecordingScreen(
                             Text("Add Image")
                         }
                         if (uiState.pendingImageFile != null) {
-                            Button(onClick = viewModel::removePendingImage) {
+                            TextButton(onClick = viewModel::removePendingImage) {
                                 Text("Remove Image")
                             }
                         }
@@ -266,7 +273,7 @@ fun RecordingScreen(
                         )
                     }
 
-                    Button(
+                    OutlinedButton(
                         onClick = {
                             val hasLocationPermission = ContextCompat.checkSelfPermission(
                                 context,
@@ -294,7 +301,7 @@ fun RecordingScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
 
-                    Text("class_label (required)")
+                    Text("class_label (required)", style = MaterialTheme.typography.labelLarge)
                     EnumChips(
                         selectedLabel = uiState.draft.classLabel,
                         labels = ClassLabel.entries,
@@ -302,7 +309,7 @@ fun RecordingScreen(
                         onSelect = viewModel::updateClassLabel
                     )
 
-                    Text("pattern")
+                    Text("pattern", style = MaterialTheme.typography.labelLarge)
                     EnumChips(
                         selectedLabel = uiState.draft.pattern,
                         labels = SweepPattern.entries,
@@ -323,7 +330,7 @@ fun RecordingScreen(
                             checked = uiState.draft.includeInTraining,
                             onCheckedChange = viewModel::updateIncludeInTraining,
                         )
-                        Text("include_in_training")
+                        Text("include_in_training", style = MaterialTheme.typography.labelLarge)
                     }
 
                     uiState.saveResultMessage?.let { message ->
@@ -338,7 +345,7 @@ fun RecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Environment & Detector", style = MaterialTheme.typography.titleMedium)
 
                     SuggestiveTextField(
@@ -349,8 +356,8 @@ fun RecordingScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Text("moisture (optional)")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("moisture (optional)", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         MOISTURE_OPTIONS.forEach { option ->
                             FilterChip(
                                 selected = uiState.draft.moisture == option,
@@ -479,8 +486,8 @@ private fun RecordingHintCard(modifier: Modifier = Modifier) {
         ),
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text(
                 "Tips for good training data",
@@ -500,7 +507,7 @@ private fun RecordingHintCard(modifier: Modifier = Modifier) {
 @Composable
 private fun RecordingHintBullet(text: String) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalAlignment = Alignment.Top,
     ) {
         Text("•", style = MaterialTheme.typography.bodyMedium)
@@ -515,7 +522,7 @@ private fun <T> EnumChips(
     toText: (T) -> String,
     onSelect: (T) -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         labels.forEach { entry ->
             FilterChip(
                 selected = selectedLabel == entry,

@@ -18,10 +18,12 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +42,7 @@ import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.ReviewViewModel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
 private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
@@ -84,13 +87,16 @@ fun ReviewScreen(
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Text("Dataset Storage", style = MaterialTheme.typography.titleMedium)
-                    Text("${context.filesDir.absolutePath}/dataset")
+                    Text(
+                        "${context.filesDir.absolutePath}/dataset",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                     Text(
                         "Android app data is private storage. Use Export Bundle to move CSV labels, WAVs, and images off-device.",
                         style = MaterialTheme.typography.bodySmall
@@ -102,7 +108,7 @@ fun ReviewScreen(
         item {
             Row(
                 modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
                 Button(
                     onClick = { exportLauncher.launch("detector_dataset_${System.currentTimeMillis()}.zip") },
@@ -110,13 +116,13 @@ fun ReviewScreen(
                 ) {
                     Text("Export Bundle")
                 }
-                Button(
+                FilledTonalButton(
                     onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Import Bundle")
                 }
-                Button(
+                OutlinedButton(
                     onClick = viewModel::refresh,
                     modifier = Modifier.weight(1f)
                 ) {
@@ -213,25 +219,32 @@ private fun RecordingReviewCard(
     val isWideScreen = LocalConfiguration.current.screenWidthDp >= 600
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             // Metadata header — always full-width at the top
             Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
-            Text("ID: ${recording.recordingId}")
-            Text("Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | Duration: ${recording.durationMs} ms")
-            Text("Depth: ${recording.depthInches ?: "N/A"} | Mixed: ${recording.mixedFlag}")
-            Text("Image: ${recording.imageFileName ?: "none"}")
+            Text("ID: ${recording.recordingId}", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | Duration: ${recording.durationMs} ms",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                "Depth: ${recording.depthInches ?: "N/A"} | Mixed: ${recording.mixedFlag}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text("Image: ${recording.imageFileName ?: "none"}", style = MaterialTheme.typography.bodyMedium)
             Text(
                 "GPS: ${
                     if (latitude == null || longitude == null) "N/A"
                     else "%.6f, %.6f".format(latitude, longitude)
-                }"
+                }",
+                style = MaterialTheme.typography.bodyMedium
             )
 
             if (isWideScreen) {
                 HorizontalDivider()
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
                 ) {
                     RecordingMainSection(
                         recording = recording,
@@ -331,7 +344,7 @@ private fun RecordingMainSection(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         LabelPickerField(
             value = targetInput,
             onValueChange = onTargetChange,
@@ -344,16 +357,16 @@ private fun RecordingMainSection(
             modifier = Modifier.fillMaxWidth(),
             maxLines = 3
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onRelabelTargets(targetInput) }) { Text("Apply Names") }
-            Button(onClick = { onRelabelNotes(notesInput) }) { Text("Apply Notes") }
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            FilledTonalButton(onClick = { onRelabelTargets(targetInput) }) { Text("Apply Names") }
+            FilledTonalButton(onClick = { onRelabelNotes(notesInput) }) { Text("Apply Notes") }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
-            Button(onClick = onDelete) { Text("Delete") }
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            OutlinedButton(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
+            OutlinedButton(onClick = onDelete) { Text("Delete") }
         }
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ClassLabel.entries.forEach { label ->
@@ -369,7 +382,7 @@ private fun RecordingMainSection(
                 checked = recording.includeInTraining,
                 onCheckedChange = onToggleInclude
             )
-            Text("include_in_training")
+            Text("include_in_training", style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -394,7 +407,7 @@ private fun RecordingEnvironmentSection(
     showTitle: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         if (showTitle) {
             Text("Environment", style = MaterialTheme.typography.titleSmall)
         }
@@ -405,8 +418,8 @@ private fun RecordingEnvironmentSection(
             onValueChange = onSoilTypeChange,
             modifier = Modifier.fillMaxWidth()
         )
-        Text("moisture")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("moisture", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             MOISTURE_OPTIONS.forEach { option ->
                 FilterChip(
                     selected = moistureInput == option,
@@ -451,7 +464,7 @@ private fun RecordingEnvironmentSection(
             onValueChange = onStabilizerChange,
             modifier = Modifier.fillMaxWidth()
         )
-        Button(onClick = onApplyEnvironment) {
+        FilledTonalButton(onClick = onApplyEnvironment) {
             Text("Apply Environment")
         }
     }

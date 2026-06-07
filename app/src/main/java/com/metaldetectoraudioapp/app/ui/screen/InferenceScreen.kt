@@ -58,6 +58,7 @@ import com.metaldetectoraudioapp.app.inference.InferenceUiState
 import com.metaldetectoraudioapp.app.inference.RecentDetection
 import com.metaldetectoraudioapp.app.ui.InferenceViewModel
 import com.metaldetectoraudioapp.app.ui.theme.DetectionColors
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +77,7 @@ fun InferenceScreen(
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             if (uiState.isRunning) {
@@ -86,7 +87,7 @@ fun InferenceScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = DetectionColors.Junk)
                 ) {
                     Icon(Icons.Default.Stop, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     Text("Stop Detection")
                 }
             } else {
@@ -96,7 +97,7 @@ fun InferenceScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = DetectionColors.Target)
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.sm))
                     Text("Start Detecting")
                 }
             }
@@ -115,8 +116,8 @@ fun InferenceScreen(
         // Live view: RMS level, the tone-quality ribbon, and the current prediction together.
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("RMS Level")
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    Text("RMS Level", style = MaterialTheme.typography.titleMedium)
                     LinearProgressIndicator(
                         progress = { uiState.signalStatus.rmsLevel.coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth()
@@ -137,8 +138,8 @@ fun InferenceScreen(
         // Settings: signal status, passthrough, model + device selection.
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         FilterChip(
                             selected = uiState.signalStatus.signalPresent,
                             onClick = {},
@@ -152,7 +153,11 @@ fun InferenceScreen(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Speaker Passthrough", modifier = Modifier.weight(1f))
+                        Text(
+                            "Speaker Passthrough",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelLarge
+                        )
                         Switch(
                             checked = passthroughEnabled,
                             onCheckedChange = { viewModel.setPassthroughEnabled(it) }
@@ -187,8 +192,11 @@ fun InferenceScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Confidence Threshold: ${"%.2f".format(uiState.threshold)}")
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text(
+                        "Confidence Threshold: ${"%.2f".format(uiState.threshold)}",
+                        style = MaterialTheme.typography.labelLarge
+                    )
                     Slider(
                         value = uiState.threshold,
                         valueRange = 0.05f..0.95f,
@@ -207,18 +215,19 @@ fun InferenceScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Performance")
-                    Text("Inference time: ${uiState.lastInferenceMs} ms")
-                    Text("Average latency: ${"%.1f".format(uiState.averageLatencyMs)} ms")
-                    Text("Dropped frames: ${uiState.droppedFrames}")
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("Performance", style = MaterialTheme.typography.titleMedium)
+                    Text("Inference time: ${uiState.lastInferenceMs} ms", style = MaterialTheme.typography.bodyMedium)
+                    Text("Average latency: ${"%.1f".format(uiState.averageLatencyMs)} ms", style = MaterialTheme.typography.bodyMedium)
+                    Text("Dropped frames: ${uiState.droppedFrames}", style = MaterialTheme.typography.bodyMedium)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                     ) {
                         Text(
                             "Model: ${uiState.modelName} v${uiState.modelVersion}",
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium
                         )
                         AcceleratorBadge(accelerator = uiState.activeAccelerator)
                     }
@@ -243,9 +252,9 @@ private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
         ) {
             Text(
                 "TARGET DETECTED",
@@ -297,9 +306,9 @@ private fun PredictionContent(uiState: InferenceUiState) {
         else -> DetectionColors.Ambient
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text("Current Prediction", style = MaterialTheme.typography.titleMedium)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Canvas(modifier = Modifier.size(14.dp)) {
                 drawCircle(color = color)
             }
@@ -332,7 +341,7 @@ private fun AcceleratorBadge(accelerator: InferenceAccelerator) {
             )
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
         Box(
             modifier = Modifier
@@ -351,7 +360,7 @@ private fun AcceleratorBadge(accelerator: InferenceAccelerator) {
 @Composable
 private fun RecentDetectionsCard(detections: List<RecentDetection>) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text("Recent Detections (last 30 s)", style = MaterialTheme.typography.titleMedium)
 
             // Show newest first (reversed).
@@ -359,7 +368,7 @@ private fun RecentDetectionsCard(detections: List<RecentDetection>) {
                 val dotColor = if (det.label == "TARGET") DetectionColors.Target else DetectionColors.Junk
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     Canvas(modifier = Modifier.size(10.dp)) {
                         drawCircle(color = dotColor)

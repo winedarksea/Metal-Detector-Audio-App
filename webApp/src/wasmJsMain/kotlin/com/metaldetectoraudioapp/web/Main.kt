@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
@@ -126,6 +127,13 @@ fun main() {
                 }
             ) { padding ->
                 Box(Modifier.fillMaxSize()) {
+                  // Constrain form content to a readable max width, centered on wide screens.
+                  Box(
+                      modifier = Modifier
+                          .align(Alignment.TopCenter)
+                          .widthIn(max = 640.dp)
+                          .fillMaxSize()
+                  ) {
                     when (selected) {
                         WebDestination.DETECT -> {
                             val vm = inferenceViewModel
@@ -161,6 +169,7 @@ fun main() {
                         WebDestination.RECORD -> WebRecordingScreen(recordingViewModel, padding)
                         WebDestination.REVIEW -> WebReviewScreen(reviewViewModel, padding)
                     }
+                  }
 
                     SmallFloatingActionButton(
                         onClick = {

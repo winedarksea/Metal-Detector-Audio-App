@@ -16,10 +16,13 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,6 +39,7 @@ import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.screen.LabelPickerField
 import com.metaldetectoraudioapp.app.ui.screen.RecordingHintCard
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.desktop.viewmodel.DesktopRecordingViewModel
 import org.jetbrains.skia.Image as SkiaImage
 import java.awt.FileDialog
@@ -72,7 +76,7 @@ fun DesktopRecordingScreen(
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             RecordingHintCard()
@@ -81,11 +85,11 @@ fun DesktopRecordingScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(Spacing.md),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     Text("Dataset Storage", style = MaterialTheme.typography.titleMedium)
-                    Text(viewModel.datasetDirectoryPath)
+                    Text(viewModel.datasetDirectoryPath, style = MaterialTheme.typography.bodyMedium)
                     Text(
                         "Saved labels are written to recordings_metadata.csv, WAV files to dataset/audio/, and optional images to dataset/images/.",
                         style = MaterialTheme.typography.bodySmall
@@ -96,16 +100,16 @@ fun DesktopRecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Button(onClick = viewModel::startRecording, enabled = !uiState.isRecording) {
                             Text("Start")
                         }
-                        Button(onClick = viewModel::stopRecording, enabled = uiState.isRecording) {
+                        FilledTonalButton(onClick = viewModel::stopRecording, enabled = uiState.isRecording) {
                             Text("Stop")
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 if (uiState.isPlayingPreview) {
                                     viewModel.stopPreview()
@@ -117,14 +121,17 @@ fun DesktopRecordingScreen(
                         ) {
                             Text(if (uiState.isPlayingPreview) "Stop Preview" else "Play Preview")
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = viewModel::clearPendingCapture,
                             enabled = uiState.pendingAudio != null || uiState.pendingImage != null
                         ) {
                             Text("Clear Pending")
                         }
                     }
-                    Text("Duration: ${uiState.pendingDurationMs} ms")
+                    Text(
+                        "Duration: ${uiState.pendingDurationMs} ms",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                     Text(
                         "Audio and image stay temporary until Save Recording. Starting a new recording clears unsaved capture.",
                         style = MaterialTheme.typography.bodySmall
@@ -135,7 +142,7 @@ fun DesktopRecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Labels", style = MaterialTheme.typography.titleMedium)
 
                     LabelPickerField(
@@ -159,8 +166,8 @@ fun DesktopRecordingScreen(
                         maxLines = 3
                     )
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        OutlinedButton(
                             onClick = {
                                 val selected = chooseOpenImageFile(defaultDirectory = viewModel.datasetDirectoryPath)
                                 if (selected != null) {
@@ -173,7 +180,7 @@ fun DesktopRecordingScreen(
                         }
 
                         if (uiState.pendingImage != null) {
-                            Button(onClick = viewModel::removePendingImage) {
+                            TextButton(onClick = viewModel::removePendingImage) {
                                 Text("Remove Image")
                             }
                         }
@@ -194,9 +201,12 @@ fun DesktopRecordingScreen(
                         )
                     }
 
-                    Text("GPS: not available on desktop capture")
+                    Text(
+                        "GPS: not available on desktop capture",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
 
-                    Text("class_label (required)")
+                    Text("class_label (required)", style = MaterialTheme.typography.labelLarge)
                     EnumChips(
                         selectedLabel = uiState.draft.classLabel,
                         labels = ClassLabel.entries,
@@ -204,7 +214,7 @@ fun DesktopRecordingScreen(
                         onSelect = viewModel::updateClassLabel
                     )
 
-                    Text("pattern")
+                    Text("pattern", style = MaterialTheme.typography.labelLarge)
                     EnumChips(
                         selectedLabel = uiState.draft.pattern,
                         labels = SweepPattern.entries,
@@ -225,7 +235,7 @@ fun DesktopRecordingScreen(
                             checked = uiState.draft.includeInTraining,
                             onCheckedChange = viewModel::updateIncludeInTraining,
                         )
-                        Text("include_in_training")
+                        Text("include_in_training", style = MaterialTheme.typography.labelLarge)
                     }
 
                     Button(onClick = viewModel::saveRecording, enabled = uiState.pendingAudio != null) {
@@ -237,7 +247,7 @@ fun DesktopRecordingScreen(
 
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Environment & Detector", style = MaterialTheme.typography.titleMedium)
 
                     SuggestiveTextField(
@@ -248,8 +258,8 @@ fun DesktopRecordingScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Text("moisture (optional)")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("moisture (optional)", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         MOISTURE_OPTIONS.forEach { option ->
                             FilterChip(
                                 selected = uiState.draft.moisture == option,
@@ -328,7 +338,7 @@ private fun <T> EnumChips(
     toText: (T) -> String,
     onSelect: (T) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         labels.forEach { entry ->
             FilterChip(
                 selected = selectedLabel == entry,

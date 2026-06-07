@@ -15,8 +15,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,10 +29,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.screen.LabelPickerField
+import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.desktop.viewmodel.DesktopReviewViewModel
 import java.awt.Desktop
 import java.awt.FileDialog
@@ -64,18 +66,18 @@ fun DesktopReviewScreen(
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)
     ) {
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Dataset Storage", style = MaterialTheme.typography.titleMedium)
-                    Text(viewModel.datasetDirectoryPath)
+                    Text(viewModel.datasetDirectoryPath, style = MaterialTheme.typography.bodyMedium)
                     Text(
                         "Use Export Bundle to create a zip with CSV labels, WAVs, and images for training transfer.",
                         style = MaterialTheme.typography.bodySmall
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Button(onClick = {
                             val selected = chooseSaveZipFile(defaultDirectory = viewModel.datasetDirectoryPath)
                             if (selected != null) {
@@ -84,7 +86,7 @@ fun DesktopReviewScreen(
                         }) {
                             Text("Export Bundle")
                         }
-                        Button(onClick = {
+                        FilledTonalButton(onClick = {
                             val selected = chooseOpenZipFile(defaultDirectory = viewModel.datasetDirectoryPath)
                             if (selected != null) {
                                 viewModel.importBundle(selected)
@@ -92,7 +94,7 @@ fun DesktopReviewScreen(
                         }) {
                             Text("Import Bundle")
                         }
-                        Button(onClick = {
+                        OutlinedButton(onClick = {
                             val opened = openDirectory(viewModel.datasetDirectoryPath)
                             viewModel.setMessage(
                                 if (opened) {
@@ -104,7 +106,7 @@ fun DesktopReviewScreen(
                         }) {
                             Text("Open Folder")
                         }
-                        Button(onClick = viewModel::refresh) {
+                        OutlinedButton(onClick = viewModel::refresh) {
                             Text("Refresh")
                         }
                     }
@@ -208,12 +210,18 @@ private fun DesktopRecordingReviewCard(
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
-            Text("ID: ${recording.recordingId}")
-            Text("Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | Duration: ${recording.durationMs} ms")
-            Text("Depth: ${recording.depthInches ?: "N/A"} | Mixed: ${recording.mixedFlag}")
-            Text("Image: ${recording.imageFileName ?: "none"}")
+            Text("ID: ${recording.recordingId}", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | Duration: ${recording.durationMs} ms",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                "Depth: ${recording.depthInches ?: "N/A"} | Mixed: ${recording.mixedFlag}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text("Image: ${recording.imageFileName ?: "none"}", style = MaterialTheme.typography.bodyMedium)
 
             LabelPickerField(
                 value = targetInput,
@@ -229,22 +237,22 @@ private fun DesktopRecordingReviewCard(
                 maxLines = 3
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onRelabelTargets(targetInput) }) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                FilledTonalButton(onClick = { onRelabelTargets(targetInput) }) {
                     Text("Apply Names")
                 }
-                Button(onClick = { onRelabelNotes(notesInput) }) {
+                FilledTonalButton(onClick = { onRelabelNotes(notesInput) }) {
                     Text("Apply Notes")
                 }
-                Button(onClick = onPlay) {
+                OutlinedButton(onClick = onPlay) {
                     Text(if (isPlaying) "Stop" else "Play")
                 }
-                Button(onClick = onDelete) {
+                OutlinedButton(onClick = onDelete) {
                     Text("Delete")
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                 ClassLabel.entries.forEach { label ->
                     FilterChip(
                         selected = recording.classLabel == label,
@@ -259,7 +267,7 @@ private fun DesktopRecordingReviewCard(
                     checked = recording.includeInTraining,
                     onCheckedChange = onToggleInclude
                 )
-                Text("include_in_training")
+                Text("include_in_training", style = MaterialTheme.typography.labelLarge)
             }
 
             ReviewSuggestiveTextField(
@@ -270,8 +278,8 @@ private fun DesktopRecordingReviewCard(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Text("moisture")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("moisture", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 MOISTURE_OPTIONS.forEach { option ->
                     FilterChip(
                         selected = moistureInput == option,
@@ -322,7 +330,7 @@ private fun DesktopRecordingReviewCard(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Button(onClick = {
+            FilledTonalButton(onClick = {
                 onRelabelEnvironment(
                     soilTypeInput,
                     moistureInput,

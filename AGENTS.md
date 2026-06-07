@@ -1,4 +1,5 @@
 ## General Code Guidelines
+App style: Material Design 3
 
 ### Small Files & Single Responsibility
 - **Aim to keep files < 500 lines.** Large files are difficult to reason about and cause merge conflicts.

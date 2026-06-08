@@ -155,6 +155,7 @@ fun main() {
                                         WebPassthroughMonitor.setEnabled(enabled)
                                     },
                                     onModelOptionSelected = vm::selectModelOption,
+                                    buildInfoLabel = "v${AppBuildInfo.APP_VERSION_NAME} • ${AppBuildInfo.BUILD_DATE_UTC}",
                                     contentPadding = PaddingValues(16.dp),
                                     modifier = Modifier.padding(padding),
                                     micSelector = {

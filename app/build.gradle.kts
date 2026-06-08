@@ -1,9 +1,14 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.Instant
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val appVersionName = providers.gradleProperty("app.version.name").orElse("0.2.0")
+val appVersionCode = providers.gradleProperty("app.version.code").map(String::toInt).orElse(1)
+val buildDateUtc = providers.gradleProperty("app.build.date.utc").orElse(Instant.now().toString())
 
 android {
     namespace = "com.metaldetectoraudioapp.app"
@@ -13,8 +18,9 @@ android {
         applicationId = "com.metaldetectoraudioapp.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.2.0"
+        versionCode = appVersionCode.get()
+        versionName = appVersionName.get()
+        buildConfigField("String", "BUILD_DATE_UTC", "\"${buildDateUtc.get()}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,6 +42,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {

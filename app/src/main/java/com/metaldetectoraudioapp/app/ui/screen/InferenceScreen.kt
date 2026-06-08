@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.metaldetectoraudioapp.app.BuildConfig
 import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
 import com.metaldetectoraudioapp.app.inference.InferenceAccelerator
 import com.metaldetectoraudioapp.app.inference.InferenceModelOption
@@ -205,6 +206,12 @@ fun InferenceScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+
+                    Text(
+                        text = "Build: v${BuildConfig.VERSION_NAME} • ${BuildConfig.BUILD_DATE_UTC}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

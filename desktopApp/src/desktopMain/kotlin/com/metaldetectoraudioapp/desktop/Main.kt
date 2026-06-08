@@ -133,6 +133,7 @@ fun main() = application {
                             onThresholdChange = inferenceViewModel::updateThreshold,
                             onPassthroughChange = inferenceViewModel::setPassthroughEnabled,
                             onModelOptionSelected = inferenceViewModel::selectModelOption,
+                            buildInfoLabel = "v${AppBuildInfo.APP_VERSION_NAME} • ${AppBuildInfo.BUILD_DATE_UTC}",
                             contentPadding = contentPadding
                         )
                     }

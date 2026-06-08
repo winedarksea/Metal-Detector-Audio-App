@@ -80,6 +80,7 @@ fun SharedInferenceScreen(
     onThresholdChange: (Float) -> Unit,
     onPassthroughChange: (Boolean) -> Unit,
     onModelOptionSelected: (String) -> Unit,
+    buildInfoLabel: String? = null,
     contentPadding: PaddingValues = PaddingValues(16.dp),
     modifier: Modifier = Modifier,
     micSelector: @Composable () -> Unit = {},
@@ -211,6 +212,14 @@ fun SharedInferenceScreen(
                         selectedOptionId = selectedModelOptionId,
                         onOptionSelected = onModelOptionSelected,
                     )
+
+                    if (!buildInfoLabel.isNullOrBlank()) {
+                        Text(
+                            text = "Build: $buildInfoLabel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

@@ -67,7 +67,13 @@ private fun readGlobalInfBufAt(i: Int): Float = js("window.__mdInfBuf[i]")
 
 private fun startInfMicJs(onChunk: (Int, Int) -> Unit) {
     js("""
-        var __mic = window.__micDeviceId ? { deviceId: { exact: window.__micDeviceId } } : true;
+        var __mic = {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: 1
+        };
+        if (window.__micDeviceId) __mic.deviceId = { exact: window.__micDeviceId };
         navigator.mediaDevices.getUserMedia({ audio: __mic, video: false }).then(function(stream) {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             window.__mdInfCtx = ctx;

@@ -278,7 +278,13 @@ private fun readRecBufAt(i: Int): Float = js("window.__recBuf[i]")
 
 private fun startWebCapture(onChunk: (Int, Int) -> Unit, onError: (String) -> Unit) {
     js("""
-        var __mic = window.__micDeviceId ? { deviceId: { exact: window.__micDeviceId } } : true;
+        var __mic = {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: 1
+        };
+        if (window.__micDeviceId) __mic.deviceId = { exact: window.__micDeviceId };
         navigator.mediaDevices.getUserMedia({ audio: __mic, video: false }).then(function(stream) {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             window.__recCtx = ctx;

@@ -199,6 +199,11 @@ fun InferenceScreen(
                             selectedDevice = selectedOutputDevice,
                             onDeviceSelected = viewModel::setOutputDevice
                         )
+                        Text(
+                            "Speaker passthrough is audible while detection is running.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
@@ -460,7 +465,7 @@ internal fun AudioDevicePicker(
     }
 }
 
-/** Banner explaining an output-only USB adapter (no input to record from). See issue #4. */
+/** Banner explaining a USB connection Android exposes only as an output. */
 @Composable
 internal fun UsbInputDiagnosticBanner(
     inputDevices: List<AudioDeviceInfo>,
@@ -475,8 +480,8 @@ internal fun UsbInputDiagnosticBanner(
         ),
     ) {
         Text(
-            "USB audio output detected but no input channel — this adapter is output-only. " +
-                "Use a USB-C audio interface that has a microphone/line input.",
+            "Android exposes this USB connection as output-only, so the app cannot record it. " +
+                "Use a USB-C audio interface or TRRS microphone adapter that Android exposes as an input.",
             modifier = Modifier.padding(Spacing.md),
             style = MaterialTheme.typography.bodySmall,
         )

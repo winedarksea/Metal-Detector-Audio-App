@@ -27,6 +27,8 @@ WASM_MAIN_ROOT = (
     / "web"
 )
 MAIN_KT = WASM_MAIN_ROOT / "Main.kt"
+MIC_DEVICES_KT = WASM_MAIN_ROOT / "audio" / "MicDevices.kt"
+MIC_SELECTOR_KT = WASM_MAIN_ROOT / "ui" / "screen" / "MicSelector.kt"
 
 
 def _wasm_kt_files() -> list[Path]:
@@ -127,6 +129,27 @@ class PwaStartupRenderTest(unittest.TestCase):
                 f"'{forbidden}' is a known-bad js() interop helper that caused a blank "
                 f"white screen in production — do not re-introduce it.",
             )
+
+
+class PwaAudioDeviceFlowTest(unittest.TestCase):
+    """Guard the mobile PWA permission and hot-plug refresh behavior."""
+
+    def test_microphone_permission_has_one_get_user_media_call_site(self):
+        source = _read(MIC_DEVICES_KT)
+        self.assertEqual(
+            1,
+            source.count("navigator.mediaDevices.getUserMedia("),
+            "Device enumeration must share one coalesced permission request; separate input "
+            "and output requests cause duplicate browser prompts.",
+        )
+        self.assertIn("MicrophonePermissionRequestState.REQUESTING", source)
+
+    def test_refresh_uses_one_input_output_snapshot_and_visible_label(self):
+        source = _read(MIC_SELECTOR_KT)
+        self.assertIn("listAudioDevices()", source)
+        self.assertIn('Text("Refresh")', source)
+        self.assertNotIn("listMicDevices()", source)
+        self.assertNotIn("listOutputDevices()", source)
 
 
 if __name__ == "__main__":

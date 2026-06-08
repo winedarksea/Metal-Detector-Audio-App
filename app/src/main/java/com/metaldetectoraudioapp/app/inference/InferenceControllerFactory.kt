@@ -15,7 +15,7 @@ object InferenceControllerFactory {
         val metadata = metadataRepository.load()
         Log.i(TAG, "Metadata loaded: model=${metadata.modelName} v${metadata.modelVersion} sampleRate=${metadata.input.sampleRateHz}")
 
-        val source = MicrophoneAudioInputSource(metadata.input.sampleRateHz)
+        val source = MicrophoneAudioInputSource(appContext, metadata.input.sampleRateHz)
         Log.i(TAG, "MicrophoneAudioInputSource created")
 
         val pipeline = SharedAudioPipeline(
@@ -39,4 +39,3 @@ object InferenceControllerFactory {
         )
     }
 }
-

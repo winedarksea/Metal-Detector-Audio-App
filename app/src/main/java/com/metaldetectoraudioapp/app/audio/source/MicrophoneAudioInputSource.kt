@@ -1,14 +1,15 @@
 package com.metaldetectoraudioapp.app.audio.source
 
+import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.util.Log
 import com.metaldetectoraudioapp.app.audio.AudioConstants
 import kotlin.math.max
 
 class MicrophoneAudioInputSource(
+    context: Context,
     override val sampleRateHz: Int = AudioConstants.INFERENCE_SAMPLE_RATE_HZ
 ) : AudioInputSource {
 
@@ -22,7 +23,7 @@ class MicrophoneAudioInputSource(
     init {
         Log.i(TAG, "Creating AudioRecord: sampleRate=$sampleRateHz minBuffer=$minBufferSize bufferSize=$audioRecordBufferSize")
         audioRecord = AudioRecord.Builder()
-            .setAudioSource(MediaRecorder.AudioSource.MIC)
+            .setAudioSource(preferredDetectorAudioSource(context))
             .setAudioFormat(
                 AudioFormat.Builder()
                     .setSampleRate(sampleRateHz)

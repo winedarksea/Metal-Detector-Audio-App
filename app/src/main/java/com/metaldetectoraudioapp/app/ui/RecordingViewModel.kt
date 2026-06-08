@@ -28,7 +28,8 @@ import java.io.File
 class RecordingViewModel(application: Application) : AndroidViewModel(application) {
     private val appContainer = AppContainerProvider.get(application.applicationContext)
     private val recordingRepository = appContainer.recordingRepository
-    private val recordingSession = AudioRecordingSession(application.cacheDir)
+    private val recordingSession =
+        AudioRecordingSession(application.applicationContext, application.cacheDir)
     private val playbackController = AudioPlaybackController()
     private val locationProvider = RecordingLocationProvider(application.applicationContext)
 

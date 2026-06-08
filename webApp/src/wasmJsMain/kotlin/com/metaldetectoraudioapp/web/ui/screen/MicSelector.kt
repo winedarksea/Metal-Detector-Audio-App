@@ -7,15 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,11 +31,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.web.audio.MicDevice
 import com.metaldetectoraudioapp.web.audio.WebPassthroughMonitor
-import com.metaldetectoraudioapp.web.audio.listMicDevices
-import com.metaldetectoraudioapp.web.audio.listOutputDevices
+import com.metaldetectoraudioapp.web.audio.listAudioDevices
 import com.metaldetectoraudioapp.web.audio.outputSelectionSupported
 import com.metaldetectoraudioapp.web.audio.registerDeviceChangeListener
 import com.metaldetectoraudioapp.web.audio.selectedMicDeviceId
+import com.metaldetectoraudioapp.web.audio.selectedOutputDeviceId
 import com.metaldetectoraudioapp.web.audio.setSelectedMicDeviceId
 import kotlinx.coroutines.launch
 
@@ -60,12 +59,13 @@ fun MicSelector(
     var devices by remember { mutableStateOf<List<MicDevice>>(emptyList()) }
     var outputs by remember { mutableStateOf<List<MicDevice>>(emptyList()) }
     var selectedId by remember { mutableStateOf(selectedMicDeviceId()) }
-    var selectedOutId by remember { mutableStateOf("") }
+    var selectedOutId by remember { mutableStateOf(selectedOutputDeviceId()) }
     val scope = rememberCoroutineScope()
 
     suspend fun reload() {
-        devices = listMicDevices()
-        outputs = listOutputDevices()
+        val snapshot = listAudioDevices()
+        devices = snapshot.inputDevices
+        outputs = snapshot.outputDevices
     }
 
     LaunchedEffect(Unit) {
@@ -86,8 +86,9 @@ fun MicSelector(
                 onDefault = { selectedId = ""; setSelectedMicDeviceId("") },
                 onSelected = { selectedId = it.deviceId; setSelectedMicDeviceId(it.deviceId) },
             )
-            IconButton(onClick = { scope.launch { reload() } }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh audio sources")
+            FilledTonalButton(onClick = { scope.launch { reload() } }) {
+                Icon(Icons.Default.Refresh, contentDescription = null)
+                Text("Refresh")
             }
         }
 
@@ -102,23 +103,41 @@ fun MicSelector(
                     selectedLabel = outputs.firstOrNull { it.deviceId == selectedOutId }?.label ?: DEFAULT_LABEL,
                     devices = outputs,
                     onDefault = { selectedOutId = ""; WebPassthroughMonitor.setOutputSink("") },
-                    onSelected = { selectedOutId = it.deviceId; WebPassthroughMonitor.setOutputSink(it.deviceId) },
+                    onSelected = { requestedDevice ->
+                        WebPassthroughMonitor.chooseOutputSink(requestedDevice.deviceId) { permittedDeviceId ->
+                            selectedOutId = permittedDeviceId
+                        }
+                    },
                 )
             }
+        } else if (passthroughEnabled) {
+            Text(
+                "This browser can only use the system-selected audio output. Change the output " +
+                    "in Android or browser system controls.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (passthroughEnabled) {
+            Text(
+                "Speaker passthrough is audible while detection is running.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         UsbInputDiagnostic(inputs = devices, outputs = outputs)
     }
 }
 
-/** Best-effort note for the output-only USB-C dongle case (issue #4). */
+/** Best-effort note for a USB connection the browser exposes only as an output. */
 @Composable
 private fun UsbInputDiagnostic(inputs: List<MicDevice>, outputs: List<MicDevice>) {
     fun List<MicDevice>.hasUsb() = any { it.label.contains("usb", ignoreCase = true) }
     if (outputs.hasUsb() && !inputs.hasUsb()) {
         Text(
-            "A USB audio output was detected but no USB microphone/line input — this adapter is " +
-                "output-only. Use a USB-C interface that has a microphone/line input.",
+            "The browser exposes this USB connection as output-only, so the app cannot record it. " +
+                "Use a USB-C interface or TRRS microphone adapter that Android exposes as an input.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )

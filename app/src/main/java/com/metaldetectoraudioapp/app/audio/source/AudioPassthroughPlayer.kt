@@ -5,17 +5,19 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
+import kotlin.math.max
 
 class AudioPassthroughPlayer(sampleRateHz: Int) {
     private val channelConfig = AudioFormat.CHANNEL_OUT_MONO
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
     private val minBuffer = AudioTrack.getMinBufferSize(sampleRateHz, channelConfig, audioFormat)
+    private val playbackBufferSize = max(minBuffer, sampleRateHz / 5 * Short.SIZE_BYTES)
 
     private val track = AudioTrack.Builder()
         .setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .build()
         )
         .setAudioFormat(
@@ -25,7 +27,7 @@ class AudioPassthroughPlayer(sampleRateHz: Int) {
                 .setChannelMask(channelConfig)
                 .build()
         )
-        .setBufferSizeInBytes(minBuffer)
+        .setBufferSizeInBytes(playbackBufferSize)
         .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
         .build()
 
@@ -67,7 +69,10 @@ class AudioPassthroughPlayer(sampleRateHz: Int) {
         if (!isActive || sampleCount <= 0) {
             return
         }
-        track.write(pcmSamples, 0, sampleCount, AudioTrack.WRITE_NON_BLOCKING)
+        val writtenSamples = track.write(pcmSamples, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
+        if (writtenSamples < 0) {
+            Log.w(TAG, "Passthrough write failed with AudioTrack error $writtenSamples")
+        }
     }
 
     fun release() {

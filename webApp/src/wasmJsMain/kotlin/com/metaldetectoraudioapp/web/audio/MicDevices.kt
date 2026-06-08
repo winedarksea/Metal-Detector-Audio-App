@@ -19,59 +19,65 @@ import kotlin.coroutines.resume
  */
 data class MicDevice(val deviceId: String, val label: String)
 
+data class AudioDeviceSnapshot(
+    val inputDevices: List<MicDevice>,
+    val outputDevices: List<MicDevice>,
+)
+
 /** The currently selected microphone deviceId, or "" for the system default. */
 fun selectedMicDeviceId(): String = js("window.__micDeviceId || ''")
 
 fun setSelectedMicDeviceId(deviceId: String): Unit = js("window.__micDeviceId = deviceId")
 
-/**
- * Requests microphone permission via a throwaway `getUserMedia` call, immediately
- * stopping the tracks. This is what unlocks real device labels for
- * [enumerateDevices()]. Resolves true if granted, false otherwise. Safe to call
- * repeatedly — the browser only prompts the first time.
- */
-suspend fun ensureMicPermission(): Boolean =
-    suspendCancellableCoroutine { cont ->
-        requestMicPermission(onResult = { granted -> if (cont.isActive) cont.resume(granted == 1) })
-    }
+fun selectedOutputDeviceId(): String = js("window.__mdInfSinkId || ''")
 
 /**
- * Enumerates audio **input** devices via `navigator.mediaDevices.enumerateDevices()`,
- * requesting permission first so labels are populated. Results are cached in
- * `window.__micDevices`; we read them back through primitive/String-returning
- * helpers to satisfy the Kotlin/Wasm interop rules. Returns an empty list if
- * enumeration is unsupported or fails.
+ * Requests microphone permission via a throwaway `getUserMedia` call, immediately
+ * stopping the tracks. Calls are coalesced because the app shell and source
+ * selector can mount together; concurrent requests can produce duplicate prompts
+ * in installed mobile PWAs.
  */
-suspend fun listMicDevices(): List<MicDevice> {
-    ensureMicPermission()
-    return suspendCancellableCoroutine { cont ->
-        enumerateDevicesToGlobal(
-            kind = "audioinput",
-            global = "__micDevices",
-            fallbackPrefix = "Microphone",
-            onSuccess = { count ->
-                if (cont.isActive) cont.resume(readDevicesFromGlobal("__micDevices", count))
-            },
-            onError = { if (cont.isActive) cont.resume(emptyList()) }
-        )
+suspend fun ensureMicPermission(): Boolean {
+    when (microphonePermissionRequestState) {
+        MicrophonePermissionRequestState.GRANTED -> return true
+        MicrophonePermissionRequestState.DENIED -> return false
+        else -> Unit
+    }
+
+    return suspendCancellableCoroutine { continuation ->
+        microphonePermissionWaiters += { granted ->
+            if (continuation.isActive) continuation.resume(granted)
+        }
+        if (microphonePermissionRequestState == MicrophonePermissionRequestState.UNKNOWN) {
+            microphonePermissionRequestState = MicrophonePermissionRequestState.REQUESTING
+            requestMicPermission(::completeMicrophonePermissionRequest)
+        }
     }
 }
 
 /**
- * Enumerates audio **output** devices (speaker / headphones / USB sinks) for the
- * pass-through output picker. Like [listMicDevices] but filters `audiooutput`.
+ * Takes one input/output snapshot so a hot-plug refresh cannot combine results
+ * from two different calls to `enumerateDevices()`.
  */
-suspend fun listOutputDevices(): List<MicDevice> {
+suspend fun listAudioDevices(): AudioDeviceSnapshot {
     ensureMicPermission()
     return suspendCancellableCoroutine { cont ->
-        enumerateDevicesToGlobal(
-            kind = "audiooutput",
-            global = "__outDevices",
-            fallbackPrefix = "Output",
-            onSuccess = { count ->
-                if (cont.isActive) cont.resume(readDevicesFromGlobal("__outDevices", count))
+        enumerateAudioDevicesToGlobals(
+            onSuccess = { inputCount, outputCount ->
+                if (cont.isActive) {
+                    cont.resume(
+                        AudioDeviceSnapshot(
+                            inputDevices = readDevicesFromGlobal("__micDevices", inputCount),
+                            outputDevices = readDevicesFromGlobal("__outDevices", outputCount),
+                        )
+                    )
+                }
             },
-            onError = { if (cont.isActive) cont.resume(emptyList()) }
+            onError = {
+                if (cont.isActive) {
+                    cont.resume(AudioDeviceSnapshot(emptyList(), emptyList()))
+                }
+            },
         )
     }
 }
@@ -93,6 +99,28 @@ fun registerDeviceChangeListener(onChange: () -> Unit) {
 
 private var deviceChangeCallback: (() -> Unit)? = null
 private var deviceChangeListenerAttached = false
+
+private enum class MicrophonePermissionRequestState {
+    UNKNOWN,
+    REQUESTING,
+    GRANTED,
+    DENIED,
+}
+
+private var microphonePermissionRequestState = MicrophonePermissionRequestState.UNKNOWN
+private val microphonePermissionWaiters = mutableListOf<(Boolean) -> Unit>()
+
+private fun completeMicrophonePermissionRequest(grantedValue: Int) {
+    val granted = grantedValue == 1
+    microphonePermissionRequestState = if (granted) {
+        MicrophonePermissionRequestState.GRANTED
+    } else {
+        MicrophonePermissionRequestState.DENIED
+    }
+    val waiters = microphonePermissionWaiters.toList()
+    microphonePermissionWaiters.clear()
+    waiters.forEach { it(granted) }
+}
 
 /** True if the browser supports choosing an output sink (`AudioContext.setSinkId`). */
 fun outputSelectionSupported(): Boolean = outputSinkSupportedJs() == 1
@@ -123,22 +151,24 @@ private fun requestMicPermission(onResult: (Int) -> Unit) {
     """)
 }
 
-private fun enumerateDevicesToGlobal(
-    kind: String,
-    global: String,
-    fallbackPrefix: String,
-    onSuccess: (Int) -> Unit,
+private fun enumerateAudioDevicesToGlobals(
+    onSuccess: (Int, Int) -> Unit,
     onError: () -> Unit
 ) {
     js("""
         if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) { onError(); return; }
         navigator.mediaDevices.enumerateDevices().then(function(devices) {
-            window[global] = devices
-                .filter(function(d) { return d.kind === kind; })
+            window.__micDevices = devices
+                .filter(function(d) { return d.kind === 'audioinput'; })
                 .map(function(d, idx) {
-                    return { deviceId: d.deviceId, label: d.label || (fallbackPrefix + ' ' + (idx + 1)) };
+                    return { deviceId: d.deviceId, label: d.label || ('Microphone ' + (idx + 1)) };
                 });
-            onSuccess(window[global].length);
+            window.__outDevices = devices
+                .filter(function(d) { return d.kind === 'audiooutput'; })
+                .map(function(d, idx) {
+                    return { deviceId: d.deviceId, label: d.label || ('Output ' + (idx + 1)) };
+                });
+            onSuccess(window.__micDevices.length, window.__outDevices.length);
         }).catch(function(e) { onError(); });
     """)
 }

@@ -62,9 +62,9 @@ class AudioDeviceManager(context: Context) {
                 device.type == AudioDeviceInfo.TYPE_USB_ACCESSORY
 
         /**
-         * True when a USB audio **output** is connected but no USB audio **input** is exposed —
-         * i.e. an output-only USB-C dongle. In that case the metal detector's audio can't be
-         * captured and the UI should explain that a USB interface with a line/mic input is needed.
+         * True when Android exposes a USB audio output but no corresponding USB input. The app
+         * cannot reinterpret an output endpoint as an input, even when the attached analog device
+         * is physically capable of sending audio.
          */
         fun usbOutputWithoutInput(
             inputs: List<AudioDeviceInfo>,

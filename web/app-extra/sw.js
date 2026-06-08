@@ -15,7 +15,7 @@
  * Bump CACHE_NAME on any change to this file's caching behavior so `activate` purges
  * stale caches from previous versions.
  */
-const CACHE_NAME = 'detector-audio-v4';
+const CACHE_NAME = 'detector-audio-v5';
 
 // Stable-named assets that change content without changing filename. These must be
 // revalidated against the network so code/style fixes are delivered, not pinned.

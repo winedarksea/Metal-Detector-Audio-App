@@ -21,6 +21,14 @@ object WebPassthroughMonitor {
     fun setOutputSink(deviceId: String) {
         setOutputSinkJs(deviceId)
     }
+
+    /**
+     * Requests browser permission for a non-default output when the native chooser
+     * is available, then applies the permitted device to the live audio context.
+     */
+    fun chooseOutputSink(deviceId: String, onSelected: (String) -> Unit) {
+        chooseOutputSinkJs(deviceId, onSelected)
+    }
 }
 
 private fun setPassthroughEnabledJs(enabled: Int) {
@@ -38,6 +46,30 @@ private fun setOutputSinkJs(deviceId: String) {
         var ctx = window.__mdInfCtx;
         if (ctx && ctx.setSinkId) {
             ctx.setSinkId(deviceId || '').catch(function() {});
+        }
+    """)
+}
+
+private fun chooseOutputSinkJs(deviceId: String, onSelected: (String) -> Unit) {
+    js("""
+        function applySelectedSink(selectedId) {
+            window.__mdInfSinkId = selectedId;
+            var ctx = window.__mdInfCtx;
+            if (ctx && ctx.setSinkId) {
+                ctx.setSinkId(selectedId).then(function() {
+                    onSelected(selectedId);
+                }).catch(function() {});
+            } else {
+                onSelected(selectedId);
+            }
+        }
+
+        if (deviceId && navigator.mediaDevices && navigator.mediaDevices.selectAudioOutput) {
+            navigator.mediaDevices.selectAudioOutput({ deviceId: deviceId })
+                .then(function(device) { applySelectedSink(device.deviceId); })
+                .catch(function() {});
+        } else {
+            applySelectedSink(deviceId);
         }
     """)
 }

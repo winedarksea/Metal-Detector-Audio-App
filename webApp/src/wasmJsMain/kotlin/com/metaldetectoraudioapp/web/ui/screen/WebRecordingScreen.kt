@@ -76,7 +76,7 @@ fun WebRecordingScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        "Microphone access is requested on first Start. Tap the detector coil against a target during recording.",
+                        "Microphone access is requested when the app opens. Tap the detector coil against a target during recording.",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

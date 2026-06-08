@@ -1,10 +1,11 @@
 package com.metaldetectoraudioapp.app.recording
 
+import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
-import android.media.MediaRecorder
 import com.metaldetectoraudioapp.app.audio.AudioConstants
+import com.metaldetectoraudioapp.app.audio.source.preferredDetectorAudioSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,6 +20,7 @@ import kotlin.math.max
 import kotlin.math.sqrt
 
 class AudioRecordingSession(
+    private val context: Context,
     private val cacheDirectory: File,
     private val sampleRateHz: Int = AudioConstants.RECORDING_SAMPLE_RATE_HZ,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -46,7 +48,7 @@ class AudioRecordingSession(
         }
 
         val recorder = AudioRecord(
-            MediaRecorder.AudioSource.MIC,
+            preferredDetectorAudioSource(context),
             sampleRateHz,
             channelConfig,
             encoding,

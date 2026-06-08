@@ -39,6 +39,7 @@ import com.metaldetectoraudioapp.app.ui.screen.SharedInferenceScreen
 import com.metaldetectoraudioapp.app.ui.theme.MetalDetectorAudioTheme
 import com.metaldetectoraudioapp.web.audio.WebAudioPlayer
 import com.metaldetectoraudioapp.web.audio.WebPassthroughMonitor
+import com.metaldetectoraudioapp.web.audio.ensureMicPermission
 import com.metaldetectoraudioapp.web.export.WebZipCodec
 import com.metaldetectoraudioapp.web.inference.WebInferenceControllerFactory
 import com.metaldetectoraudioapp.web.platform.WebFileDownloader
@@ -75,6 +76,10 @@ fun main() {
 
             var inferenceViewModel by remember { mutableStateOf<SharedInferenceViewModel?>(null) }
             var inferenceError by remember { mutableStateOf<String?>(null) }
+
+            LaunchedEffect(Unit) {
+                ensureMicPermission()
+            }
 
             LaunchedEffect(Unit) {
                 runCatching {

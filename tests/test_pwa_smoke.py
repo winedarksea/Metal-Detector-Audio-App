@@ -147,7 +147,8 @@ class PwaAudioDeviceFlowTest(unittest.TestCase):
     def test_refresh_uses_one_input_output_snapshot_and_visible_label(self):
         source = _read(MIC_SELECTOR_KT)
         self.assertIn("listAudioDevices()", source)
-        self.assertIn('Text("Refresh")', source)
+        self.assertIn("IconButton(", source)
+        self.assertIn("Modifier.size(36.dp)", source)
         self.assertNotIn("listMicDevices()", source)
         self.assertNotIn("listOutputDevices()", source)
 

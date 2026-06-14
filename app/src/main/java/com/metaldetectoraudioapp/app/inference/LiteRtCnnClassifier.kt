@@ -18,6 +18,7 @@ class LiteRtCnnClassifier(
 ) : AudioWindowClassifier {
 
     private val acceleratorInput = modelMetadata.artifacts.acceleratorInput
+    private val acceleratorLoudnessInput = modelMetadata.artifacts.acceleratorLoudnessInput
     private val acceleratorOutput = modelMetadata.artifacts.acceleratorOutput
 
     init {
@@ -29,6 +30,13 @@ class LiteRtCnnClassifier(
             throw IllegalStateException(
                 "Accelerator model '$modelAssetName' has an int8 input but no quantization params " +
                     "(artifacts.accelerator_input.scale/zero_point) in metadata. Re-export the model."
+            )
+        }
+        if (acceleratorLoudnessInput.dataType == ModelTensorDataType.INT8 && acceleratorLoudnessInput.quantization == null) {
+            throw IllegalStateException(
+                "Accelerator model '$modelAssetName' has an int8 loudness input but no quantization " +
+                    "params (artifacts.accelerator_loudness_input.scale/zero_point) in metadata. " +
+                    "Re-export the model."
             )
         }
         if (acceleratorOutput.dataType == ModelTensorDataType.INT8 && acceleratorOutput.quantization == null) {
@@ -51,6 +59,7 @@ class LiteRtCnnClassifier(
 
     override fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         val expectedInput = modelMetadata.artifacts.acceleratorInput
+        val loudnessInput = modelMetadata.artifacts.acceleratorLoudnessInput
         lateinit var flattenedInput: FloatArray
 
         // Timing covers the full classifier cost: feature extraction + model execution.
@@ -60,7 +69,20 @@ class LiteRtCnnClassifier(
                 expectedTimeFrames = expectedInput.timeFrames ?: DEFAULT_TIME_FRAMES,
                 expectedMelBins = expectedInput.melBins ?: DEFAULT_MEL_BINS,
             )
-            writeInput(activeModel.inputBuffers[0], flattenedInput)
+            // Two-input model: scaled spectrogram + raw log-RMS loudness. Buffer order is read
+            // from metadata (inputIndex) since the TFLite converter may not preserve input order.
+            writeInput(
+                activeModel.inputBuffers[expectedInput.inputIndex],
+                flattenedInput,
+                expectedInput.dataType,
+                expectedInput.quantization,
+            )
+            writeInput(
+                activeModel.inputBuffers[loudnessInput.inputIndex],
+                floatArrayOf(melExtractor.computeLoudness(samples)),
+                loudnessInput.dataType,
+                loudnessInput.quantization,
+            )
             activeModel.compiledModel.run(activeModel.inputBuffers, activeModel.outputBuffers)
         }
 
@@ -104,13 +126,17 @@ class LiteRtCnnClassifier(
     }
 
     /**
-     * Feeds the float feature vector into the model input buffer, quantizing to int8 when the
-     * accelerator model expects a quantized input. Matches the TFLite affine scheme used by
+     * Feeds a float feature vector into a model input buffer, quantizing to int8 when that
+     * input tensor expects a quantized input. Matches the TFLite affine scheme used by
      * scripts/mel_cnn_pipeline.run_tflite_predictions: q = round(x / scale + zeroPoint).
      */
-    private fun writeInput(buffer: TensorBuffer, features: FloatArray) {
-        val quant = acceleratorInput.quantization
-        if (acceleratorInput.dataType == ModelTensorDataType.INT8 && quant != null) {
+    private fun writeInput(
+        buffer: TensorBuffer,
+        features: FloatArray,
+        dataType: ModelTensorDataType,
+        quant: TensorQuantization?,
+    ) {
+        if (dataType == ModelTensorDataType.INT8 && quant != null) {
             val quantized = ByteArray(features.size)
             for (i in features.indices) {
                 val q = (features[i] / quant.scale + quant.zeroPoint).roundToInt()

@@ -1,6 +1,7 @@
 package com.metaldetectoraudioapp.app.audio.pipeline
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.ln
 import kotlin.math.sin
@@ -12,8 +13,14 @@ import kotlin.math.sqrt
  *   40 mel bins, 80-7600 Hz, sample_rate=16000
  *   log compression: ln(mel + 1e-6)
  *
+ * The model is loudness-invariant (see scripts/mel_cnn_pipeline.py):
+ *   * spectral input  = peak-normalize window -> log-mel -> per-window min-max scale
+ *     ([extractScaledSpectrogram], flattened by [extractFlattenedForOnnx]).
+ *   * loudness scalar = ln(rms + eps) of the RAW window ([computeLoudness]); the model
+ *     graph standardizes it, so we feed the raw log-RMS.
+ *
  * Output shape for 8000-sample input: [61 time-frames, 40 mel-bins].
- * The desktop ONNX CNN model expects this as [1, 61, 40, 1].
+ * The desktop ONNX CNN model expects the spectrogram as [1, 61, 40, 1] plus a [1, 1] loudness.
  */
 class MelSpectrogramFeatureExtractor(
     private val sampleRate: Int = 16000,
@@ -60,11 +67,68 @@ class MelSpectrogramFeatureExtractor(
     }
 
     /**
-     * Flatten log-mel spectrogram into the shape expected by the ONNX model:
+     * Peak-normalize the window to 1.0 (0 dBFS), then compute the log-mel spectrogram,
+     * then min-max scale it to [0, 1] over the whole matrix. This is the model's spectral
+     * input — fully invariant to absolute loudness. Matches scripts/mel_cnn_pipeline.py.
+     */
+    fun extractScaledSpectrogram(signal: FloatArray): Array<FloatArray> {
+        val spectrogram = extractLogMelSpectrogram(peakNormalize(signal))
+        if (spectrogram.isEmpty()) return spectrogram
+
+        var min = Float.POSITIVE_INFINITY
+        var max = Float.NEGATIVE_INFINITY
+        for (frame in spectrogram) {
+            for (value in frame) {
+                if (value < min) min = value
+                if (value > max) max = value
+            }
+        }
+        val range = max - min + 1e-6f
+        for (frame in spectrogram) {
+            for (i in frame.indices) {
+                frame[i] = (frame[i] - min) / range
+            }
+        }
+        return spectrogram
+    }
+
+    /**
+     * Log-mel for the tone-quality ribbon visual. Peak-normalized (so amplitude scale stays
+     * stable across loudness) but NOT min-max scaled — RibbonAnalyzer is tuned for raw
+     * log-mel magnitudes (ln scale), not [0, 1].
+     */
+    fun extractRibbonLogMel(signal: FloatArray): Array<FloatArray> =
+        extractLogMelSpectrogram(peakNormalize(signal))
+
+    /**
+     * Loudness scalar fed to the model's second input: ln(rms + eps) of the RAW (un-peak-
+     * normalized) window. The model graph applies standardization; we feed raw log-RMS.
+     */
+    fun computeLoudness(signal: FloatArray): Float {
+        if (signal.isEmpty()) return ln(LOUDNESS_EPSILON)
+        var sumOfSquares = 0f
+        for (value in signal) sumOfSquares += value * value
+        val rms = sqrt(sumOfSquares / signal.size)
+        return ln(rms + LOUDNESS_EPSILON)
+    }
+
+    /** wn = w / (max|w| + eps). Matches the in-graph peak_norm layer. */
+    private fun peakNormalize(signal: FloatArray): FloatArray {
+        var peak = 0f
+        for (value in signal) {
+            val magnitude = abs(value)
+            if (magnitude > peak) peak = magnitude
+        }
+        val scale = 1f / (peak + LOUDNESS_EPSILON)
+        return FloatArray(signal.size) { signal[it] * scale }
+    }
+
+    /**
+     * Flatten the scaled spectrogram into the shape expected by the ONNX/TFLite CNN model:
      * [1, timeFrames, melBins, 1].
      */
     fun extractFlattenedForOnnx(signal: FloatArray): FloatArray {
-        val spectrogram = extractLogMelSpectrogram(signal)
+        val spectrogram = extractScaledSpectrogram(signal)
         if (spectrogram.isEmpty()) return FloatArray(0)
         val flat = FloatArray(spectrogram.size * numMelBins)
         var idx = 0
@@ -171,6 +235,10 @@ class MelSpectrogramFeatureExtractor(
     }
 
     companion object {
+        /** Floor for peak-norm divisor and log-RMS loudness. Matches LOUDNESS_EPSILON in
+         *  scripts/mel_cnn_pipeline.py and the app-side AndroidMelSpectrogramFeatureExtractor. */
+        const val LOUDNESS_EPSILON = 1e-6f
+
         /** Hz to mel scale (Slaney/HTK formula matching TensorFlow). */
         private fun hzToMel(hz: Float): Float =
             1127.0f * ln(1.0f + hz / 700.0f)

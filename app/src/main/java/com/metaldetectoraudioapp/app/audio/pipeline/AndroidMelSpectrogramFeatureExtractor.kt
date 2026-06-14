@@ -1,6 +1,7 @@
 package com.metaldetectoraudioapp.app.audio.pipeline
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.ln
 import kotlin.math.sin
@@ -51,12 +52,61 @@ class AndroidMelSpectrogramFeatureExtractor(
         return result
     }
 
+    /**
+     * Peak-normalize -> log-mel -> per-window min-max scale to [0, 1]. The model's spectral
+     * input, fully loudness-invariant. Matches scripts/mel_cnn_pipeline.py.
+     */
+    fun extractScaledSpectrogram(signal: FloatArray): Array<FloatArray> {
+        val spectrogram = extractLogMelSpectrogram(peakNormalize(signal))
+        if (spectrogram.isEmpty()) return spectrogram
+
+        var min = Float.POSITIVE_INFINITY
+        var max = Float.NEGATIVE_INFINITY
+        for (frame in spectrogram) {
+            for (value in frame) {
+                if (value < min) min = value
+                if (value > max) max = value
+            }
+        }
+        val range = max - min + 1e-6f
+        for (frame in spectrogram) {
+            for (i in frame.indices) {
+                frame[i] = (frame[i] - min) / range
+            }
+        }
+        return spectrogram
+    }
+
+    /** Peak-normalized (not min-max scaled) log-mel for the ribbon visual. */
+    fun extractRibbonLogMel(signal: FloatArray): Array<FloatArray> =
+        extractLogMelSpectrogram(peakNormalize(signal))
+
+    /** Loudness scalar: ln(rms + eps) of the RAW window; the model graph standardizes it. */
+    fun computeLoudness(signal: FloatArray): Float {
+        if (signal.isEmpty()) return ln(LOUDNESS_EPSILON)
+        var sumOfSquares = 0f
+        for (value in signal) sumOfSquares += value * value
+        val rms = sqrt(sumOfSquares / signal.size)
+        return ln(rms + LOUDNESS_EPSILON)
+    }
+
+    /** wn = w / (max|w| + eps). Matches the in-graph peak_norm layer. */
+    private fun peakNormalize(signal: FloatArray): FloatArray {
+        var peak = 0f
+        for (value in signal) {
+            val magnitude = abs(value)
+            if (magnitude > peak) peak = magnitude
+        }
+        val scale = 1f / (peak + LOUDNESS_EPSILON)
+        return FloatArray(signal.size) { signal[it] * scale }
+    }
+
     fun extractFlattenedForModel(
         signal: FloatArray,
         expectedTimeFrames: Int,
         expectedMelBins: Int,
     ): FloatArray {
-        val spectrogram = extractLogMelSpectrogram(signal)
+        val spectrogram = extractScaledSpectrogram(signal)
         val flattened = FloatArray(expectedTimeFrames * expectedMelBins)
         var index = 0
 
@@ -162,4 +212,9 @@ class AndroidMelSpectrogramFeatureExtractor(
 
     private fun melToHz(mel: Float): Float =
         700.0f * (kotlin.math.exp(mel / 1127.0f) - 1.0f)
+
+    companion object {
+        /** Matches LOUDNESS_EPSILON in scripts/mel_cnn_pipeline.py and the shared extractor. */
+        const val LOUDNESS_EPSILON = 1e-6f
+    }
 }

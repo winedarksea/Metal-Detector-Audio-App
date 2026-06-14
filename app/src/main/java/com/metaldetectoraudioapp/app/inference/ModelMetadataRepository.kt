@@ -32,6 +32,7 @@ class ModelMetadataRepository(
         val trainingJson = json.optJSONObject("training")
         val artifactsJson = json.optJSONObject("artifacts")
         val acceleratorInputJson = artifactsJson?.optJSONObject("accelerator_input")
+        val acceleratorLoudnessJson = artifactsJson?.optJSONObject("accelerator_loudness_input")
         val acceleratorOutputJson = artifactsJson?.optJSONObject("accelerator_output")
         
         // Derive model name to distinguish "no mixed" version if flag is set
@@ -55,6 +56,9 @@ class ModelMetadataRepository(
             recommendedThreshold = inferenceJson?.optDouble("recommended_threshold", 0.55)
                 ?.toFloat()
                 ?: 0.55f,
+            energyGateRmsThreshold = inferenceJson?.optDouble("energy_gate_rms_threshold", 0.015)
+                ?.toFloat()
+                ?: 0.015f,
             fileName = waveformFileName,
             artifacts = ModelArtifacts(
                 waveformTfliteFileName = waveformFileName,
@@ -70,6 +74,12 @@ class ModelMetadataRepository(
                     channels = acceleratorInputJson?.optInt("channels", 1) ?: 1,
                     dataType = parseTensorDataType(acceleratorInputJson?.optStringOrNull("dtype")),
                     quantization = parseQuantization(acceleratorInputJson),
+                    inputIndex = acceleratorInputJson?.optInt("input_index", 0) ?: 0,
+                ),
+                acceleratorLoudnessInput = ModelArtifactLoudnessInputConfig(
+                    dataType = parseTensorDataType(acceleratorLoudnessJson?.optStringOrNull("dtype")),
+                    quantization = parseQuantization(acceleratorLoudnessJson),
+                    inputIndex = acceleratorLoudnessJson?.optInt("input_index", 1) ?: 1,
                 ),
                 acceleratorOutput = ModelArtifactOutputConfig(
                     dataType = parseTensorDataType(acceleratorOutputJson?.optStringOrNull("dtype")),
@@ -113,7 +123,8 @@ class ModelMetadataRepository(
     private fun parseInputRepresentation(rawValue: String?): ModelInputRepresentation {
         return when (rawValue?.lowercase()) {
             "log_mel",
-            "log_mel_spectrogram" -> ModelInputRepresentation.LOG_MEL_SPECTROGRAM
+            "log_mel_spectrogram",
+            "scaled_log_mel_spectrogram" -> ModelInputRepresentation.LOG_MEL_SPECTROGRAM
             else -> ModelInputRepresentation.WAVEFORM
         }
     }

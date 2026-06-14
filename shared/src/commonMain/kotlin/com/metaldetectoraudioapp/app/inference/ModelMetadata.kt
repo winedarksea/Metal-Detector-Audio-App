@@ -33,6 +33,9 @@ data class ModelMetadata(
     val labels: List<String>,
     val input: ModelInputConfig,
     val recommendedThreshold: Float = 0.55f,
+    /** Windows whose raw RMS is below this are reported AMBIENT without running the model
+     *  (peak-norm + min-max would otherwise amplify near-silence). Matches training's gate. */
+    val energyGateRmsThreshold: Float = 0.015f,
     val fileName: String? = null,
     val artifacts: ModelArtifacts = ModelArtifacts(waveformTfliteFileName = fileName),
     /** Stable identifier derived from the asset file name, not the display name. */

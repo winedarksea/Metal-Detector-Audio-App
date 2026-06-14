@@ -110,6 +110,27 @@ class ModelConfigSyncTest(unittest.TestCase):
             ),
         )
 
+    def test_loudness_epsilon_matches_between_python_and_kotlin(self):
+        for extractor_path in (DESKTOP_MEL_EXTRACTOR, ANDROID_LITERT_MEL_EXTRACTOR):
+            source = read_file(extractor_path)
+            epsilon = parse_kotlin_literal(
+                source,
+                r"const val LOUDNESS_EPSILON = ([0-9eE_\.\-f]+)",
+            )
+            self.assertEqual(
+                mel_cnn_pipeline.LOUDNESS_EPSILON,
+                epsilon,
+                f"LOUDNESS_EPSILON drift in {extractor_path.name}",
+            )
+
+    def test_kotlin_extractors_have_loudness_invariant_methods(self):
+        # Both extractors must expose the peak-norm + min-max spectral input and the loudness
+        # scalar so the on-device features match the two-input model graph.
+        for extractor_path in (DESKTOP_MEL_EXTRACTOR, ANDROID_LITERT_MEL_EXTRACTOR):
+            source = read_file(extractor_path)
+            self.assertIn("fun extractScaledSpectrogram", source)
+            self.assertIn("fun computeLoudness", source)
+
     def test_android_litert_mel_defaults_match_training_config(self):
         extractor_source = read_file(ANDROID_LITERT_MEL_EXTRACTOR)
         mel_metadata = mel_cnn_pipeline.mel_spectrogram_metadata()
@@ -190,13 +211,25 @@ class AcceleratorQuantizationSyncTest(unittest.TestCase):
         int8_tflite = REPO_ROOT / "models" / artifacts["accelerator_tflite"]
         if not int8_tflite.exists():
             self.skipTest(f"int8 tflite not present: {int8_tflite}")
+        if "accelerator_loudness_input" not in artifacts:
+            self.skipTest("legacy single-input model — re-export for the two-input architecture")
 
-        input_descriptor, output_descriptor = tflite_io_descriptors(int8_tflite.read_bytes())
+        spectrogram_descriptor, loudness_descriptor, output_descriptor = tflite_io_descriptors(
+            int8_tflite.read_bytes()
+        )
 
         meta_input = artifacts["accelerator_input"]
-        self.assertEqual(input_descriptor["dtype"], meta_input.get("dtype"))
-        self.assertEqual(input_descriptor.get("scale"), meta_input.get("scale"))
-        self.assertEqual(input_descriptor.get("zero_point"), meta_input.get("zero_point"))
+        self.assertEqual(spectrogram_descriptor["dtype"], meta_input.get("dtype"))
+        self.assertEqual(spectrogram_descriptor.get("scale"), meta_input.get("scale"))
+        self.assertEqual(spectrogram_descriptor.get("zero_point"), meta_input.get("zero_point"))
+        self.assertEqual(spectrogram_descriptor.get("input_index"), meta_input.get("input_index"))
+
+        meta_loudness = artifacts["accelerator_loudness_input"]
+        self.assertEqual(loudness_descriptor["dtype"], meta_loudness.get("dtype"))
+        self.assertEqual(loudness_descriptor.get("scale"), meta_loudness.get("scale"))
+        self.assertEqual(loudness_descriptor.get("zero_point"), meta_loudness.get("zero_point"))
+        self.assertEqual(loudness_descriptor.get("input_index"), meta_loudness.get("input_index"))
+
         self.assertEqual(output_descriptor, artifacts.get("accelerator_output"))
 
 

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlin.math.sqrt
 
 class InferenceController(
     private var modelMetadata: ModelMetadata,
@@ -202,7 +203,7 @@ class InferenceController(
 
         // Update the tone-quality ribbon every frame — even when an inference is dropped below —
         // so the visual keeps scrolling. Cheap: reuses the same STFT/mel the model consumes.
-        ribbon.process(melExtractor.extractLogMelSpectrogram(frame.samples))
+        ribbon.process(melExtractor.extractRibbonLogMel(frame.samples))
 
         if (inferenceInFlight) {
             _uiState.value = _uiState.value.copy(droppedFrames = _uiState.value.droppedFrames + 1)
@@ -210,10 +211,24 @@ class InferenceController(
             return
         }
 
+        // Energy gate: near-silent windows are reported AMBIENT without running the model.
+        // The model peak-normalizes + min-max scales its input, which would otherwise amplify
+        // background noise into hallucinated detections. Matches the training-time RMS gate.
+        val belowEnergyGate = windowRms(frame.samples) < modelMetadata.energyGateRmsThreshold
+
         inferenceInFlight = true
         scope.launch {
             try {
-                val result = classifier.classifyAudioWindow(frame.samples)
+                val result = if (belowEnergyGate) {
+                    InferenceResult(
+                        topLabel = "AMBIENT",
+                        topScore = 0f,
+                        perLabelScores = modelMetadata.labels.associateWith { 0f },
+                        inferenceTimeMs = 0L,
+                    )
+                } else {
+                    classifier.classifyAudioWindow(frame.samples)
+                }
                 val latencyMs = ((System.nanoTime() - frame.receivedAtNanos) / 1_000_000).coerceAtLeast(0)
                 inferenceCount += 1
                 latencyAccumulatorMs += latencyMs
@@ -282,5 +297,13 @@ class InferenceController(
                 inferenceInFlight = false
             }
         }
+    }
+
+    /** RMS over the full inference window, on the raw (un-normalized) samples. */
+    private fun windowRms(samples: FloatArray): Float {
+        if (samples.isEmpty()) return 0f
+        var sumOfSquares = 0f
+        for (sample in samples) sumOfSquares += sample * sample
+        return sqrt(sumOfSquares / samples.size)
     }
 }

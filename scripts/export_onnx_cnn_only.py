@@ -24,6 +24,7 @@ try:
     from .mel_cnn_pipeline import (
         DEFAULT_SAMPLE_RATE_HZ,
         DEFAULT_WINDOW_SIZE_SAMPLES,
+        LOUDNESS_EPSILON,
         build_log_mel_feature_extractor,
         convert_keras_model_to_tflite,
         extract_cnn_only_model,
@@ -45,6 +46,7 @@ except ImportError:
     from mel_cnn_pipeline import (
         DEFAULT_SAMPLE_RATE_HZ,
         DEFAULT_WINDOW_SIZE_SAMPLES,
+        LOUDNESS_EPSILON,
         build_log_mel_feature_extractor,
         convert_keras_model_to_tflite,
         extract_cnn_only_model,
@@ -79,14 +81,28 @@ def tflite_tensor_descriptor(detail: dict) -> dict:
     return descriptor
 
 
-def tflite_io_descriptors(model_bytes: bytes) -> tuple[dict, dict]:
-    """Returns (input_descriptor, output_descriptor) for a TFLite model."""
+def tflite_io_descriptors(model_bytes: bytes) -> tuple[dict, dict, dict]:
+    """Returns (spectrogram_input_descriptor, loudness_input_descriptor, output_descriptor)
+    for the two-input CNN-only TFLite model. Inputs are matched by rank: the spectrogram
+    tensor is rank-4 [1,61,40,1] and the loudness scalar is rank-2 [1,1]. Each input
+    descriptor also carries "input_index" — its ordinal position in the model's input list
+    — so the on-device runtime (LiteRtCnnClassifier) writes the correct input buffer."""
     import tensorflow as tf
 
     interpreter = tf.lite.Interpreter(model_content=model_bytes)
     interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    spectrogram_ordinal = next(i for i, d in enumerate(input_details) if len(d["shape"]) == 4)
+    loudness_ordinal = next(i for i, d in enumerate(input_details) if len(d["shape"]) == 2)
+
+    spectrogram_descriptor = tflite_tensor_descriptor(input_details[spectrogram_ordinal])
+    spectrogram_descriptor["input_index"] = int(spectrogram_ordinal)
+    loudness_descriptor = tflite_tensor_descriptor(input_details[loudness_ordinal])
+    loudness_descriptor["input_index"] = int(loudness_ordinal)
+
     return (
-        tflite_tensor_descriptor(interpreter.get_input_details()[0]),
+        spectrogram_descriptor,
+        loudness_descriptor,
         tflite_tensor_descriptor(interpreter.get_output_details()[0]),
     )
 
@@ -130,15 +146,33 @@ def build_onnx_export_function(cnn_model, input_shape):
         tf.TensorSpec(
             shape=(None,) + input_shape,
             dtype=tf.float32,
-            name="log_mel_spectrogram",
-        )
+            name="scaled_log_mel_spectrogram",
+        ),
+        tf.TensorSpec(
+            shape=(None, 1),
+            dtype=tf.float32,
+            name="loudness",
+        ),
     ]
 
     @tf.function(input_signature=input_signature)
-    def serving_default(log_mel_spectrogram):
-        return {"class_probs": cnn_model(log_mel_spectrogram, training=False)}
+    def serving_default(scaled_log_mel_spectrogram, loudness):
+        return {
+            "class_probs": cnn_model(
+                [scaled_log_mel_spectrogram, loudness], training=False
+            )
+        }
 
     return serving_default, input_signature
+
+
+def onnx_input_feeds(session, spectrogram, loudness):
+    """Map the spectrogram + loudness arrays to the ONNX session's input names by rank."""
+    feeds = {}
+    for spec in session.get_inputs():
+        # spectrogram input is rank-4 [N,61,40,1]; loudness is rank-2 [N,1].
+        feeds[spec.name] = spectrogram if len(spec.shape) == 4 else loudness
+    return feeds
 
 
 def main() -> int:
@@ -268,17 +302,22 @@ def main() -> int:
     cnn_model.summary()
 
     mel_extractor = build_log_mel_feature_extractor(full_model)
-    # mel_inputs: mel spectra of the original unaugmented windows, used for
-    # parity checks and accuracy metrics (labels in y_all correspond 1-to-1).
-    mel_inputs = mel_extractor.predict(x_all, verbose=0).astype(np.float32)
-    # mel_aug_inputs: mel spectra of the full augmented training set.
-    # Used for PTQ calibration so the quantizer sees the same activation
-    # distribution the model was actually trained on.
-    mel_aug_inputs = mel_extractor.predict(x_aug, verbose=0).astype(np.float32)
+    # The feature extractor outputs the two tensors the CNN-only model consumes:
+    # the scaled (peak-norm -> log-mel -> min-max) spectrogram and the log-RMS loudness.
+    # *_inputs: features of the original unaugmented windows, used for parity checks and
+    # accuracy metrics (labels in y_all correspond 1-to-1).
+    mel_inputs, loud_inputs = mel_extractor.predict(x_all, verbose=0)
+    mel_inputs = mel_inputs.astype(np.float32)
+    loud_inputs = loud_inputs.astype(np.float32)
+    # *_aug: features of the full augmented training set, used for PTQ calibration so the
+    # quantizer sees the same activation distribution the model was actually trained on.
+    mel_aug_inputs, loud_aug_inputs = mel_extractor.predict(x_aug, verbose=0)
+    mel_aug_inputs = mel_aug_inputs.astype(np.float32)
+    loud_aug_inputs = loud_aug_inputs.astype(np.float32)
     print(f"PTQ calibration samples: {mel_aug_inputs.shape[0]} (augmented), "
           f"accuracy reference samples: {mel_inputs.shape[0]} (original)")
     full_pred = full_model.predict(x_all, verbose=0)
-    cnn_pred = cnn_model.predict(mel_inputs, verbose=0)
+    cnn_pred = cnn_model.predict([mel_inputs, loud_inputs], verbose=0)
 
     max_diff = np.max(np.abs(full_pred - cnn_pred))
     print(f"Max prediction diff: {max_diff:.8f}")
@@ -288,7 +327,7 @@ def main() -> int:
     accelerator_int8_bytes = convert_keras_model_to_tflite(
         cnn_model,
         optimizations=["default"],
-        representative_inputs=mel_aug_inputs,
+        representative_inputs=[mel_aug_inputs, loud_aug_inputs],
         supported_ops=[tf.lite.OpsSet.TFLITE_BUILTINS_INT8],
         inference_input_type=tf.int8,
         inference_output_type=tf.int8,
@@ -303,8 +342,8 @@ def main() -> int:
         f"{args.accelerator_int8_output.name}"
     )
 
-    float_tflite_pred = run_tflite_predictions(accelerator_float_bytes, mel_inputs)
-    int8_tflite_pred = run_tflite_predictions(accelerator_int8_bytes, mel_inputs)
+    float_tflite_pred = run_tflite_predictions(accelerator_float_bytes, [mel_inputs, loud_inputs])
+    int8_tflite_pred = run_tflite_predictions(accelerator_int8_bytes, [mel_inputs, loud_inputs])
 
     # ---- Export CNN-only model to ONNX ----
     onnx_export_function, onnx_input_signature = build_onnx_export_function(
@@ -319,10 +358,10 @@ def main() -> int:
     onnx.save(onnx_model, str(args.onnx_output))
     print(f"Wrote ONNX: {args.onnx_output}")
 
-    # Quick ONNX validation
+    # Quick ONNX validation (two named inputs: spectrogram + loudness)
     sess = ort.InferenceSession(str(args.onnx_output))
-    input_name = sess.get_inputs()[0].name
-    onnx_pred = sess.run(None, {input_name: mel_inputs.astype(np.float32)})[0]
+    onnx_feeds = onnx_input_feeds(sess, mel_inputs.astype(np.float32), loud_inputs.astype(np.float32))
+    onnx_pred = sess.run(None, onnx_feeds)[0]
     onnx_diff = np.max(np.abs(full_pred - onnx_pred))
     print(f"ONNX vs full diff:   {onnx_diff:.8f}")
 
@@ -338,19 +377,35 @@ def main() -> int:
     }
 
     timestamp = datetime.now(timezone.utc).isoformat()
-    int8_input_descriptor, int8_output_descriptor = tflite_io_descriptors(accelerator_int8_bytes)
+    loudness_mean = float(numeric_metrics["loudness_mean"])
+    loudness_std = float(numeric_metrics["loudness_std"])
+    (
+        int8_spectrogram_descriptor,
+        int8_loudness_descriptor,
+        int8_output_descriptor,
+    ) = tflite_io_descriptors(accelerator_int8_bytes)
     artifacts = {
         "waveform_tflite": args.tflite_output.name,
         "accelerator_float_tflite": args.accelerator_float_output.name,
         "accelerator_tflite": args.accelerator_int8_output.name,
         "desktop_onnx": args.onnx_output.name,
         "accelerator_input": {
-            "kind": "log_mel_spectrogram",
+            "kind": "scaled_log_mel_spectrogram",
             "time_frames": int(add_channel_output_shape[0]),
             "mel_bins": int(add_channel_output_shape[1]),
             "channels": int(add_channel_output_shape[2]),
             # dtype + quantization params let the accelerator runtime feed the int8 model.
-            **int8_input_descriptor,
+            **int8_spectrogram_descriptor,
+        },
+        # Second model input: the standardized-in-graph log-RMS loudness scalar.
+        # On-device code feeds raw log(rms + eps); (mean, std) are baked into the graph.
+        "accelerator_loudness_input": {
+            "kind": "loudness",
+            "feature": "log_rms",
+            "epsilon": LOUDNESS_EPSILON,
+            "standardization_mean": loudness_mean,
+            "standardization_std": loudness_std,
+            **int8_loudness_descriptor,
         },
         "accelerator_output": int8_output_descriptor,
     }
@@ -363,16 +418,31 @@ def main() -> int:
             "sample_rate_hz": DEFAULT_SAMPLE_RATE_HZ,
             "window_size_samples": DEFAULT_WINDOW_SIZE_SAMPLES,
             "hop_size_samples": DEFAULT_WINDOW_SIZE_SAMPLES // 2,
-            "expects_normalized_audio": True,
+            # Model is loudness-invariant: feed RAW fixed-scale (int16/32768) windows.
+            # On-device code peak-normalizes + min-max scales the spectrogram and computes
+            # the log-RMS loudness scalar; do NOT pre-normalize the waveform amplitude.
+            "expects_normalized_audio": False,
+            "preprocessing": {
+                "peak_normalize_window": True,
+                "spectrogram_min_max_scale": True,
+                "loudness_scalar": {
+                    "feature": "log_rms",
+                    "epsilon": LOUDNESS_EPSILON,
+                    "standardization_mean": loudness_mean,
+                    "standardization_std": loudness_std,
+                    "standardization_in_graph": True,
+                },
+            },
         },
         "artifacts": artifacts,
         "inference": {
             "ambient_strategy": "explicit_class",
             "recommended_threshold": 0.55,
+            "energy_gate_rms_threshold": 0.015,
         },
         "training": {
             "train_and_validation_share_examples": True,
-            "backbone": "mel_cnn",
+            "backbone": "mel_cnn_loudness_invariant",
             "epochs": args.epochs,
             "batch_size": args.batch_size,
             "exclude_mixed_records": bool(args.no_mixed),
@@ -381,6 +451,10 @@ def main() -> int:
             "excluded_class_file_counts": excluded,
             "augmented_total_windows": int(x_aug.shape[0]),
             "mel_spectrogram": mel_spectrogram_metadata(),
+            "loudness_standardization": {
+                "mean": loudness_mean,
+                "std": loudness_std,
+            },
             "synthetic_ambient": {
                 "enabled": True,
                 "ratio": 0.35,

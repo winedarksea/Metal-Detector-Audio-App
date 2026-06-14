@@ -53,6 +53,8 @@ object ModelMetadataJson {
             ),
             recommendedThreshold =
                 inferenceObj?.get("recommended_threshold")?.jsonPrimitive?.floatOrNull ?: 0.55f,
+            energyGateRmsThreshold =
+                inferenceObj?.get("energy_gate_rms_threshold")?.jsonPrimitive?.floatOrNull ?: 0.015f,
             fileName = waveformFileName,
             artifacts = ModelArtifacts(
                 waveformTfliteFileName = waveformFileName,
@@ -76,7 +78,8 @@ object ModelMetadataJson {
 
     private fun parseInputRepresentation(rawValue: String?): ModelInputRepresentation =
         when (rawValue?.lowercase()) {
-            "log_mel", "log_mel_spectrogram" -> ModelInputRepresentation.LOG_MEL_SPECTROGRAM
+            "log_mel", "log_mel_spectrogram", "scaled_log_mel_spectrogram" ->
+                ModelInputRepresentation.LOG_MEL_SPECTROGRAM
             else -> ModelInputRepresentation.WAVEFORM
         }
 }

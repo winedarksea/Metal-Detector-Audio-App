@@ -3,6 +3,7 @@ package com.metaldetectoraudioapp.app.inference
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import ai.onnxruntime.TensorInfo
 import com.metaldetectoraudioapp.app.audio.pipeline.MelSpectrogramFeatureExtractor
 import com.metaldetectoraudioapp.app.inference.AppLogger
 import java.nio.FloatBuffer
@@ -18,9 +19,10 @@ import java.nio.FloatBuffer
  * changing the window size in the training script and re-running the export
  * will automatically be reflected here without code changes.
  *
- * ONNX model I/O:
- *   Input:  "log_mel_spectrogram" [1, timeFrames, melBins, 1] float32
- *   Output: "class_probs"         [1, N]                      float32  (N labels from metadata)
+ * ONNX model I/O (two-input, loudness-invariant model):
+ *   Input:  "scaled_log_mel_spectrogram" [1, timeFrames, melBins, 1] float32
+ *   Input:  "loudness"                   [1, 1]                      float32 (raw log-RMS)
+ *   Output: "class_probs"                [1, N]                      float32 (N labels)
  */
 class DesktopOnnxClassifier(
     onnxModelBytes: ByteArray,
@@ -44,7 +46,7 @@ class DesktopOnnxClassifier(
 
     override suspend fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         val startNanos = System.nanoTime()
-        val logMel = melExtractor.extractLogMelSpectrogram(samples)
+        val logMel = melExtractor.extractScaledSpectrogram(samples)
 
         if (logMel.isEmpty()) {
             AppLogger.w(TAG, "Empty spectrogram — window too short (${samples.size} samples)")
@@ -74,8 +76,20 @@ class DesktopOnnxClassifier(
         val inputShape = longArrayOf(1, expectedTimeFrames.toLong(), expectedMelBins.toLong(), 1)
         val inputTensor = OnnxTensor.createTensor(ortEnvironment, buffer, inputShape)
 
-        val inputName = ortSession.inputNames.first()
-        val results = ortSession.run(mapOf(inputName to inputTensor))
+        // Second input: the raw log-RMS loudness scalar (model standardizes it in-graph).
+        val loudnessTensor = OnnxTensor.createTensor(
+            ortEnvironment,
+            FloatBuffer.wrap(floatArrayOf(melExtractor.computeLoudness(samples))),
+            longArrayOf(1, 1),
+        )
+
+        // Map each session input to the right tensor by rank (spectrogram rank 4, loudness rank 2).
+        val feeds = HashMap<String, OnnxTensor>()
+        for ((name, info) in ortSession.inputInfo) {
+            val rank = (info.info as TensorInfo).shape.size
+            feeds[name] = if (rank <= 2) loudnessTensor else inputTensor
+        }
+        val results = ortSession.run(feeds)
 
         val rawOutput = results[0].value
         val outputArray: FloatArray = when (rawOutput) {

@@ -499,7 +499,13 @@ def synthesize_ambient_noise_windows(
 # ---------------------------------------------------------------------------
 
 def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
-    """Light augmentation: time-shift and low-level additive noise."""
+    """Augmentation: time-shift, low-level additive noise, and random gain attenuation.
+
+    Gain augmentation is essential for the loudness-invariant model: the spectral branch
+    is peak-normalized (gain cancels), so attenuated copies share the same scaled
+    spectrogram but a different log-RMS loudness scalar.  This decorrelates loudness from
+    class so the model can't learn "TARGET just happened to be recorded louder."
+    """
     import numpy as np
 
     rng = np.random.default_rng(seed)
@@ -521,6 +527,13 @@ def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
             -1.0, 1.0,
         )
         aug_x.append(noisy[np.newaxis, :])
+        aug_y.append(np.array([y[i]], dtype=y.dtype))
+
+        # Random gain attenuation in [-20 dB, 0 dB]. Attenuation-only avoids clipping;
+        # the peak-norm spectral branch is unaffected, only the loudness scalar shifts.
+        gain = float(10.0 ** (rng.uniform(-20.0, 0.0) / 20.0))
+        attenuated = (x[i] * gain).astype(np.float32)
+        aug_x.append(attenuated[np.newaxis, :])
         aug_y.append(np.array([y[i]], dtype=y.dtype))
 
     return np.concatenate(aug_x, axis=0), np.concatenate(aug_y, axis=0)

@@ -17,8 +17,13 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 /**
- * Reads PCM16 from an [AudioInputSource], normalises, band-limits,
- * frames, and emits [AudioPipelineFrame]s.
+ * Reads PCM16 from an [AudioInputSource], converts to fixed-scale float, frames,
+ * and emits [AudioPipelineFrame]s.
+ *
+ * No amplitude normalization or band-limiting: the loudness-invariant model expects RAW
+ * fixed-scale (int16/32768) audio and does peak-normalization + min-max scaling on its own
+ * spectral input (see MelSpectrogramFeatureExtractor / scripts/mel_cnn_pipeline.py). Pre-
+ * normalizing here would create a train/serve skew and destroy the loudness scalar.
  *
  * Passthrough is delegated to the optional [PassthroughSink] so that
  * the pipeline itself contains no platform audio-output code.
@@ -31,8 +36,6 @@ class SharedAudioPipeline(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) : FrameStreamingPipeline {
 
-    private val normalizationProcessor = AudioNormalizationProcessor()
-    private val bandLimitFilter = BandLimitFilter(inputSource.sampleRateHz)
     private val framer = SlidingAudioFramer(frameSizeSamples, hopSizeSamples)
 
     private var readLoopJob: Job? = null
@@ -66,9 +69,6 @@ class SharedAudioPipeline(
                     floatBuffer[i] = pcmBuffer[i] / 32768f
                 }
 
-                normalizationProcessor.normalizeInPlace(floatBuffer)
-                bandLimitFilter.processInPlace(floatBuffer)
-
                 val rms = calculateRms(floatBuffer)
                 val clippingDetected = detectClipping(floatBuffer)
                 val signalPresent = rms >= AudioConstants.SIGNAL_PRESENT_RMS_THRESHOLD
@@ -100,7 +100,6 @@ class SharedAudioPipeline(
         readLoopJob?.cancel()
         readLoopJob = null
         inputSource.stop()
-        bandLimitFilter.reset()
         framer.reset()
     }
 

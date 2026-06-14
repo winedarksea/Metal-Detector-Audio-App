@@ -35,6 +35,18 @@ data class ModelArtifactInputConfig(
     val channels: Int = 1,
     val dataType: ModelTensorDataType = ModelTensorDataType.FLOAT32,
     val quantization: TensorQuantization? = null,
+    /** Ordinal position of this tensor in the model's input list (for multi-input models). */
+    val inputIndex: Int = 0,
+)
+
+/**
+ * Second model input: the raw log-RMS loudness scalar. The model standardizes it in-graph,
+ * so on-device code feeds raw log(rms + eps) (quantized per [quantization] for int8 models).
+ */
+data class ModelArtifactLoudnessInputConfig(
+    val dataType: ModelTensorDataType = ModelTensorDataType.FLOAT32,
+    val quantization: TensorQuantization? = null,
+    val inputIndex: Int = 1,
 )
 
 data class ModelArtifactOutputConfig(
@@ -48,6 +60,7 @@ data class ModelArtifacts(
     val acceleratorFloatTfliteFileName: String? = null,
     val desktopOnnxFileName: String? = null,
     val acceleratorInput: ModelArtifactInputConfig = ModelArtifactInputConfig(),
+    val acceleratorLoudnessInput: ModelArtifactLoudnessInputConfig = ModelArtifactLoudnessInputConfig(),
     val acceleratorOutput: ModelArtifactOutputConfig = ModelArtifactOutputConfig(),
 )
 
@@ -57,6 +70,9 @@ data class ModelMetadata(
     val labels: List<String>,
     val input: ModelInputConfig,
     val recommendedThreshold: Float = 0.55f,
+    /** Windows whose raw RMS is below this are reported AMBIENT without running the model
+     *  (peak-norm + min-max would otherwise amplify near-silence). Matches training's gate. */
+    val energyGateRmsThreshold: Float = 0.015f,
     val fileName: String? = null,
     val artifacts: ModelArtifacts = ModelArtifacts(waveformTfliteFileName = fileName),
     /** Stable identifier derived from the asset file name, not the display name. */

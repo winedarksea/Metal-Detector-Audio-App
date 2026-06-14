@@ -1,4 +1,5 @@
 sample_id,target_name,class_label,depth_inches,mixed_flag,include_in_training,original_description
+0,ambient:background:unknown,AMBIENT,0,false,false,
 1,coin:dime:cupronickel-clad-copper|coin:dime:silver-900|test_fixture:dime:plastic-bag,TARGET,5,true,false,Clad dime and silver dime in plastic bag at 5
 2,coin:dime:cupronickel-clad-copper,TARGET,5,false,false,Dime on edge at 5
 3,coin:dime:cupronickel-clad-copper,TARGET,7,false,true,Clad dime at 7

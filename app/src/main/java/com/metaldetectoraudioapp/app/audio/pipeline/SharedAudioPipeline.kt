@@ -22,7 +22,6 @@ class SharedAudioPipeline(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) : FrameStreamingPipeline {
 
-    private val bandLimitFilter = BandLimitFilter(inputSource.sampleRateHz)
     private val framer = SlidingAudioFramer(frameSizeSamples, hopSizeSamples)
     private val passthroughPlayer = AudioPassthroughPlayer(inputSource.sampleRateHz)
 
@@ -70,11 +69,10 @@ class SharedAudioPipeline(
                     floatBuffer[index] = pcmBuffer[index] / 32768f
                 }
 
-                // Fixed-scale: /32768f above already puts samples in [-1, 1].
-                // Per-block peak normalization is intentionally omitted — it destroys
-                // amplitude information and creates a train/inference mismatch.
-                bandLimitFilter.processInPlace(floatBuffer)
-
+                // Fixed-scale: /32768f above already puts samples in [-1, 1]. No peak
+                // normalization and no band-limiting — the loudness-invariant model expects RAW
+                // audio (it peak-normalizes + min-max scales its own spectral input, and reads
+                // loudness from the raw RMS). Pre-processing here would create a train/serve skew.
                 val rms = calculateRms(floatBuffer)
                 val clippingDetected = detectClipping(floatBuffer)
                 val signalPresent = rms >= AudioConstants.SIGNAL_PRESENT_RMS_THRESHOLD
@@ -106,7 +104,6 @@ class SharedAudioPipeline(
         readLoopJob?.cancel()
         readLoopJob = null
         inputSource.stop()
-        bandLimitFilter.reset()
         framer.reset()
     }
 

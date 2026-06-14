@@ -38,7 +38,7 @@ class WebOnnxClassifier(
     override suspend fun classifyAudioWindow(samples: FloatArray): InferenceResult {
         val startNs = Clocks.monotonicNanos()
 
-        val melMatrix = melExtractor.extractLogMelSpectrogram(samples)
+        val melMatrix = melExtractor.extractScaledSpectrogram(samples)
         if (melMatrix.isEmpty()) {
             return InferenceResult(
                 topLabel = "AMBIENT",
@@ -52,7 +52,9 @@ class WebOnnxClassifier(
         // JS Float32Array.
         writeFloatArrayToGlobal(melMatrix, expectedTimeFrames, expectedMelBins)
 
-        val outputRef = runOnnxInference(session, expectedTimeFrames, expectedMelBins).await()
+        // Second model input: raw log-RMS loudness (standardized in-graph).
+        val loudness = melExtractor.computeLoudness(samples)
+        val outputRef = runOnnxInference(session, expectedTimeFrames, expectedMelBins, loudness).await()
         val scores = FloatArray(metadata.labels.size) { i -> getOutputFloat(outputRef, i) }
 
         val topIdx = scores.indices.maxByOrNull { scores[it] } ?: 0
@@ -116,14 +118,18 @@ private fun createOrtSessionFromGlobal(byteCount: Int): Promise<JsAny> = js("""
     })()
 """)
 
-private fun runOnnxInference(session: JsAny, numFrames: Int, numMels: Int): Promise<JsAny> = js("""
+private fun runOnnxInference(session: JsAny, numFrames: Int, numMels: Int, loudness: Float): Promise<JsAny> = js("""
     (function() {
         var flat = window.__ktFloatBuf;
-        var inputName  = session.inputNames[0];
         var outputName = session.outputNames[0];
-        var tensor = new ort.Tensor('float32', flat, [1, numFrames, numMels, 1]);
+        var spectrogram = new ort.Tensor('float32', flat, [1, numFrames, numMels, 1]);
+        var loudnessTensor = new ort.Tensor('float32', new Float32Array([loudness]), [1, 1]);
         var feeds = {};
-        feeds[inputName] = tensor;
+        // Two-input model: match the loudness input by name; everything else is the spectrogram.
+        for (var i = 0; i < session.inputNames.length; i++) {
+            var name = session.inputNames[i];
+            feeds[name] = (name.indexOf('loud') >= 0) ? loudnessTensor : spectrogram;
+        }
         return session.run(feeds).then(function(output) {
             return output[outputName].data;
         });

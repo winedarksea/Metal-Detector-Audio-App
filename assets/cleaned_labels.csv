@@ -1,34 +1,34 @@
-sample_id,target_name,class_label,depth_inches,mixed_flag,include_in_training,original_description
-0,ambient:background:unknown,AMBIENT,0,false,false,
-1,coin:dime:cupronickel-clad-copper|coin:dime:silver-900|test_fixture:dime:plastic-bag,TARGET,5,true,false,Clad dime and silver dime in plastic bag at 5
-2,coin:dime:cupronickel-clad-copper,TARGET,5,false,false,Dime on edge at 5
+sample_id,target_name,class_label,depth_inches,mixed_target_and_junk,include_in_training,original_description
+0,ambient:background:unknown,AMBIENT,0,false,true,
+1,coin:dime:cupronickel-clad-copper|coin:dime:silver-900|coin:dime:cupronickel-clad-copper,TARGET,5,false,true,Clad dime and silver dime in plastic bag at 5
+2,coin:dime:cupronickel-clad-copper,TARGET,5,false,true,Dime on edge at 5
 3,coin:dime:cupronickel-clad-copper,TARGET,7,false,true,Clad dime at 7
 4,coin:dime:cupronickel-clad-copper,TARGET,9,false,true,Clad dime at 9
 5,coin:dime:cupronickel-clad-copper,TARGET,11,false,false,Clad dime at 11
 6,coin:nickel:cupronickel,TARGET,8,false,true,Nickel at 8
 7,coin:nickel:cupronickel,TARGET,6,false,true,Nickel at 6
-8,coin:penny:copper-plated-zinc|coin:penny:bronze-copper|coin:penny:bronze-indian-head,TARGET,,true,true,Zinc penny copper penny and Indian head test
+8,coin:penny:copper-plated-zinc|coin:penny:bronze-copper|coin:penny:bronze-indian-head,TARGET,,false,true,Zinc penny copper penny and Indian head test
 9,coin:penny:bronze-copper,TARGET,9,false,true,Copper penny at 9
 10,coin:penny:bronze-copper,TARGET,11,false,true,Copper penny at 11
 11,coin:quarter:cupronickel-clad-copper,TARGET,6,false,true,Quarter at 6
 12,coin:quarter:cupronickel-clad-copper,TARGET,8,false,true,Quarter at 8
 13,coin:quarter:cupronickel-clad-copper,TARGET,10,false,true,Quarter at 10
 14,coin:quarter:cupronickel-clad-copper,TARGET,12,false,true,Quarter at 12
-15,trash:beaver-tail:aluminum|trash:pull-tab-ring:aluminum|trash:pull-tab:aluminum|trash:beaver-tail:aluminum,JUNK,,true,true,Beavertail and pull tab variants
+15,trash:beaver-tail:aluminum|trash:pull-tab-ring:aluminum|trash:pull-tab:aluminum|trash:beaver-tail:aluminum,JUNK,,false,true,Beavertail and pull tab variants
 16,hardware:nail:steel,JUNK,,false,true,Large nail separation setup
 17,trash:pull-tab:aluminum,JUNK,,false,true,Pull tab separation setup
-18,hardware:nail:steel|hardware:nail:steel|hardware:nail:steel,JUNK,,true,true,Mixed nail cluster setup
-19,hardware:nail-bent:steel|hardware:nail-straight:steel,JUNK,,true,true,Bent and straight nail setup
+18,hardware:nail:steel|hardware:nail:steel|hardware:nail:steel,JUNK,,false,true,Mixed nail cluster setup
+19,hardware:nail-bent:steel|hardware:nail-straight:steel,JUNK,,false,true,Bent and straight nail setup
 20,hardware:nail:steel|coin:dime:cupronickel-clad-copper,TARGET,,true,true,Large nail superimposed on clad dime
 21,hardware:nail:steel|coin:dime:cupronickel-clad-copper|hardware:nail:steel,TARGET,,true,true,Large nails with clad dime
 22,coin:dime:cupronickel-clad-copper|hardware:nail:steel,TARGET,,true,true,Clad dime with large nail above
 23,hardware:nail:steel|coin:dime:cupronickel-clad-copper,TARGET,7,true,true,Medium nail offset from clad dime
 24,hardware:nail:steel|coin:dime:cupronickel-clad-copper,TARGET,7,true,true,Small nail offset from dime
-25,trash:fragment:aluminum|trash:beaver-tail:aluminum|trash:pull-tab:aluminum|trash:beaver-tail:aluminum,JUNK,,true,true,Aluminum trash and pull tab mix
+25,trash:fragment:aluminum|trash:beaver-tail:aluminum|trash:pull-tab:aluminum|trash:beaver-tail:aluminum,JUNK,,false,true,Aluminum trash and pull tab mix
 26,trash:foil:aluminum|coin:dime:cupronickel-clad-copper,TARGET,8,true,true,Foil superimposed on clad dime at 8
 27,trash:foil:aluminum|coin:dime:cupronickel-clad-copper,TARGET,7,true,true,Foil offset from clad dime
 28,trash:foil:aluminum|coin:dime:cupronickel-clad-copper,TARGET,7,true,true,Foil near clad dime at 7
 29,trash:bottle-cap:steel|coin:dime:cupronickel-clad-copper,TARGET,7,true,true,Bottle cap superimposed on clad dime
 30,trash:bottle-cap:steel|coin:dime:cupronickel-clad-copper,TARGET,7,true,true,Bottle cap above clad dime
 31,trash:bottle-cap:steel|coin:dime:cupronickel-clad-copper,TARGET,7,true,true,Bottle cap above and offset from clad dime
-32,jewelry:ring:silver,TARGET,6-7,false,false,Small silver ring at 6-7
+32,jewelry:ring:silver,TARGET,6-7,false,true,Small silver ring at 6-7

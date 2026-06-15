@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.screen.RecordingHintCard
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
@@ -189,12 +190,12 @@ fun WebRecordingScreen(
                         onValueChange = viewModel::updateDetectorModel,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
+                    WebDropdownField(
+                        label = "search_mode",
                         value = uiState.draft.searchMode,
+                        suggestions = SEARCH_MODE_OPTIONS,
                         onValueChange = viewModel::updateSearchMode,
-                        label = { Text("search_mode") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
                     )
                 }
             }

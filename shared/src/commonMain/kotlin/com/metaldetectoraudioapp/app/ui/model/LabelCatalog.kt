@@ -194,15 +194,31 @@ private fun parseCsvRows(raw: String): List<List<String>> {
     return rows
 }
 
-val DETECTOR_MODEL_OPTIONS = listOf(
-    "minelab manticore",
-    "minelab equinox 900",
-    "minelab vanquish",
-    "xp deus II",
-    "garrett at",
-    "garrett apex",
-    "garrett ace",
-)
+enum class DetectorModelOption(val wireValue: String) {
+    MINELAB_MANTICORE("minelab manticore"),
+    MINELAB_EQUINOX_900("minelab equinox 900"),
+    MINELAB_VANQUISH("minelab vanquish"),
+    XP_DEUS_II("xp deus II"),
+    GARRETT_AT("garrett at"),
+    GARRETT_APEX("garrett apex"),
+    GARRETT_ACE("garrett ace"),
+}
+
+val DETECTOR_MODEL_OPTIONS = DetectorModelOption.entries.map { it.wireValue }
+
+val DEFAULT_DETECTOR_MODEL = DetectorModelOption.MINELAB_MANTICORE.wireValue
+
+enum class SearchModeOption(val wireValue: String) {
+    ALL_METAL_MODE("All Metal Mode"),
+    ALL_TERRAIN_GENERAL("All Terrain General"),
+    ALL_TERRAIN_HIGH_CONDUCTIVITY("All Terrain High Conductivity"),
+    BEACH("Beach"),
+    GOLD("Gold"),
+}
+
+val SEARCH_MODE_OPTIONS = SearchModeOption.entries.map { it.wireValue }
+
+val DEFAULT_SEARCH_MODE = SearchModeOption.ALL_METAL_MODE.wireValue
 
 // Parses a raw label string (wire format) into a list of LabelEntry objects.
 // Accepts comma, semicolon, or pipe as multi-target delimiters.

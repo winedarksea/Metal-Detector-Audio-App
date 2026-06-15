@@ -43,6 +43,7 @@ import com.metaldetectoraudioapp.app.ui.ReviewViewModel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
@@ -50,11 +51,6 @@ private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
 )
 private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
-private val SEARCH_MODE_OPTIONS = listOf(
-    "all terrain high conductivity",
-    "beach",
-    "field",
-)
 private val SENSITIVITY_OPTIONS = (15..30).map { it.toString() }
 private val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
 private val STABILIZER_OPTIONS = (1..10).map { it.toString() }

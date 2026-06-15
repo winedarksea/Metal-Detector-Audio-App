@@ -3,23 +3,17 @@ package com.metaldetectoraudioapp.app.inference
 import com.metaldetectoraudioapp.app.audio.pipeline.AudioPipelineFrame
 import com.metaldetectoraudioapp.app.audio.pipeline.AudioSignalStatus
 import com.metaldetectoraudioapp.app.audio.pipeline.FrameStreamingPipeline
+import android.content.ContextWrapper
 import android.media.AudioDeviceInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import androidx.test.core.app.ApplicationProvider
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33])
 class InferenceControllerIntegrationTest {
     @Test
     fun fixtureFrames_emitExpectedPredictionSequence() = runTest {
@@ -37,7 +31,7 @@ class InferenceControllerIntegrationTest {
 
         val fakePipeline = FakeFrameStreamingPipeline()
         val fakeClassifier = RuleBasedTestClassifier()
-        val metadataRepo = ModelMetadataRepository(ApplicationProvider.getApplicationContext())
+        val metadataRepo = ModelMetadataRepository(ContextWrapper(null))
         val controller = InferenceController(
             modelMetadata = metadata,
             audioPipeline = fakePipeline,

@@ -10,6 +10,7 @@ import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.LabelSuggestionCatalog
 import com.metaldetectoraudioapp.app.ui.model.defaultLabelCatalog
 import com.metaldetectoraudioapp.app.ui.model.parseCsvCatalog
@@ -60,6 +62,13 @@ fun LabelPickerField(
     }
 
     fun updateEntry(index: Int, updated: LabelEntry) {
+        if (updated.labelClass == ClassLabel.AMBIENT) {
+            entries = listOf(
+                LabelEntry("ambient", "background", "unknown", ClassLabel.AMBIENT)
+            )
+            onValueChange(serializeLabelEntries(entries))
+            return
+        }
         entries = entries.toMutableList().also { it[index] = updated }
         onValueChange(serializeLabelEntries(entries))
     }
@@ -74,6 +83,15 @@ fun LabelPickerField(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(Spacing.xs)
                 ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                        listOf(ClassLabel.TARGET, ClassLabel.JUNK, ClassLabel.AMBIENT).forEach { label ->
+                            FilterChip(
+                                selected = entry.labelClass == label,
+                                onClick = { updateEntry(index, entry.copy(labelClass = label)) },
+                                label = { Text(label.name) },
+                            )
+                        }
+                    }
                     val nameSuggestions = suggestions.namesByObject[entry.obj] ?: emptyList()
                     val materialSuggestions = suggestions.materialsByObject[entry.obj] ?: emptyList()
 
@@ -118,7 +136,7 @@ fun LabelPickerField(
             }
         }
         TextButton(onClick = {
-            entries = entries + LabelEntry()
+            entries = entries + LabelEntry(labelClass = ClassLabel.TARGET)
         }) {
             Text("+ Add Label")
         }

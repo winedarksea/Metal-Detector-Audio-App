@@ -66,6 +66,8 @@ data class ModelArtifacts(
 
 data class ModelMetadata(
     val modelName: String,
+    val modelVariantId: String = "standard",
+    val modelVariantDisplayName: String = modelName,
     val modelVersion: String,
     val labels: List<String>,
     val input: ModelInputConfig,

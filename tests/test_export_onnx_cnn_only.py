@@ -2,10 +2,23 @@ import unittest
 
 import numpy as np
 
-from scripts.export_onnx_cnn_only import classification_outcome_metrics
+from scripts.export_onnx_cnn_only import (
+    classification_outcome_metrics,
+    no_mixed_output_arguments,
+)
 
 
 class ClassificationOutcomeMetricsTest(unittest.TestCase):
+    def test_no_mixed_variant_publishes_complete_artifact_set(self):
+        arguments = no_mixed_output_arguments()
+
+        self.assertIn("models/starter_model_no_mixed.tflite", arguments)
+        self.assertIn("models/starter_model_no_mixed_cnn.tflite", arguments)
+        self.assertIn("models/starter_model_no_mixed_cnn_int8.tflite", arguments)
+        self.assertIn("models/starter_model_no_mixed_cnn.onnx", arguments)
+        self.assertIn("models/starter_model_no_mixed_metadata.json", arguments)
+        self.assertIn("models/starter_model_no_mixed_metrics.json", arguments)
+
     def test_reports_confusion_and_per_class_metrics(self):
         label_order = ["TARGET", "JUNK", "AMBIENT"]
         labels = np.array([0, 0, 1, 1, 2, 2], dtype=np.int64)

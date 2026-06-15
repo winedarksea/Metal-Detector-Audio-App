@@ -267,7 +267,7 @@ class LiteRtCnnClassifier(
 
     private companion object {
         const val TAG = "LiteRtCnnClassifier"
-        const val DEFAULT_TIME_FRAMES = 61
+        const val DEFAULT_TIME_FRAMES = 124
         const val DEFAULT_MEL_BINS = 40
         const val INT8_MIN = -128
         const val INT8_MAX = 127

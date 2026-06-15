@@ -206,12 +206,12 @@ fun DesktopRecordingScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
 
-                    Text("class_label (required)", style = MaterialTheme.typography.labelLarge)
-                    EnumChips(
-                        selectedLabel = uiState.draft.classLabel,
-                        labels = ClassLabel.entries,
-                        toText = { it.name },
-                        onSelect = viewModel::updateClassLabel
+                    Text(
+                        "Each object needs a TARGET or JUNK label. Use AMBIENT only when no " +
+                            "identifiable object is present. Keep all sounds within the same " +
+                            "1-second window; record sounds farther apart as separate files, " +
+                            "and avoid a full second of empty audio in non-ambient recordings.",
+                        style = MaterialTheme.typography.bodySmall,
                     )
 
                     Text("pattern", style = MaterialTheme.typography.labelLarge)
@@ -222,9 +222,12 @@ fun DesktopRecordingScreen(
                         onSelect = viewModel::updatePattern
                     )
 
-                    if (uiState.draft.mixedFlag) {
+                    if (
+                        uiState.draft.targetNameInput.contains("TARGET@") &&
+                        uiState.draft.targetNameInput.contains("JUNK@")
+                    ) {
                         Text(
-                            "mixed_flag: auto-set (multiple labels)",
+                            "mixed_target_and_junk: true",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary
                         )

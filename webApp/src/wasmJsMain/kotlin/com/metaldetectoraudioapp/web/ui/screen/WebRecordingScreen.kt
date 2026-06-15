@@ -110,16 +110,13 @@ fun WebRecordingScreen(
                         maxLines = 3,
                     )
 
-                    Text("class_label (required)", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        ClassLabel.entries.forEach { label ->
-                            FilterChip(
-                                selected = uiState.draft.classLabel == label,
-                                onClick = { viewModel.updateClassLabel(label) },
-                                label = { Text(label.name) }
-                            )
-                        }
-                    }
+                    Text(
+                        "Each object needs a TARGET or JUNK label. Use AMBIENT only when no " +
+                            "identifiable object is present. Keep all sounds within the same " +
+                            "1-second window; record sounds farther apart as separate files, " +
+                            "and avoid a full second of empty audio in non-ambient recordings.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
 
                     Text("pattern", style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -132,9 +129,12 @@ fun WebRecordingScreen(
                         }
                     }
 
-                    if (uiState.draft.mixedFlag) {
+                    if (
+                        uiState.draft.targetNameInput.contains("TARGET@") &&
+                        uiState.draft.targetNameInput.contains("JUNK@")
+                    ) {
                         Text(
-                            "mixed_flag: auto-set (multiple labels)",
+                            "mixed_target_and_junk: true",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary
                         )

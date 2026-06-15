@@ -21,7 +21,10 @@ object DesktopInferenceControllerFactory {
         passthroughSink: PassthroughSink? = null,
     ): InferenceController {
         val metadataRepository = DesktopModelMetadataRepository()
-        val metadata = metadataRepository.load()
+        val availableModels = metadataRepository.listAvailableMetadata()
+        val metadata = availableModels.firstOrNull { it.modelVariantId == "standard" }
+            ?: availableModels.firstOrNull()
+            ?: error("No model metadata resources are available")
 
         val source = DesktopMicrophoneInputSource(metadata.input.sampleRateHz)
         val pipeline = SharedAudioPipeline(
@@ -31,13 +34,18 @@ object DesktopInferenceControllerFactory {
             passthroughSink = passthroughSink,
         )
 
-        val onnxBytes = loadOnnxModelBytes(metadata.artifacts.desktopOnnxFileName)
-        val classifier: AudioWindowClassifier = DesktopOnnxClassifier(onnxBytes, metadata)
+        fun createClassifier(model: ModelMetadata): AudioWindowClassifier =
+            DesktopOnnxClassifier(
+                loadOnnxModelBytes(model.artifacts.desktopOnnxFileName),
+                model,
+            )
 
         return InferenceController(
             modelMetadata = metadata,
             audioPipeline = pipeline,
-            classifier = classifier,
+            initialClassifier = createClassifier(metadata),
+            availableModels = availableModels,
+            classifierFactory = ::createClassifier,
         )
     }
 

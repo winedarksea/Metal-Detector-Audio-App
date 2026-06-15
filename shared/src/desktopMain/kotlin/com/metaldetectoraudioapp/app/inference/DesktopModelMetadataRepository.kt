@@ -13,6 +13,15 @@ import kotlin.io.path.inputStream
  * shared across desktop/android/web targets.
  */
 class DesktopModelMetadataRepository {
+    private val metadataResourceNames = listOf(
+        "starter_model_metadata.json",
+        "starter_model_no_mixed_metadata.json",
+    )
+
+    fun listAvailableMetadata(): List<ModelMetadata> =
+        metadataResourceNames.mapNotNull { resourceName ->
+            runCatching { load(resourceName) }.getOrNull()
+        }
 
     fun load(metadataResourceName: String = "starter_model_metadata.json"): ModelMetadata {
         val classpathMetadata = javaClass.classLoader

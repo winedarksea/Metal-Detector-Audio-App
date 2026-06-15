@@ -8,8 +8,7 @@ Key training features:
     (not mislabeled), solving the sparse-chirp problem.
   - Mel-spectrogram CNN purpose-built for audio classification (replaces frozen
     MobileNetV2-ImageNet which has no audio-relevant features).
-  - Shorter 0.5 s windows (8000 samples @16 kHz) to match typical metal-detector
-    chirp duration (50-300 ms).
+  - One-second windows (16000 samples @16 kHz) matching the recording-label contract.
   - Explicit AMBIENT output class with synthetic ambient augmentation to reduce
     false-positive bias in noisy conditions.
 
@@ -58,33 +57,6 @@ SUPPORTED_CLASS_LABELS = ("TARGET", "JUNK", "AMBIENT")
 MODEL_OUTPUT_LABELS = SUPPORTED_CLASS_LABELS
 SUPPORTED_PATTERNS = ("SWING", "WIGGLE")
 
-CATEGORY_TO_CLASS_LABEL: Dict[str, str] = {
-    "coin": "TARGET",
-    "jewelry": "TARGET",
-    "trash": "JUNK",
-    "hardware": "JUNK",
-    "ambient": "AMBIENT",
-}
-
-
-def target_name_class_labels(target_name: str) -> set[str]:
-    """Map each pipe-separated category:object:material token's category to its
-    class label, returning the set of distinct class labels referenced."""
-    labels: set[str] = set()
-    for token in target_name.split("|"):
-        category = token.strip().split(":", 1)[0].strip()
-        mapped = CATEGORY_TO_CLASS_LABEL.get(category)
-        if mapped is not None:
-            labels.add(mapped)
-    return labels
-
-
-def is_cross_class_mixed(label_row: "LabelRow") -> bool:
-    """mixed_flag=true AND target_name spans >1 distinct class label (e.g. TARGET+JUNK) --
-    "target near/under junk", as opposed to same-class mixes (multiple coins/nails)."""
-    return label_row.mixed_flag and len(target_name_class_labels(label_row.target_name)) > 1
-
-
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -94,7 +66,7 @@ class LabelRow:
     sample_id: str
     target_name: str
     class_label: str
-    mixed_flag: bool
+    mixed_target_and_junk: bool
     include_in_training: bool
     pattern: str = ""
 
@@ -105,9 +77,8 @@ class AudioSampleRecord:
     wav_path: Path
     pattern: str
     class_label: str
-    mixed_flag: bool
+    mixed_target_and_junk: bool
     include_in_training: bool
-    cross_class_mixed: bool
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +104,7 @@ def parse_cli_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--sample-rate", type=int, default=DEFAULT_SAMPLE_RATE_HZ)
     parser.add_argument("--window-size", type=int, default=DEFAULT_WINDOW_SIZE_SAMPLES,
-                        help="Window length in samples (default 8000 = 0.5 s @ 16 kHz).")
+                        help="Window length in samples (default 16000 = 1.0 s @ 16 kHz).")
     parser.add_argument("--hop-size", type=int, default=DEFAULT_HOP_SIZE_SAMPLES,
                         help="Hop between windows in samples (default = window-size / 2).")
     parser.add_argument(
@@ -148,13 +119,12 @@ def parse_cli_args() -> argparse.Namespace:
     parser.add_argument("--ambient-noise-seed", type=int, default=7)
     parser.add_argument(
         "--no-mixed", action="store_true",
-        help="Exclude all records marked as mixed_flag = True.",
+        help="Exclude all records marked as mixed_target_and_junk = True.",
     )
     parser.add_argument(
-        "--mixed-sample-weight", type=float, default=0.2,
-        help="Per-window sample_weight for 'cross-class-mixed' windows (target_name spans "
-             "both a TARGET category like coin/jewelry and a JUNK category like "
-             "trash/hardware, mixed_flag=true). Still trained on, but contributes less to "
+        "--mixed-target-and-junk-sample-weight", "--mixed-sample-weight", type=float, default=0.2,
+        help="Per-window sample_weight for mixed_target_and_junk=true windows. "
+             "Still trained on, but contributes less to "
              "the loss than clean windows (weight 1.0). Set to 1.0 to disable.",
     )
     parser.add_argument("--dry-run", action="store_true")
@@ -209,10 +179,7 @@ def infer_sample_id_from_filename(file_name: str) -> str:
 
 
 def load_label_rows(labels_csv_path: Path, metadata_csv_path: Path = None) -> Dict[str, LabelRow]:
-    required_columns = {
-        "sample_id", "target_name", "class_label",
-        "mixed_flag", "include_in_training",
-    }
+    required_columns = {"sample_id", "target_name", "class_label", "include_in_training"}
     rows_by_id: Dict[str, LabelRow] = {}
 
     # Load from cleaned_labels.csv (legacy format)
@@ -222,7 +189,8 @@ def load_label_rows(labels_csv_path: Path, metadata_csv_path: Path = None) -> Di
             if reader.fieldnames is None:
                 raise ValueError(f"{labels_csv_path.name} is missing a header row")
 
-            missing_columns = required_columns - set(reader.fieldnames)
+            fieldnames = set(reader.fieldnames)
+            missing_columns = required_columns - fieldnames
             if missing_columns:
                 raise ValueError(
                     f"{labels_csv_path.name} missing columns: {', '.join(sorted(missing_columns))}"
@@ -245,11 +213,28 @@ def load_label_rows(labels_csv_path: Path, metadata_csv_path: Path = None) -> Di
                     raise ValueError(f"sample_id={sample_id} has empty target_name")
                 validate_category_object_material_tokens(target_name, sample_id)
 
+                mixed_column = (
+                    "mixed_target_and_junk"
+                    if "mixed_target_and_junk" in fieldnames
+                    else "mixed_flag" if "mixed_flag" in fieldnames
+                    else None
+                )
+                if mixed_column is None:
+                    raise ValueError(
+                        f"{labels_csv_path.name} missing column: mixed_target_and_junk"
+                    )
+                mixed_target_and_junk = parse_bool(row[mixed_column])
+                if mixed_target_and_junk and class_label != "TARGET":
+                    raise ValueError(
+                        f"sample_id={sample_id} has mixed_target_and_junk=true "
+                        f"but class_label={class_label}; only TARGET rows may be mixed"
+                    )
+
                 rows_by_id[sample_id] = LabelRow(
                     sample_id=sample_id,
                     target_name=target_name,
                     class_label=class_label,
-                    mixed_flag=parse_bool(row["mixed_flag"]),
+                    mixed_target_and_junk=mixed_target_and_junk,
                     include_in_training=parse_bool(row["include_in_training"]),
                     pattern=""
                 )
@@ -258,41 +243,51 @@ def load_label_rows(labels_csv_path: Path, metadata_csv_path: Path = None) -> Di
     if metadata_csv_path and metadata_csv_path.exists():
         with metadata_csv_path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
-            # Map app columns to LabelRow fields
-            # app: recording_id -> sample_id
-            # app: target_name -> target_name
-            # app: class_label -> class_label
-            # app: mixed_flag -> mixed_flag
-            # app: include_in_training -> include_in_training
-            for line_no, row in enumerate(reader, start=2):
+            app_rows: Dict[str, list[dict]] = {}
+            for row in reader:
                 sample_id = row.get("recording_id", "").strip()
                 if not sample_id:
                     continue
-                if sample_id in rows_by_id:
-                    # Prefer metadata from recordings_metadata.csv if there's a collision
-                    pass
+                app_rows.setdefault(sample_id, []).append(row)
 
-                class_label = row["class_label"].strip().upper()
-                if class_label not in SUPPORTED_CLASS_LABELS:
-                    continue # Skip unsupported labels in app metadata
-
-                target_name = row["target_name"].strip()
-                if not target_name:
+            for sample_id, recording_rows in app_rows.items():
+                target_names = [
+                    row.get("target_name", "").strip()
+                    for row in recording_rows
+                    if row.get("target_name", "").strip()
+                ]
+                if not target_names:
                     continue
-                
-                try:
+                for target_name in target_names:
                     validate_category_object_material_tokens(target_name, sample_id)
-                except ValueError:
-                    # App might allow freeform target names, handle gracefully or skip
-                    continue
+
+                object_classes = {
+                    row.get("label_class", "").strip().upper()
+                    for row in recording_rows
+                    if row.get("label_class", "").strip()
+                }
+                if object_classes:
+                    class_label = (
+                        "TARGET" if "TARGET" in object_classes
+                        else "JUNK" if "JUNK" in object_classes
+                        else "AMBIENT"
+                    )
+                    mixed_target_and_junk = (
+                        "TARGET" in object_classes and "JUNK" in object_classes
+                    )
+                else:
+                    class_label = "AMBIENT"
+                    mixed_target_and_junk = False
 
                 rows_by_id[sample_id] = LabelRow(
                     sample_id=sample_id,
-                    target_name=target_name,
+                    target_name="|".join(target_names),
                     class_label=class_label,
-                    mixed_flag=parse_bool(row.get("mixed_flag", "false")),
-                    include_in_training=parse_bool(row.get("include_in_training", "false")),
-                    pattern=row.get("pattern", "").strip().upper()
+                    mixed_target_and_junk=mixed_target_and_junk,
+                    include_in_training=parse_bool(
+                        recording_rows[0].get("include_in_training", "false")
+                    ),
+                    pattern=recording_rows[0].get("pattern", "").strip().upper(),
                 )
 
     if not rows_by_id:
@@ -339,9 +334,8 @@ def build_audio_sample_records(
 
         records.append(AudioSampleRecord(
             sample_id=sample_id, wav_path=wav_path, pattern=pattern,
-            class_label=label_row.class_label, mixed_flag=label_row.mixed_flag,
+            class_label=label_row.class_label, mixed_target_and_junk=label_row.mixed_target_and_junk,
             include_in_training=label_row.include_in_training,
-            cross_class_mixed=is_cross_class_mixed(label_row),
         ))
 
     for sid, row in labels_by_id.items():
@@ -401,33 +395,32 @@ def create_training_windows(
     sample_rate: int,
     window_size: int,
     hop_size: int,
-    mixed_sample_weight: float = 0.2,
+    mixed_target_and_junk_sample_weight: float = 0.2,
 ) -> Tuple[
     np.ndarray, np.ndarray, np.ndarray, np.ndarray,
     Dict[str, int], Dict[str, int], Dict[str, int],
 ]:
     """Slide windows and label them.
 
-    Windows from "cross-class-mixed" records (mixed_flag=true and target_name spans both
-    a TARGET category and a JUNK category, e.g. "target near/under junk") get
-    *mixed_sample_weight* instead of 1.0 so they still contribute to the loss but less
+    Windows from mixed_target_and_junk=true records get
+    *mixed_target_and_junk_sample_weight* instead of 1.0 so they still contribute to the loss but less
     than clean windows.
 
-    Returns (x, y, sample_weights, cross_class_mixed_mask, kept_class_counts,
-    excluded_class_counts, cross_class_mixed_window_counts).
+    Returns (x, y, sample_weights, mixed_target_and_junk_mask, kept_class_counts,
+    excluded_class_counts, mixed_target_and_junk_window_counts).
     """
     import numpy as np
 
     features: List[np.ndarray] = []
     labels: List[int] = []
     weights: List[float] = []
-    cross_class_mixed_flags: List[bool] = []
+    mixed_target_and_junk_flags: List[bool] = []
     kept_counts = {c: 0 for c in labels_to_index}
     excluded_counts = {
         c: 0 for c in SUPPORTED_CLASS_LABELS
         if c not in labels_to_index
     }
-    cross_class_mixed_window_counts = {c: 0 for c in labels_to_index}
+    mixed_target_and_junk_window_counts = {c: 0 for c in labels_to_index}
 
     for record in sample_records:
         if not record.include_in_training:
@@ -455,13 +448,13 @@ def create_training_windows(
             features.append(window.astype(np.float32))
             labels.append(labels_to_index[record.class_label])
             kept_counts[record.class_label] += 1
-            if record.cross_class_mixed:
-                weights.append(mixed_sample_weight)
-                cross_class_mixed_flags.append(True)
-                cross_class_mixed_window_counts[record.class_label] += 1
+            if record.mixed_target_and_junk:
+                weights.append(mixed_target_and_junk_sample_weight)
+                mixed_target_and_junk_flags.append(True)
+                mixed_target_and_junk_window_counts[record.class_label] += 1
             else:
                 weights.append(1.0)
-                cross_class_mixed_flags.append(False)
+                mixed_target_and_junk_flags.append(False)
 
     if not features:
         raise ValueError("No training windows produced; check include_in_training")
@@ -470,10 +463,10 @@ def create_training_windows(
         np.stack(features),
         np.array(labels, dtype=np.int64),
         np.array(weights, dtype=np.float32),
-        np.array(cross_class_mixed_flags, dtype=bool),
+        np.array(mixed_target_and_junk_flags, dtype=bool),
         kept_counts,
         excluded_counts,
-        cross_class_mixed_window_counts,
+        mixed_target_and_junk_window_counts,
     )
 
 
@@ -637,8 +630,8 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
 
     if args.no_mixed:
         original_count = len(sample_records)
-        sample_records = [r for r in sample_records if not r.mixed_flag]
-        print(f"Excluding records where mixed_flag = True. "
+        sample_records = [r for r in sample_records if not r.mixed_target_and_junk]
+        print(f"Excluding records where mixed_target_and_junk = True. "
               f"Reduced training pool from {original_count} to {len(sample_records)}.")
 
     label_order = list(MODEL_OUTPUT_LABELS)
@@ -659,13 +652,13 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
     # ---- full training ----
     import numpy as np
 
-    x_all, y_all, sample_weights, cross_class_mixed_mask, kept, excluded, cross_class_mixed_window_counts = create_training_windows(
+    x_all, y_all, sample_weights, mixed_target_and_junk_mask, kept, excluded, mixed_target_and_junk_window_counts = create_training_windows(
         sample_records=sample_records,
         labels_to_index=labels_to_index,
         sample_rate=args.sample_rate,
         window_size=args.window_size,
         hop_size=args.hop_size,
-        mixed_sample_weight=args.mixed_sample_weight,
+        mixed_target_and_junk_sample_weight=args.mixed_target_and_junk_sample_weight,
     )
     training_file_count = sum(
         record.include_in_training and record.class_label in labels_to_index
@@ -699,14 +692,14 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
         sample_weights = np.concatenate(
             [sample_weights, np.ones(synth_count, dtype=np.float32)], axis=0
         )
-        cross_class_mixed_mask = np.concatenate(
-            [cross_class_mixed_mask, np.zeros(synth_count, dtype=bool)], axis=0
+        mixed_target_and_junk_mask = np.concatenate(
+            [mixed_target_and_junk_mask, np.zeros(synth_count, dtype=bool)], axis=0
         )
         kept["AMBIENT"] += synth_count
 
     # Augmentation (quadruples effective dataset size with time-shift + noise + gain)
     x_aug, y_aug, w_aug, mask_aug = augment_training_data(
-        x_all, y_all, sample_weights, cross_class_mixed_mask
+        x_all, y_all, sample_weights, mixed_target_and_junk_mask
     )
     print(f"After augmentation: {x_aug.shape[0]} windows (from {x_all.shape[0]})")
 
@@ -735,9 +728,16 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
     args.model_output.write_bytes(tflite_bytes)
 
     timestamp = datetime.now(timezone.utc).isoformat()
+    variant_id = "no_mixed" if args.no_mixed else "standard"
+    variant_display_name = (
+        "No Mixed Target and Junk" if args.no_mixed
+        else "Standard (Includes Mixed Target and Junk)"
+    )
 
     write_json(args.metadata_output, {
         "model_name": "starter_model",
+        "model_variant_id": variant_id,
+        "model_variant_display_name": variant_display_name,
         "model_version": STARTER_MODEL_VERSION,
         "labels": label_order,
         "input": {
@@ -758,9 +758,9 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
             "backbone": "mel_cnn",
             "epochs": args.epochs,
             "batch_size": args.batch_size,
-            "exclude_mixed_records": bool(args.no_mixed),
-            "mixed_sample_weight": float(args.mixed_sample_weight),
-            "cross_class_mixed_window_counts": cross_class_mixed_window_counts,
+            "exclude_mixed_target_and_junk_records": bool(args.no_mixed),
+            "mixed_target_and_junk_sample_weight": float(args.mixed_target_and_junk_sample_weight),
+            "mixed_target_and_junk_window_counts": mixed_target_and_junk_window_counts,
             "class_window_counts": kept,
             "excluded_class_file_counts": excluded,
             "ambient_window_count_from_files": int(ambient_file_windows.shape[0]),
@@ -778,6 +778,8 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
 
     write_json(args.metrics_output, {
         "model_name": "starter_model",
+        "model_variant_id": variant_id,
+        "model_variant_display_name": variant_display_name,
         "model_version": STARTER_MODEL_VERSION,
         "sample_count": len(sample_records),
         "window_count_before_augmentation": int(x_all.shape[0]),
@@ -787,8 +789,8 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
         },
         "class_window_counts": kept,
         "excluded_class_file_counts": excluded,
-        "mixed_sample_weight": float(args.mixed_sample_weight),
-        "cross_class_mixed_window_counts": cross_class_mixed_window_counts,
+        "mixed_target_and_junk_sample_weight": float(args.mixed_target_and_junk_sample_weight),
+        "mixed_target_and_junk_window_counts": mixed_target_and_junk_window_counts,
         "ambient_window_count_from_files": int(ambient_file_windows.shape[0]),
         "synthetic_ambient_window_count": synth_count,
         "recommended_threshold": recommended_threshold,

@@ -29,22 +29,21 @@ class ModelMetadataRepository(
 
         val inputJson = json.getJSONObject("input")
         val inferenceJson = json.optJSONObject("inference")
-        val trainingJson = json.optJSONObject("training")
         val artifactsJson = json.optJSONObject("artifacts")
         val acceleratorInputJson = artifactsJson?.optJSONObject("accelerator_input")
         val acceleratorLoudnessJson = artifactsJson?.optJSONObject("accelerator_loudness_input")
         val acceleratorOutputJson = artifactsJson?.optJSONObject("accelerator_output")
         
-        // Derive model name to distinguish "no mixed" version if flag is set
-        val baseName = json.getString("model_name")
-        val isNoMixed = trainingJson?.optBoolean("exclude_mixed_records", false) ?: false
-        val modelDisplayName = if (isNoMixed) "$baseName (No Mixed)" else baseName
-
         val waveformFileName = artifactsJson.optStringOrNull("waveform_tflite")
             ?: metadataAssetName.replace("_metadata.json", ".tflite")
 
         return ModelMetadata(
-            modelName = modelDisplayName,
+            modelName = json.getString("model_name"),
+            modelVariantId = json.optString("model_variant_id", "standard"),
+            modelVariantDisplayName = json.optString(
+                "model_variant_display_name",
+                json.getString("model_name"),
+            ),
             modelVersion = json.getString("model_version"),
             labels = labels,
             input = ModelInputConfig(

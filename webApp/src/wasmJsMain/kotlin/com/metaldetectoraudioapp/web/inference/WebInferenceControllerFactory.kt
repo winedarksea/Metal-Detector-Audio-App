@@ -11,11 +11,21 @@ import kotlin.coroutines.resumeWithException
 object WebInferenceControllerFactory {
 
     suspend fun create(): InferenceController {
-        val metadataJson = fetchText("/app/starter_model_metadata.json")
-        val metadata = ModelMetadataJson.parse(metadataJson, "starter_model_metadata.json")
-
-        val onnxBytes = fetchBytes("/app/starter_model_cnn.onnx")
-        val classifier = WebOnnxClassifier.create(onnxBytes, metadata)
+        val metadataResourceNames = listOf(
+            "starter_model_metadata.json",
+            "starter_model_no_mixed_metadata.json",
+        )
+        val availableModels = metadataResourceNames.map { resourceName ->
+            ModelMetadataJson.parse(fetchText("/app/$resourceName"), resourceName)
+        }
+        val metadata = availableModels.first { it.modelVariantId == "standard" }
+        suspend fun createClassifier(
+            model: com.metaldetectoraudioapp.app.inference.ModelMetadata
+        ): WebOnnxClassifier {
+            val onnxFileName = model.artifacts.desktopOnnxFileName
+                ?: error("Missing desktop_onnx artifact for ${model.modelVariantId}")
+            return WebOnnxClassifier.create(fetchBytes("/app/$onnxFileName"), model)
+        }
 
         val source = WebMicrophoneInputSource(sampleRateHz = metadata.input.sampleRateHz)
         val pipeline = SharedAudioPipeline(
@@ -27,7 +37,9 @@ object WebInferenceControllerFactory {
         return InferenceController(
             modelMetadata = metadata,
             audioPipeline = pipeline,
-            classifier = classifier,
+            initialClassifier = createClassifier(metadata),
+            availableModels = availableModels,
+            classifierFactory = ::createClassifier,
         )
     }
 

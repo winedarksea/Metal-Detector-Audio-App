@@ -30,7 +30,12 @@ package com.metaldetectoraudioapp.app.ui.model
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Represents one object:name:material triple within a recording label.
-data class LabelEntry(val obj: String = "", val name: String = "", val material: String = "")
+data class LabelEntry(
+    val obj: String = "",
+    val name: String = "",
+    val material: String = "",
+    val labelClass: ClassLabel = ClassLabel.TARGET,
+)
 
 // Holds the full set of suggested values shown in the label picker dropdowns.
 data class LabelSuggestionCatalog(
@@ -207,11 +212,19 @@ fun parseLabelEntries(raw: String): List<LabelEntry> {
         .map { it.trim() }
         .filter { it.isNotBlank() }
         .map { token ->
-            val parts = token.split(":")
+            val classSeparator = token.indexOf('@')
+            val labelClass = if (classSeparator > 0) {
+                ClassLabel.fromWireValue(token.substring(0, classSeparator))
+            } else {
+                ClassLabel.TARGET
+            }
+            val targetToken = if (classSeparator > 0) token.substring(classSeparator + 1) else token
+            val parts = targetToken.split(":")
             LabelEntry(
                 obj      = parts.getOrElse(0) { "" },
                 name     = parts.getOrElse(1) { "" },
                 material = parts.getOrElse(2) { "" },
+                labelClass = labelClass,
             )
         }
         .ifEmpty { listOf(LabelEntry()) }
@@ -221,4 +234,4 @@ fun parseLabelEntries(raw: String): List<LabelEntry> {
 fun serializeLabelEntries(entries: List<LabelEntry>): String =
     entries
         .filter { it.obj.isNotBlank() || it.name.isNotBlank() || it.material.isNotBlank() }
-        .joinToString("|") { "${it.obj}:${it.name}:${it.material}" }
+        .joinToString("|") { "${it.labelClass.name}@${it.obj}:${it.name}:${it.material}" }

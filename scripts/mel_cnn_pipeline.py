@@ -19,8 +19,8 @@ DEFAULT_MEL_LOWER_HZ = 80.0
 DEFAULT_MEL_UPPER_HZ = 7600.0
 
 # Window / hop sizes in samples.
-DEFAULT_WINDOW_SIZE_SAMPLES = 8_000   # 0.5 s @ 16 kHz
-DEFAULT_HOP_SIZE_SAMPLES = DEFAULT_WINDOW_SIZE_SAMPLES // 2  # 0.25 s
+DEFAULT_WINDOW_SIZE_SAMPLES = 16_000   # 1.0 s @ 16 kHz
+DEFAULT_HOP_SIZE_SAMPLES = DEFAULT_WINDOW_SIZE_SAMPLES // 2  # 0.5 s
 
 # Floor for peak-norm divisor and log-RMS loudness feature.  Must match the Kotlin
 # feature extractors (MelSpectrogramFeatureExtractor / AndroidMelSpectrogramFeatureExtractor).

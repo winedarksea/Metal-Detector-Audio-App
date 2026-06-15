@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.app.audio.source
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
@@ -8,6 +9,7 @@ import android.util.Log
 import com.metaldetectoraudioapp.app.audio.AudioConstants
 import kotlin.math.max
 
+@SuppressLint("MissingPermission")
 class MicrophoneAudioInputSource(
     context: Context,
     override val sampleRateHz: Int = AudioConstants.INFERENCE_SAMPLE_RATE_HZ
@@ -36,6 +38,7 @@ class MicrophoneAudioInputSource(
         Log.i(TAG, "AudioRecord created: state=${audioRecord.state}")
     }
 
+    @SuppressLint("MissingPermission")
     override fun start() {
         if (audioRecord.state == AudioRecord.STATE_INITIALIZED) {
             audioRecord.startRecording()

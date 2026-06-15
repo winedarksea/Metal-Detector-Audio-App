@@ -20,14 +20,17 @@ class RecordingRepositoryTest {
         val saved = repository.saveCapturedRecording(
             capturedRecording = CapturedRecording(tempAudioFile = tempAudio, durationMs = 1_234),
             labelDraft = RecordingLabelDraft(
-                targetNames = listOf("coin:quarter:cupronickel-clad-copper"),
-                classLabel = ClassLabel.TARGET,
+                objectLabels = listOf(
+                    RecordingObjectLabel(
+                        "coin:quarter:cupronickel-clad-copper",
+                        ClassLabel.TARGET,
+                    )
+                ),
                 pattern = SweepPattern.SWING,
                 depthInches = "10",
                 notes = "clean hit",
                 gpsLatitude = 41.12345,
                 gpsLongitude = -88.12345,
-                mixedFlag = false,
                 includeInTraining = true
             )
         )
@@ -61,17 +64,21 @@ class RecordingRepositoryTest {
         val saved = repository.saveCapturedRecording(
             capturedRecording = CapturedRecording(tempAudioFile = tempAudio, durationMs = 2_345),
             labelDraft = RecordingLabelDraft(
-                targetNames = listOf(
-                    "coin:dime:cupronickel-clad-copper",
-                    "trash:foil:aluminum"
+                objectLabels = listOf(
+                    RecordingObjectLabel(
+                        "coin:dime:cupronickel-clad-copper",
+                        ClassLabel.TARGET,
+                    ),
+                    RecordingObjectLabel(
+                        "trash:foil:aluminum",
+                        ClassLabel.JUNK,
+                    ),
                 ),
-                classLabel = ClassLabel.TARGET,
                 pattern = SweepPattern.WIGGLE,
                 depthInches = "7",
                 notes = "two targets",
                 gpsLatitude = null,
                 gpsLongitude = null,
-                mixedFlag = true,
                 includeInTraining = false,
                 detectorModel = "minelab manticore",
                 searchMode = "field",
@@ -85,6 +92,7 @@ class RecordingRepositoryTest {
         val recordings = repository.listRecordings()
         assertEquals(1, recordings.size)
         assertEquals(2, recordings.first().targetNames.size)
+        assertTrue(recordings.first().mixedTargetAndJunk)
 
         val csvLines = repository.metadataFile().readLines().filter { it.isNotBlank() }
         assertEquals(3, csvLines.size) // header + 2 target rows

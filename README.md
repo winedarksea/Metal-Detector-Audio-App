@@ -39,14 +39,15 @@ Questions? Opening an Issues or Discussion here on GitHub is the best place to s
 - Recording flow: `Start -> Stop -> Label -> Save`.
 - 48kHz mono PCM16 WAV capture for high-quality training reuse.
 - Label fields:
-  - `target_name` (supports multiple names, each in `category:object:material` form)
-  - `class_label`
+  - `target_name` (one row per object, in `category:object:material` form)
+  - `label_class` (`TARGET`, `JUNK`, or `AMBIENT`) for each object
+  - `class_label` (derived: TARGET if any target exists, otherwise JUNK or AMBIENT)
   - `pattern`
   - `depth_inches`
   - `notes` (short free-text description)
   - `gps_latitude`, `gps_longitude` (captured via `Use Current GPS`)
-  - `mixed_flag`
-  - `include_in_training` (auto-disabled by default when `mixed_flag=true`)
+  - `mixed_target_and_junk` (derived from at least one TARGET and one JUNK object)
+  - `include_in_training`
 - Data review screen:
   - playback
   - relabel names and class
@@ -70,6 +71,12 @@ Questions? Opening an Issues or Discussion here on GitHub is the best place to s
   - `models/starter_model_cnn.onnx`
   - `models/starter_model_metadata.json`
   - `models/starter_model_metrics.json`
+  - `models/starter_model_no_mixed.tflite`
+  - `models/starter_model_no_mixed_cnn.tflite`
+  - `models/starter_model_no_mixed_cnn_int8.tflite`
+  - `models/starter_model_no_mixed_cnn.onnx`
+  - `models/starter_model_no_mixed_metadata.json`
+  - `models/starter_model_no_mixed_metrics.json`
 - Gradle `preBuild` runs validation (`--dry-run`) and fails on inconsistent labels/assets.
 
 ## Project layout
@@ -124,12 +131,14 @@ conda run -n gpu311 python scripts/train_starter_model.py \
   --batch-size 8
 ```
 
-### 3) Train and export split-model artifacts for Desktop + LiteRT
+### 3) Train and export both production variants for all apps
 ```bash
 conda run -n gpu311 python scripts/export_onnx_cnn_only.py --epochs 20 --batch-size 16
 ```
 
-That command writes:
+That command writes complete standard and no-mixed artifact sets. Use
+`--single-variant` for debugging one standard variant, or `--no-mixed` for a
+backward-compatible single no-mixed export.
 - `models/starter_model.tflite`
 - `models/starter_model_cnn.tflite`
 - `models/starter_model_cnn_int8.tflite`

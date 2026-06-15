@@ -48,6 +48,8 @@ jobs:
           # Model assets
           cp models/starter_model_cnn.onnx        dist/app/
           cp models/starter_model_metadata.json   dist/app/
+          cp models/starter_model_no_mixed_cnn.onnx      dist/app/
+          cp models/starter_model_no_mixed_metadata.json dist/app/
 
           # Download onnxruntime-web into dist/ so it is served same-origin from /app/
           # at runtime (no CDN dependency once deployed). --retry guards against transient

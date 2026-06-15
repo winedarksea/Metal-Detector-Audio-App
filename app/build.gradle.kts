@@ -80,6 +80,37 @@ val validateStarterTrainingInputs by tasks.registering(Exec::class) {
     )
 }
 
+val validatePublishedModelArtifacts by tasks.registering {
+    group = "verification"
+    description = "Requires complete standard and no-mixed production model artifact sets."
+    val requiredArtifactNames = listOf(
+        "starter_model.tflite",
+        "starter_model_cnn.tflite",
+        "starter_model_cnn_int8.tflite",
+        "starter_model_cnn.onnx",
+        "starter_model_metadata.json",
+        "starter_model_metrics.json",
+        "starter_model_no_mixed.tflite",
+        "starter_model_no_mixed_cnn.tflite",
+        "starter_model_no_mixed_cnn_int8.tflite",
+        "starter_model_no_mixed_cnn.onnx",
+        "starter_model_no_mixed_metadata.json",
+        "starter_model_no_mixed_metrics.json",
+    )
+    val artifactFiles = requiredArtifactNames.map { rootProject.file("models/$it") }
+    inputs.files(artifactFiles)
+    doLast {
+        val missing = artifactFiles.filterNot(File::isFile)
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Missing production model artifacts:\n" +
+                    missing.joinToString("\n") { "  - ${it.relativeTo(rootDir)}" } +
+                    "\nRun the default scripts/export_onnx_cnn_only.py command."
+            )
+        }
+    }
+}
+
 // ── LabelCatalog single-source-of-truth enforcement ─────────────────────────
 // :app does not depend on :shared (their ui.model packages would collide), so it
 // keeps a byte-identical duplicate of LabelCatalog.kt. These tasks keep the two
@@ -118,6 +149,7 @@ val checkLabelCatalogInSync by tasks.registering {
 
 tasks.named("preBuild").configure {
     dependsOn(validateStarterTrainingInputs)
+    dependsOn(validatePublishedModelArtifacts)
     dependsOn(checkLabelCatalogInSync)
 }
 

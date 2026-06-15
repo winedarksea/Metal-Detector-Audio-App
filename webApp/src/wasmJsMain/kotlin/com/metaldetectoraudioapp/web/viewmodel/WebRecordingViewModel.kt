@@ -3,10 +3,12 @@ package com.metaldetectoraudioapp.web.viewmodel
 import com.metaldetectoraudioapp.app.audio.AudioPlayer
 import com.metaldetectoraudioapp.app.recording.CapturedRecording
 import com.metaldetectoraudioapp.app.recording.RecordingLabelDraft
+import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.recording.RecordingRepository
 import com.metaldetectoraudioapp.app.recording.WavCodec
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.RecordingDraftUiState
+import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.RecordingUiState
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.util.Clocks
@@ -124,10 +126,8 @@ class WebRecordingViewModel(
     }
 
     fun updateTargetNames(value: String) {
-        val isMixed = value.split(',', ';', '|').count { it.trim().isNotBlank() } > 1
-        updateDraft(_uiState.value.draft.copy(targetNameInput = value, mixedFlag = isMixed))
+        updateDraft(_uiState.value.draft.copy(targetNameInput = value))
     }
-    fun updateClassLabel(value: ClassLabel) = updateDraft(_uiState.value.draft.copy(classLabel = value))
     fun updatePattern(value: SweepPattern) = updateDraft(_uiState.value.draft.copy(pattern = value))
     fun updateDepthInches(value: String) = updateDraft(_uiState.value.draft.copy(depthInches = value))
     fun updateNotes(value: String) = updateDraft(_uiState.value.draft.copy(notesInput = value))
@@ -146,18 +146,13 @@ class WebRecordingViewModel(
             return
         }
         val draft = _uiState.value.draft
-        val classLabel = draft.classLabel
-        if (classLabel == null) {
-            _uiState.value = _uiState.value.copy(errorMessage = "class_label is required")
-            return
-        }
-        val targetNames = draft.targetNameInput
-            .split(',', ';', '|')
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-
-        if (targetNames.isEmpty() && classLabel != ClassLabel.AMBIENT) {
-            _uiState.value = _uiState.value.copy(errorMessage = "target_name is required")
+        val objectLabels = parseLabelEntries(draft.targetNameInput)
+            .filter { it.obj.isNotBlank() || it.name.isNotBlank() || it.material.isNotBlank() }
+            .map {
+                RecordingObjectLabel("${it.obj}:${it.name}:${it.material}", it.labelClass)
+            }
+        if (objectLabels.isEmpty()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "At least one labeled object is required")
             return
         }
 
@@ -166,14 +161,12 @@ class WebRecordingViewModel(
                 val metadata = recordingRepository.saveCapturedRecording(
                     capturedRecording = captured,
                     labelDraft = RecordingLabelDraft(
-                        targetNames = targetNames.ifEmpty { listOf("ambient:background:unknown") },
-                        classLabel = classLabel,
+                        objectLabels = objectLabels,
                         pattern = draft.pattern,
                         depthInches = draft.depthInches.ifBlank { null },
                         notes = draft.notesInput.ifBlank { null },
                         gpsLatitude = null,
                         gpsLongitude = null,
-                        mixedFlag = targetNames.size > 1,
                         includeInTraining = draft.includeInTraining,
                         soilType = draft.soilType.ifBlank { null },
                         moisture = draft.moisture.ifBlank { null },
@@ -190,7 +183,6 @@ class WebRecordingViewModel(
                 _uiState.value = RecordingUiState(
                     draft = RecordingDraftUiState(
                         includeInTraining = true,
-                        classLabel = null,
                         pattern = metadata.pattern
                     ),
                     saveResultMessage = "Saved ${metadata.audioFileName}",

@@ -22,9 +22,14 @@ class SharedInferenceViewModel(
     private val controller: InferenceController,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
+    private val availableModels = controller.getAvailableModels()
+    private val initialModel = availableModels.firstOrNull {
+        it.modelName == controller.uiState.value.modelName &&
+            it.modelVersion == controller.uiState.value.modelVersion
+    } ?: availableModels.first()
     private val defaultModelOption = InferenceModelOption(
-        id = "${controller.uiState.value.modelName}:${controller.uiState.value.modelVersion}",
-        label = "${controller.uiState.value.modelName} v${controller.uiState.value.modelVersion}"
+        id = initialModel.assetId,
+        label = initialModel.modelVariantDisplayName,
     )
 
     private val _uiState = MutableStateFlow(controller.uiState.value)
@@ -36,7 +41,9 @@ class SharedInferenceViewModel(
     private val _passthroughEnabled = MutableStateFlow(false)
     val passthroughEnabled: StateFlow<Boolean> = _passthroughEnabled.asStateFlow()
 
-    private val _availableModelOptions = MutableStateFlow(listOf(defaultModelOption))
+    private val _availableModelOptions = MutableStateFlow(
+        availableModels.map { InferenceModelOption(it.assetId, it.modelVariantDisplayName) }
+    )
     val availableModelOptions: StateFlow<List<InferenceModelOption>> = _availableModelOptions.asStateFlow()
 
     private val _selectedModelOptionId = MutableStateFlow(defaultModelOption.id)
@@ -61,9 +68,10 @@ class SharedInferenceViewModel(
     }
 
     fun selectModelOption(optionId: String) {
-        if (_availableModelOptions.value.any { it.id == optionId }) {
-            _selectedModelOptionId.value = optionId
-        }
+        if (_selectedModelOptionId.value == optionId) return
+        val model = availableModels.firstOrNull { it.assetId == optionId } ?: return
+        controller.switchModel(model)
+        _selectedModelOptionId.value = optionId
     }
 
     fun close() {

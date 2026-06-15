@@ -28,7 +28,7 @@ class LabelRow:
     sample_id: int
     target_name: str
     class_label: str
-    mixed_flag: bool
+    mixed_target_and_junk: bool
     include_in_training: bool
 
 
@@ -38,7 +38,7 @@ class AudioSampleRecord:
     wav_path: Path
     pattern: str
     class_label: str
-    mixed_flag: bool
+    mixed_target_and_junk: bool
     include_in_training: bool
 
 
@@ -116,7 +116,7 @@ def load_label_rows(labels_csv_path: Path) -> Dict[int, LabelRow]:
         "sample_id",
         "target_name",
         "class_label",
-        "mixed_flag",
+        "mixed_target_and_junk",
         "include_in_training",
     }
     with labels_csv_path.open("r", encoding="utf-8", newline="") as handle:
@@ -153,7 +153,7 @@ def load_label_rows(labels_csv_path: Path) -> Dict[int, LabelRow]:
                 sample_id=sample_id,
                 target_name=target_name,
                 class_label=class_label,
-                mixed_flag=parse_bool(row["mixed_flag"]),
+                mixed_target_and_junk=parse_bool(row["mixed_target_and_junk"]),
                 include_in_training=parse_bool(row["include_in_training"]),
             )
 
@@ -197,7 +197,7 @@ def build_audio_sample_records(
                 wav_path=wav_path,
                 pattern=pattern,
                 class_label=label_row.class_label,
-                mixed_flag=label_row.mixed_flag,
+                mixed_target_and_junk=label_row.mixed_target_and_junk,
                 include_in_training=label_row.include_in_training,
             )
         )

@@ -4,6 +4,9 @@
 
 /app/starter_model_cnn.onnx
   Content-Type: application/octet-stream
+
+/app/starter_model_no_mixed_cnn.onnx
+  Content-Type: application/octet-stream
   Cache-Control: public, max-age=86400
 
 /app/manifest.webmanifest

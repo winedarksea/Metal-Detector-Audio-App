@@ -17,12 +17,15 @@ import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 class InferenceController(
-    private val modelMetadata: ModelMetadata,
+    private var modelMetadata: ModelMetadata,
     private val audioPipeline: FrameStreamingPipeline,
-    private val classifier: AudioWindowClassifier,
+    initialClassifier: AudioWindowClassifier,
+    private val availableModels: List<ModelMetadata> = listOf(modelMetadata),
+    private val classifierFactory: (suspend (ModelMetadata) -> AudioWindowClassifier)? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 ) {
     private val logTag = "InferenceController"
+    private var classifier: AudioWindowClassifier = initialClassifier
 
     private val _uiState = MutableStateFlow(
         InferenceUiState(
@@ -59,6 +62,43 @@ class InferenceController(
 
     fun setPassthroughEnabled(enabled: Boolean) {
         audioPipeline.setPassthroughEnabled(enabled)
+    }
+
+    fun getAvailableModels(): List<ModelMetadata> = availableModels
+
+    fun switchModel(metadata: ModelMetadata) {
+        if (metadata.assetId == modelMetadata.assetId) return
+        require(
+            metadata.input.sampleRateHz == modelMetadata.input.sampleRateHz &&
+                metadata.input.windowSizeSamples == modelMetadata.input.windowSizeSamples &&
+                metadata.input.hopSizeSamples == modelMetadata.input.hopSizeSamples
+        ) {
+            "Model '${metadata.modelVariantId}' input configuration does not match the active pipeline"
+        }
+        val factory = classifierFactory ?: error("This controller does not support model switching")
+        scope.launch {
+            val wasRunning = _uiState.value.isRunning
+            if (wasRunning) stop()
+            val oldClassifier = classifier
+            classifier = factory(metadata)
+            modelMetadata = metadata
+            oldClassifier.close()
+            latencyAccumulatorMs = 0L
+            inferenceCount = 0L
+            stickyTargetEndMs = 0L
+            _uiState.value = _uiState.value.copy(
+                modelName = metadata.modelName,
+                modelVersion = metadata.modelVersion,
+                activeAccelerator = classifier.activeAccelerator,
+                threshold = metadata.recommendedThreshold,
+                recentDetections = emptyList(),
+                stickyTargetActive = false,
+                stickyTargetConfidence = 0f,
+                recentTargetCount = 0,
+                inferenceError = null,
+            )
+            if (wasRunning) start()
+        }
     }
 
     fun start() {

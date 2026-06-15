@@ -11,9 +11,11 @@ import com.metaldetectoraudioapp.app.recording.AudioPlaybackController
 import com.metaldetectoraudioapp.app.recording.AudioRecordingSession
 import com.metaldetectoraudioapp.app.recording.CapturedRecording
 import com.metaldetectoraudioapp.app.recording.RecordingLabelDraft
+import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.recording.RecordingLocationProvider
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.RecordingDraftUiState
+import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.RecordingUiState
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,12 +110,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun updateTargetNames(value: String) {
-        val isMixed = value.split(',', ';', '|').count { it.trim().isNotBlank() } > 1
-        updateDraft(_uiState.value.draft.copy(targetNameInput = value, mixedFlag = isMixed))
-    }
-
-    fun updateClassLabel(value: ClassLabel) {
-        updateDraft(_uiState.value.draft.copy(classLabel = value))
+        updateDraft(_uiState.value.draft.copy(targetNameInput = value))
     }
 
     fun updatePattern(value: SweepPattern) {
@@ -246,24 +243,22 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         val draft = withAutoLocationIfAvailable(_uiState.value.draft)
-        val classLabel = draft.classLabel
-        if (classLabel == null) {
-            _uiState.value = _uiState.value.copy(errorMessage = "class_label is required")
+        val objectLabels = parseLabelEntries(draft.targetNameInput)
+            .filter { it.obj.isNotBlank() || it.name.isNotBlank() || it.material.isNotBlank() }
+            .map {
+                RecordingObjectLabel(
+                    targetName = "${it.obj}:${it.name}:${it.material}",
+                    labelClass = it.labelClass,
+                )
+            }
+        if (objectLabels.isEmpty()) {
+            _uiState.value = _uiState.value.copy(errorMessage = "At least one labeled object is required")
             return
         }
-        val targetNames = draft.targetNameInput
-            .split(',', ';', '|')
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-
-        if (targetNames.isEmpty() && classLabel != ClassLabel.AMBIENT) {
-            _uiState.value = _uiState.value.copy(errorMessage = "target_name is required")
-            return
-        }
-        val invalidToken = targetNames.firstOrNull { !isCategoryObjectMaterialLabel(it) }
-        if (classLabel != ClassLabel.AMBIENT && invalidToken != null) {
+        val invalidToken = objectLabels.firstOrNull { !isCategoryObjectMaterialLabel(it.targetName) }
+        if (invalidToken != null) {
             _uiState.value = _uiState.value.copy(
-                errorMessage = "target_name '$invalidToken' must be category:object:material"
+                errorMessage = "target_name '${invalidToken.targetName}' must be category:object:material"
             )
             return
         }
@@ -272,18 +267,12 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             val metadata = recordingRepository.saveCapturedRecording(
                 capturedRecording = captured,
                 labelDraft = RecordingLabelDraft(
-                    targetNames = if (targetNames.isEmpty()) {
-                        listOf("ambient:background:unknown")
-                    } else {
-                        targetNames
-                    },
-                    classLabel = classLabel,
+                    objectLabels = objectLabels,
                     pattern = draft.pattern,
                     depthInches = draft.depthInches.ifBlank { null },
                     notes = draft.notesInput.ifBlank { null },
                     gpsLatitude = draft.gpsLatitude,
                     gpsLongitude = draft.gpsLongitude,
-                    mixedFlag = targetNames.size > 1,
                     includeInTraining = draft.includeInTraining,
                     soilType = draft.soilType.ifBlank { null },
                     moisture = draft.moisture.ifBlank { null },
@@ -300,7 +289,6 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             _uiState.value = RecordingUiState(
                 draft = RecordingDraftUiState(
                     includeInTraining = true,
-                    classLabel = null,
                     pattern = metadata.pattern
                 ),
                 saveResultMessage = "Saved ${metadata.audioFileName}",
@@ -359,10 +347,8 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             rmsLevel = 0f,
             draft = if (announce) _uiState.value.draft.copy(
                 targetNameInput = "",
-                classLabel = null,
                 depthInches = "",
                 notesInput = "",
-                mixedFlag = false
             ) else _uiState.value.draft
         )
     }

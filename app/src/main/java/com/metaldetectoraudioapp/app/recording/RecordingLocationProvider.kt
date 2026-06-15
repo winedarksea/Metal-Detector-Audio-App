@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.app.recording
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -14,6 +15,7 @@ import androidx.core.content.ContextCompat
 class RecordingLocationProvider(
     private val context: Context
 ) {
+    @SuppressLint("MissingPermission")
     fun readLatestKnownLocation(): Pair<Double, Double>? {
         if (!hasLocationPermission()) {
             return null

@@ -125,14 +125,12 @@ class DatasetBundleManager(
             val saved = recordingRepository.saveCapturedRecording(
                 capturedRecording = CapturedRecording(tempAudioCopy, metadata.durationMs),
                 labelDraft = RecordingLabelDraft(
-                    targetNames = metadata.targetNames,
-                    classLabel = metadata.classLabel,
+                    objectLabels = metadata.objectLabels,
                     pattern = metadata.pattern,
                     depthInches = metadata.depthInches,
                     notes = metadata.notes,
                     gpsLatitude = metadata.gpsLatitude,
                     gpsLongitude = metadata.gpsLongitude,
-                    mixedFlag = metadata.mixedFlag,
                     includeInTraining = metadata.includeInTraining,
                     soilType = metadata.soilType,
                     moisture = metadata.moisture,

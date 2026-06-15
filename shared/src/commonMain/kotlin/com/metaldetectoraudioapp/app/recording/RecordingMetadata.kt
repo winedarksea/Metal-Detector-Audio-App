@@ -6,14 +6,12 @@ import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 data class RecordingMetadata(
     val recordingId: String,
     val audioFileName: String,
-    val targetNames: List<String>,
-    val classLabel: ClassLabel,
+    val objectLabels: List<RecordingObjectLabel>,
     val pattern: SweepPattern,
     val depthInches: String?,
     val notes: String?,
     val gpsLatitude: Double?,
     val gpsLongitude: Double?,
-    val mixedFlag: Boolean,
     val includeInTraining: Boolean,
     val createdEpochMs: Long,
     val durationMs: Long,
@@ -25,4 +23,12 @@ data class RecordingMetadata(
     val recoverySpeed: String? = null,
     val stabilizer: String? = null,
     val imageFileName: String? = null,
-)
+) {
+    init {
+        validateRecordingObjectLabels(objectLabels)
+    }
+
+    val targetNames: List<String> get() = objectLabels.map { it.targetName }
+    val classLabel: ClassLabel get() = deriveRecordingClassLabel(objectLabels)
+    val mixedTargetAndJunk: Boolean get() = deriveMixedTargetAndJunk(objectLabels)
+}

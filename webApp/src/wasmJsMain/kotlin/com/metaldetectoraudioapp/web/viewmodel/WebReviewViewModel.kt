@@ -5,8 +5,10 @@ import com.metaldetectoraudioapp.app.export.DatasetBundleManager
 import com.metaldetectoraudioapp.app.platform.FileDownloader
 import com.metaldetectoraudioapp.app.platform.FilePicker
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
+import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.recording.RecordingRepository
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.ReviewUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -69,21 +71,11 @@ class WebReviewViewModel(
     }
 
     fun relabelTargetNames(recording: RecordingMetadata, input: String) {
-        val names = input.split(',', ';', '|').map { it.trim() }.filter { it.isNotBlank() }
-        scope.launch {
-            recordingRepository.updateRecording(
-                recording.copy(
-                    targetNames = names.ifEmpty { listOf("ambient:background:unknown") },
-                    mixedFlag = names.size > 1,
-                )
-            )
-            refresh()
+        val objectLabels = parseLabelEntries(input).map {
+            RecordingObjectLabel("${it.obj}:${it.name}:${it.material}", it.labelClass)
         }
-    }
-
-    fun relabelClass(recording: RecordingMetadata, label: ClassLabel) {
         scope.launch {
-            recordingRepository.updateRecording(recording.copy(classLabel = label))
+            recordingRepository.updateRecording(recording.copy(objectLabels = objectLabels))
             refresh()
         }
     }

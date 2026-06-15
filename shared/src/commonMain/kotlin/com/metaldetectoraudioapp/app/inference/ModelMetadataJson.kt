@@ -42,6 +42,10 @@ object ModelMetadataJson {
 
         return ModelMetadata(
             modelName = root["model_name"]!!.jsonPrimitive.content,
+            modelVariantId = root["model_variant_id"]?.jsonPrimitive?.contentOrNull ?: "standard",
+            modelVariantDisplayName = root["model_variant_display_name"]
+                ?.jsonPrimitive?.contentOrNull
+                ?: root["model_name"]!!.jsonPrimitive.content,
             modelVersion = root["model_version"]!!.jsonPrimitive.content,
             labels = labels,
             input = ModelInputConfig(

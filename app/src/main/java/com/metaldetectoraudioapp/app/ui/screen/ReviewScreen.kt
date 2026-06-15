@@ -42,6 +42,8 @@ import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.ReviewViewModel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
 private val SOIL_TYPE_OPTIONS = listOf(
@@ -146,7 +148,6 @@ fun ReviewScreen(
                 onPlay = { viewModel.playOrStop(recording) },
                 onToggleInclude = { viewModel.toggleIncludeInTraining(recording, it) },
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
-                onRelabelClass = { viewModel.relabelClass(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
                 onRelabelEnvironment = { soil, moist, detectorModel, searchMode, sensitivity, recovery, stabilizer ->
                     viewModel.relabelEnvironment(
@@ -173,7 +174,6 @@ private fun RecordingReviewCard(
     onPlay: () -> Unit,
     onToggleInclude: (Boolean) -> Unit,
     onRelabelTargets: (String) -> Unit,
-    onRelabelClass: (ClassLabel) -> Unit,
     onRelabelNotes: (String) -> Unit,
     onRelabelEnvironment: (
         soilType: String,
@@ -187,7 +187,17 @@ private fun RecordingReviewCard(
     onDelete: () -> Unit
 ) {
     var targetInput by remember(recording.recordingId) {
-        mutableStateOf(recording.targetNames.joinToString(","))
+        mutableStateOf(
+            serializeLabelEntries(recording.objectLabels.map {
+                val parts = it.targetName.split(":")
+                LabelEntry(
+                    obj = parts.getOrElse(0) { "" },
+                    name = parts.getOrElse(1) { "" },
+                    material = parts.getOrElse(2) { "" },
+                    labelClass = it.labelClass,
+                )
+            })
+        )
     }
     var notesInput by remember(recording.recordingId) {
         mutableStateOf(recording.notes.orEmpty())
@@ -228,7 +238,8 @@ private fun RecordingReviewCard(
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                "Depth: ${recording.depthInches ?: "N/A"} | Mixed: ${recording.mixedFlag}",
+                "Depth: ${recording.depthInches ?: "N/A"} | " +
+                    "mixed_target_and_junk: ${recording.mixedTargetAndJunk}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text("Image: ${recording.imageFileName ?: "none"}", style = MaterialTheme.typography.bodyMedium)
@@ -256,7 +267,6 @@ private fun RecordingReviewCard(
                         onPlay = onPlay,
                         onRelabelTargets = onRelabelTargets,
                         onRelabelNotes = onRelabelNotes,
-                        onRelabelClass = onRelabelClass,
                         onToggleInclude = onToggleInclude,
                         onDelete = onDelete,
                         modifier = Modifier.weight(2f)
@@ -297,7 +307,6 @@ private fun RecordingReviewCard(
                     onPlay = onPlay,
                     onRelabelTargets = onRelabelTargets,
                     onRelabelNotes = onRelabelNotes,
-                    onRelabelClass = onRelabelClass,
                     onToggleInclude = onToggleInclude,
                     onDelete = onDelete
                 )
@@ -339,7 +348,6 @@ private fun RecordingMainSection(
     onPlay: () -> Unit,
     onRelabelTargets: (String) -> Unit,
     onRelabelNotes: (String) -> Unit,
-    onRelabelClass: (ClassLabel) -> Unit,
     onToggleInclude: (Boolean) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -364,18 +372,6 @@ private fun RecordingMainSection(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             OutlinedButton(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
             OutlinedButton(onClick = onDelete) { Text("Delete") }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ClassLabel.entries.forEach { label ->
-                FilterChip(
-                    selected = recording.classLabel == label,
-                    onClick = { onRelabelClass(label) },
-                    label = { Text(label.name) }
-                )
-            }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(

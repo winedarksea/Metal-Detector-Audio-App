@@ -19,7 +19,7 @@ import kotlin.math.sqrt
  *   * loudness scalar = ln(rms + eps) of the RAW window ([computeLoudness]); the model
  *     graph standardizes it, so we feed the raw log-RMS.
  *
- * Output shape for 8000-sample input: [61 time-frames, 40 mel-bins].
+ * Output shape for 16000-sample input: [124 time-frames, 40 mel-bins].
  * The desktop ONNX CNN model expects the spectrogram as [1, 61, 40, 1] plus a [1, 1] loudness.
  */
 class MelSpectrogramFeatureExtractor(

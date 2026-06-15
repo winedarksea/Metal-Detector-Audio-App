@@ -7,7 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.metaldetectoraudioapp.app.AppContainerProvider
 import com.metaldetectoraudioapp.app.recording.AudioPlaybackController
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
+import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.ReviewUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,22 +61,13 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun relabelTargetNames(recording: RecordingMetadata, targetNamesInput: String) {
-        val targetNames = targetNamesInput
-            .split(',', ';', '|')
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
+        val objectLabels = parseLabelEntries(targetNamesInput).map {
+            RecordingObjectLabel("${it.obj}:${it.name}:${it.material}", it.labelClass)
+        }
 
         recordingRepository.updateRecording(
-            recording.copy(
-                targetNames = if (targetNames.isEmpty()) listOf("ambient:background:unknown") else targetNames,
-                mixedFlag = targetNames.size > 1,
-            )
+            recording.copy(objectLabels = objectLabels)
         )
-        refresh()
-    }
-
-    fun relabelClass(recording: RecordingMetadata, classLabel: ClassLabel) {
-        recordingRepository.updateRecording(recording.copy(classLabel = classLabel))
         refresh()
     }
 

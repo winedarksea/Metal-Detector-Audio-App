@@ -36,7 +36,7 @@ class DesktopOnnxClassifier(
     private val melExtractor = MelSpectrogramFeatureExtractor()
 
     // Read from metadata so window-size changes propagate automatically; fall
-    // back to the values that match the default 0.5 s / 16 kHz training config.
+    // back to the values that match the default 1.0 s / 16 kHz training config.
     private val expectedTimeFrames: Int =
         metadata.artifacts.acceleratorInput.timeFrames ?: DEFAULT_TIME_FRAMES
     private val expectedMelBins: Int =
@@ -131,8 +131,8 @@ class DesktopOnnxClassifier(
 
     companion object {
         private const val TAG = "DesktopOnnxClassifier"
-        // Default dimensions matching the 0.5 s / 16 kHz training config.
-        private const val DEFAULT_TIME_FRAMES = 61
+        // Default dimensions matching the 1.0 s / 16 kHz training config.
+        private const val DEFAULT_TIME_FRAMES = 124
         private const val DEFAULT_MEL_BINS = 40
     }
 }

@@ -11,6 +11,7 @@ from wave import open as wave_open
 import numpy as np
 
 from scripts import train_starter_model
+from scripts import mel_cnn_pipeline
 
 
 def write_sine_wav(path: Path, sample_rate: int = 16000, duration_seconds: float = 0.25) -> None:
@@ -23,6 +24,10 @@ def write_sine_wav(path: Path, sample_rate: int = 16000, duration_seconds: float
 
 
 class TrainStarterModelValidationTest(unittest.TestCase):
+    def test_default_window_is_one_second_at_16khz(self):
+        self.assertEqual(16_000, mel_cnn_pipeline.DEFAULT_WINDOW_SIZE_SAMPLES)
+        self.assertEqual(8_000, mel_cnn_pipeline.DEFAULT_HOP_SIZE_SAMPLES)
+
     def test_filename_without_pattern_defaults_to_swing(self):
         self.assertEqual(
             "SWING",
@@ -88,7 +93,7 @@ class TrainStarterModelValidationTest(unittest.TestCase):
                         "target_name",
                         "class_label",
                         "depth_inches",
-                        "mixed_flag",
+                        "mixed_target_and_junk",
                         "include_in_training",
                         "original_description",
                     ],
@@ -100,7 +105,7 @@ class TrainStarterModelValidationTest(unittest.TestCase):
                         "target_name": "coin:quarter:cupronickel-clad-copper",
                         "class_label": "TARGET",
                         "depth_inches": "8",
-                        "mixed_flag": "false",
+                        "mixed_target_and_junk": "false",
                         "include_in_training": "true",
                         "original_description": "Quarter at 8\"",
                     }
@@ -133,7 +138,7 @@ class TrainStarterModelValidationTest(unittest.TestCase):
                         "target_name",
                         "class_label",
                         "depth_inches",
-                        "mixed_flag",
+                        "mixed_target_and_junk",
                         "include_in_training",
                         "original_description",
                     ],
@@ -145,7 +150,7 @@ class TrainStarterModelValidationTest(unittest.TestCase):
                         "target_name": "artifact:nail:iron",
                         "class_label": "JUNK",
                         "depth_inches": "",
-                        "mixed_flag": "false",
+                        "mixed_target_and_junk": "false",
                         "include_in_training": "false",
                         "original_description": "Nail",
                     }
@@ -181,7 +186,7 @@ class TrainStarterModelValidationTest(unittest.TestCase):
                         "target_name",
                         "class_label",
                         "depth_inches",
-                        "mixed_flag",
+                        "mixed_target_and_junk",
                         "include_in_training",
                         "original_description",
                     ],
@@ -193,7 +198,7 @@ class TrainStarterModelValidationTest(unittest.TestCase):
                         "target_name": "quarter",
                         "class_label": "TARGET",
                         "depth_inches": "6",
-                        "mixed_flag": "false",
+                        "mixed_target_and_junk": "false",
                         "include_in_training": "true",
                         "original_description": "Quarter",
                     }
@@ -201,6 +206,49 @@ class TrainStarterModelValidationTest(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 train_starter_model.load_label_rows(labels_csv)
+
+    def test_legacy_mixed_flag_column_remains_readable(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            labels_csv = Path(temp_dir) / "labels.csv"
+            labels_csv.write_text(
+                "sample_id,target_name,class_label,mixed_flag,include_in_training\n"
+                "1,coin:dime:silver,TARGET,true,true\n",
+                encoding="utf-8",
+            )
+
+            rows = train_starter_model.load_label_rows(labels_csv)
+
+            self.assertTrue(rows["1"].mixed_target_and_junk)
+
+    def test_mixed_target_and_junk_rejects_non_target_recording(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            labels_csv = Path(temp_dir) / "labels.csv"
+            labels_csv.write_text(
+                "sample_id,target_name,class_label,mixed_target_and_junk,include_in_training\n"
+                "1,trash:foil:aluminum,JUNK,true,true\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "only TARGET rows may be mixed"):
+                train_starter_model.load_label_rows(labels_csv)
+
+    def test_app_rows_derive_target_and_junk_mix_from_object_classes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            labels_csv = root / "missing.csv"
+            metadata_csv = root / "recordings_metadata.csv"
+            metadata_csv.write_text(
+                "recording_id,target_name,label_class,class_label,pattern,"
+                "mixed_target_and_junk,include_in_training\n"
+                "rec_1,coin:dime:silver,TARGET,TARGET,SWING,true,true\n"
+                "rec_1,trash:foil:aluminum,JUNK,TARGET,SWING,true,true\n",
+                encoding="utf-8",
+            )
+
+            rows = train_starter_model.load_label_rows(labels_csv, metadata_csv)
+
+            self.assertEqual("TARGET", rows["rec_1"].class_label)
+            self.assertTrue(rows["rec_1"].mixed_target_and_junk)
 
     def test_synthesize_ambient_noise_windows_generates_expected_shape(self):
         windows = train_starter_model.synthesize_ambient_noise_windows(

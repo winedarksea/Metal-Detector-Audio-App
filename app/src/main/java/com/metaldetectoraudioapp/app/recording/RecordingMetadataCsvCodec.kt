@@ -8,13 +8,14 @@ object RecordingMetadataCsvCodec {
         "recording_id",
         "audio_file_name",
         "target_name",
+        "label_class",
         "class_label",
         "pattern",
         "depth_inches",
         "notes",
         "gps_latitude",
         "gps_longitude",
-        "mixed_flag",
+        "mixed_target_and_junk",
         "include_in_training",
         "created_epoch_ms",
         "duration_ms",
@@ -33,19 +34,19 @@ object RecordingMetadataCsvCodec {
         builder.append(columns.joinToString(",")).append('\n')
 
         recordings.forEach { metadata ->
-            val targets = metadata.targetNames.ifEmpty { listOf("") }
-            targets.forEach { targetName ->
+            metadata.objectLabels.forEach { objectLabel ->
                 val row = listOf(
                     metadata.recordingId,
                     metadata.audioFileName,
-                    targetName,
+                    objectLabel.targetName,
+                    objectLabel.labelClass.name,
                     metadata.classLabel.name,
                     metadata.pattern.name,
                     metadata.depthInches.orEmpty(),
                     metadata.notes.orEmpty(),
                     metadata.gpsLatitude?.toString().orEmpty(),
                     metadata.gpsLongitude?.toString().orEmpty(),
-                    metadata.mixedFlag.toString(),
+                    metadata.mixedTargetAndJunk.toString(),
                     metadata.includeInTraining.toString(),
                     metadata.createdEpochMs.toString(),
                     metadata.durationMs.toString(),
@@ -72,6 +73,7 @@ object RecordingMetadataCsvCodec {
         }
 
         val header = rows.first().map { it.trim().lowercase() }
+        val hasObjectLevelClasses = "label_class" in header
         val byRecordingId = linkedMapOf<String, MutableMetadataRow>()
 
         rows.drop(1).forEach { row ->
@@ -81,10 +83,15 @@ object RecordingMetadataCsvCodec {
             }
 
             val targetName = valueFor(header, row, "target_name").trim()
+            val labelClass = if (hasObjectLevelClasses) {
+                ClassLabel.fromWireValue(valueFor(header, row, "label_class"))
+            } else {
+                ClassLabel.AMBIENT
+            }
             val existing = byRecordingId[recordingId]
             if (existing != null) {
                 if (targetName.isNotBlank()) {
-                    existing.targetNames += targetName
+                    existing.objectLabels += RecordingObjectLabel(targetName, labelClass)
                 }
                 return@forEach
             }
@@ -92,18 +99,16 @@ object RecordingMetadataCsvCodec {
             val metadataRow = MutableMetadataRow(
                 recordingId = recordingId,
                 audioFileName = valueFor(header, row, "audio_file_name"),
-                targetNames = mutableListOf<String>().also { list ->
+                objectLabels = mutableListOf<RecordingObjectLabel>().also { list ->
                     if (targetName.isNotBlank()) {
-                        list += targetName
+                        list += RecordingObjectLabel(targetName, labelClass)
                     }
                 },
-                classLabel = ClassLabel.fromWireValue(valueFor(header, row, "class_label")),
                 pattern = SweepPattern.fromWireValue(valueFor(header, row, "pattern")),
                 depthInches = blankToNull(valueFor(header, row, "depth_inches")),
                 notes = blankToNull(valueFor(header, row, "notes")),
                 gpsLatitude = parseDoubleOrNull(valueFor(header, row, "gps_latitude")),
                 gpsLongitude = parseDoubleOrNull(valueFor(header, row, "gps_longitude")),
-                mixedFlag = parseBoolean(valueFor(header, row, "mixed_flag")),
                 includeInTraining = parseBoolean(valueFor(header, row, "include_in_training")),
                 createdEpochMs = valueFor(header, row, "created_epoch_ms").toLongOrNull() ?: 0L,
                 durationMs = valueFor(header, row, "duration_ms").toLongOrNull() ?: 0L,
@@ -123,14 +128,14 @@ object RecordingMetadataCsvCodec {
             RecordingMetadata(
                 recordingId = row.recordingId,
                 audioFileName = row.audioFileName,
-                targetNames = row.targetNames.ifEmpty { emptyList() },
-                classLabel = row.classLabel,
+                objectLabels = row.objectLabels.ifEmpty {
+                    listOf(RecordingObjectLabel("ambient:background:unknown", ClassLabel.AMBIENT))
+                },
                 pattern = row.pattern,
                 depthInches = row.depthInches,
                 notes = row.notes,
                 gpsLatitude = row.gpsLatitude,
                 gpsLongitude = row.gpsLongitude,
-                mixedFlag = row.mixedFlag,
                 includeInTraining = row.includeInTraining,
                 createdEpochMs = row.createdEpochMs,
                 durationMs = row.durationMs,
@@ -231,14 +236,12 @@ object RecordingMetadataCsvCodec {
     private data class MutableMetadataRow(
         val recordingId: String,
         val audioFileName: String,
-        val targetNames: MutableList<String>,
-        val classLabel: ClassLabel,
+        val objectLabels: MutableList<RecordingObjectLabel>,
         val pattern: SweepPattern,
         val depthInches: String?,
         val notes: String?,
         val gpsLatitude: Double?,
         val gpsLongitude: Double?,
-        val mixedFlag: Boolean,
         val includeInTraining: Boolean,
         val createdEpochMs: Long,
         val durationMs: Long,

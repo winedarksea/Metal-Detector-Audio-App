@@ -31,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import com.metaldetectoraudioapp.app.ui.screen.LabelPickerField
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.desktop.viewmodel.DesktopReviewViewModel
@@ -133,7 +135,6 @@ fun DesktopReviewScreen(
                 onPlay = { viewModel.playOrStop(recording) },
                 onToggleInclude = { viewModel.toggleIncludeInTraining(recording, it) },
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
-                onRelabelClass = { viewModel.relabelClass(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
                 onRelabelEnvironment = {
                     soil,
@@ -168,7 +169,6 @@ private fun DesktopRecordingReviewCard(
     onPlay: () -> Unit,
     onToggleInclude: (Boolean) -> Unit,
     onRelabelTargets: (String) -> Unit,
-    onRelabelClass: (ClassLabel) -> Unit,
     onRelabelNotes: (String) -> Unit,
     onRelabelEnvironment: (
         soilType: String,
@@ -182,7 +182,17 @@ private fun DesktopRecordingReviewCard(
     onDelete: () -> Unit,
 ) {
     var targetInput by remember(recording.recordingId) {
-        mutableStateOf(recording.targetNames.joinToString(","))
+        mutableStateOf(
+            serializeLabelEntries(recording.objectLabels.map {
+                val parts = it.targetName.split(":")
+                LabelEntry(
+                    obj = parts.getOrElse(0) { "" },
+                    name = parts.getOrElse(1) { "" },
+                    material = parts.getOrElse(2) { "" },
+                    labelClass = it.labelClass,
+                )
+            })
+        )
     }
     var notesInput by remember(recording.recordingId) {
         mutableStateOf(recording.notes.orEmpty())
@@ -218,7 +228,8 @@ private fun DesktopRecordingReviewCard(
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                "Depth: ${recording.depthInches ?: "N/A"} | Mixed: ${recording.mixedFlag}",
+                "Depth: ${recording.depthInches ?: "N/A"} | " +
+                    "mixed_target_and_junk: ${recording.mixedTargetAndJunk}",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text("Image: ${recording.imageFileName ?: "none"}", style = MaterialTheme.typography.bodyMedium)
@@ -249,16 +260,6 @@ private fun DesktopRecordingReviewCard(
                 }
                 OutlinedButton(onClick = onDelete) {
                     Text("Delete")
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                ClassLabel.entries.forEach { label ->
-                    FilterChip(
-                        selected = recording.classLabel == label,
-                        onClick = { onRelabelClass(label) },
-                        label = { Text(label.name) }
-                    )
                 }
             }
 

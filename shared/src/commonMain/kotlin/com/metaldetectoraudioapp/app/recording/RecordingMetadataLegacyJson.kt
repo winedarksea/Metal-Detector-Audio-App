@@ -41,14 +41,14 @@ object RecordingMetadataLegacyJson {
         return RecordingMetadata(
             recordingId = obj["recording_id"]!!.jsonPrimitive.content,
             audioFileName = obj["audio_file_name"]!!.jsonPrimitive.content,
-            targetNames = targetNames,
-            classLabel = ClassLabel.fromWireValue(obj.optString("class_label") ?: ""),
+            objectLabels = targetNames.ifEmpty { listOf("ambient:background:unknown") }.map {
+                RecordingObjectLabel(it, ClassLabel.AMBIENT)
+            },
             pattern = SweepPattern.fromWireValue(obj.optString("pattern") ?: ""),
             depthInches = obj.optString("depth_inches"),
             notes = obj.optString("notes"),
             gpsLatitude = obj["gps_latitude"]?.jsonPrimitive?.doubleOrNull,
             gpsLongitude = obj["gps_longitude"]?.jsonPrimitive?.doubleOrNull,
-            mixedFlag = obj["mixed_flag"]?.jsonPrimitive?.booleanOrNull ?: false,
             includeInTraining = obj["include_in_training"]?.jsonPrimitive?.booleanOrNull ?: false,
             createdEpochMs = obj["created_epoch_ms"]?.jsonPrimitive?.longOrNull ?: 0L,
             durationMs = obj["duration_ms"]?.jsonPrimitive?.longOrNull ?: 0L,

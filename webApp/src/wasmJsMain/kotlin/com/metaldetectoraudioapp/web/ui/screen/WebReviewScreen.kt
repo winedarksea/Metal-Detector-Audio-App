@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.web.viewmodel.WebReviewViewModel
 
@@ -73,7 +75,6 @@ fun WebReviewScreen(
                 onPlay = { viewModel.playOrStop(recording) },
                 onToggleInclude = { viewModel.toggleIncludeInTraining(recording, it) },
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
-                onRelabelClass = { viewModel.relabelClass(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
                 onDelete = { viewModel.delete(recording.recordingId) },
             )
@@ -88,12 +89,21 @@ private fun WebRecordingCard(
     onPlay: () -> Unit,
     onToggleInclude: (Boolean) -> Unit,
     onRelabelTargets: (String) -> Unit,
-    onRelabelClass: (ClassLabel) -> Unit,
     onRelabelNotes: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
     var targetInput by remember(recording.recordingId) {
-        mutableStateOf(recording.targetNames.joinToString(","))
+        mutableStateOf(
+            serializeLabelEntries(recording.objectLabels.map {
+                val parts = it.targetName.split(":")
+                LabelEntry(
+                    obj = parts.getOrElse(0) { "" },
+                    name = parts.getOrElse(1) { "" },
+                    material = parts.getOrElse(2) { "" },
+                    labelClass = it.labelClass,
+                )
+            })
+        )
     }
     var notesInput by remember(recording.recordingId) {
         mutableStateOf(recording.notes.orEmpty())
@@ -107,12 +117,10 @@ private fun WebRecordingCard(
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            OutlinedTextField(
+            WebLabelPickerField(
                 value = targetInput,
                 onValueChange = { targetInput = it },
-                label = { Text("target_name") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
             )
 
             OutlinedTextField(
@@ -128,16 +136,6 @@ private fun WebRecordingCard(
                 FilledTonalButton(onClick = { onRelabelNotes(notesInput) }) { Text("Apply Notes") }
                 OutlinedButton(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
                 OutlinedButton(onClick = onDelete) { Text("Delete") }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                ClassLabel.entries.forEach { label ->
-                    FilterChip(
-                        selected = recording.classLabel == label,
-                        onClick = { onRelabelClass(label) },
-                        label = { Text(label.name) }
-                    )
-                }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {

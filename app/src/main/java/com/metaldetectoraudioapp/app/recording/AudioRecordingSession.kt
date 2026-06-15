@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.app.recording
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
@@ -42,6 +43,7 @@ class AudioRecordingSession(
     private val _waveformPoints = MutableStateFlow<List<Float>>(emptyList())
     val waveformPoints: StateFlow<List<Float>> = _waveformPoints.asStateFlow()
 
+    @SuppressLint("MissingPermission")
     fun start(preferredInputDevice: AudioDeviceInfo? = null): Boolean {
         if (captureJob != null) {
             return false

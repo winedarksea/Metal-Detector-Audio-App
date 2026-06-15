@@ -93,7 +93,12 @@ compose.desktop {
 // Copy model files into desktop resources so they're available on the classpath.
 tasks.register<Copy>("copyModelAssets") {
     from("${rootDir}/models") {
-        include("starter_model_cnn.onnx", "starter_model_metadata.json")
+        include(
+            "starter_model_cnn.onnx",
+            "starter_model_metadata.json",
+            "starter_model_no_mixed_cnn.onnx",
+            "starter_model_no_mixed_metadata.json",
+        )
     }
     into(desktopModelResources)
 }

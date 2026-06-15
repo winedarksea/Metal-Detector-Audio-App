@@ -4,7 +4,7 @@
 
 **waveform → STFT → mel filterbank → log → 2D CNN → softmax**
 
-- Input: 8 000 samples (0.5 s @ 16 kHz), peak-normalized mono float32.
+- Input: 16 000 samples (1.0 s @ 16 kHz), peak-normalized mono float32.
 - STFT: frame_length=256, frame_step=128, fft_length=256.
 - 40 mel bins (80 Hz – 7 600 Hz), log-compressed.
 - 3-layer CNN (32 → 64 → 64 filters) with BatchNorm + GlobalAvgPool.
@@ -24,3 +24,9 @@ conda run -n gpu311 python scripts/export_onnx_cnn_only.py --epochs 20 --batch-s
 - `starter_model_cnn.onnx` — CNN-only ONNX model for desktop inference
 - `starter_model_metadata.json` — label order, input config, artifact file names, accelerator input shape
 - `starter_model_metrics.json` — training accuracy/loss plus artifact parity metrics
+- `starter_model_no_mixed.tflite`
+- `starter_model_no_mixed_cnn.tflite`
+- `starter_model_no_mixed_cnn_int8.tflite`
+- `starter_model_no_mixed_cnn.onnx`
+- `starter_model_no_mixed_metadata.json`
+- `starter_model_no_mixed_metrics.json`

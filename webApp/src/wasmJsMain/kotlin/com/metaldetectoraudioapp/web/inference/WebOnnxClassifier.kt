@@ -26,7 +26,7 @@ class WebOnnxClassifier(
     private val melExtractor = MelSpectrogramFeatureExtractor()
 
     // The CNN graph has a FIXED input shape [1, timeFrames, melBins, 1]; onnxruntime-web rejects
-    // any other frame count. Read the expected dims from metadata (fall back to the 0.5 s / 16 kHz
+    // any other frame count. Read the expected dims from metadata (fall back to the 1.0 s / 16 kHz
     // training config) and pad/truncate to them — mirrors DesktopOnnxClassifier.
     private val expectedTimeFrames: Int =
         metadata.artifacts.acceleratorInput.timeFrames ?: DEFAULT_TIME_FRAMES
@@ -72,8 +72,8 @@ class WebOnnxClassifier(
     override fun close() { /* ORT session lifecycle managed by JS GC */ }
 
     companion object {
-        // Defaults match the 0.5 s / 16 kHz training config (8000-sample window → 61 frames).
-        private const val DEFAULT_TIME_FRAMES = 61
+        // Defaults match the 1.0 s / 16 kHz training config (16000-sample window -> 124 frames).
+        private const val DEFAULT_TIME_FRAMES = 124
         private const val DEFAULT_MEL_BINS = 40
 
         suspend fun create(onnxBytes: ByteArray, metadata: ModelMetadata): WebOnnxClassifier {

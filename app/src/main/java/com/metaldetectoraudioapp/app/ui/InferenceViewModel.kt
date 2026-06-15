@@ -62,7 +62,8 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
         }
         defaultModelOption = InferenceModelOption(
             id = initialModel?.assetId ?: "unknown",
-            label = "${controller.uiState.value.modelName} v${controller.uiState.value.modelVersion}"
+            label = initialModel?.modelVariantDisplayName
+                ?: "${controller.uiState.value.modelName} v${controller.uiState.value.modelVersion}"
         )
         _uiState = MutableStateFlow(controller.uiState.value)
         uiState = _uiState.asStateFlow()
@@ -70,7 +71,7 @@ class InferenceViewModel(application: Application) : AndroidViewModel(applicatio
         _availableModelOptions = MutableStateFlow(models.map {
             InferenceModelOption(
                 id = it.assetId,
-                label = "${it.modelName} v${it.modelVersion}"
+                label = it.modelVariantDisplayName
             )
         })
         availableModelOptions = _availableModelOptions.asStateFlow()

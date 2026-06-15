@@ -64,12 +64,10 @@ def parse_garden_map(input_path, output_path):
             parts = [p.strip() for p in parts if p.strip() and not re.search(r'\d+" separation', p.strip(), re.I)]
             normalized_parts = [normalize_to_taxonomy_token(p) for p in parts]
             
-            # Determine if it's mixed
-            is_mixed = len(parts) > 1 or "separation" in description.lower() or "superimposed" in description.lower()
-            
             # Determine class label
             has_target = any(get_class(p) == "TARGET" for p in parts)
             has_junk = any(get_class(p) == "JUNK" for p in parts)
+            is_mixed = has_target and has_junk
             
             if has_target:
                 main_class = "TARGET"
@@ -83,13 +81,13 @@ def parse_garden_map(input_path, output_path):
                 'target_name': "|".join(normalized_parts),
                 'class_label': main_class,
                 'depth_inches': depth,
-                'mixed_flag': "true" if is_mixed else "false",
+                'mixed_target_and_junk': "true" if is_mixed else "false",
                 'include_in_training': "true",
                 'original_description': description
             })
 
     # Header for new CSV
-    fieldnames = ['sample_id', 'target_name', 'class_label', 'depth_inches', 'mixed_flag', 'include_in_training', 'original_description']
+    fieldnames = ['sample_id', 'target_name', 'class_label', 'depth_inches', 'mixed_target_and_junk', 'include_in_training', 'original_description']
     
     with open(output_path, 'w', encoding='utf-8', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)

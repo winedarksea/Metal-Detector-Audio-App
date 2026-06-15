@@ -10,30 +10,6 @@
 - 3-layer CNN (32 → 64 → 64 filters) with BatchNorm + GlobalAvgPool.
 - Output: 3-class softmax (TARGET, JUNK, AMBIENT).
 
-### Why not MobileNetV2 / ImageNet?
-
-The original v0.1.0 model used MobileNetV2 pretrained on ImageNet as a frozen
-backbone.  ImageNet features are *not* relevant for audio spectrograms, and the
-frozen backbone means only the final Dense layer receives gradient signal —
-resulting in ≈ 55 % accuracy (barely above chance for 3 classes).
-
-A small CNN trained directly on mel spectrograms with **energy-gated windowing**
-(silent windows from TARGET/JUNK files are discarded) and **data augmentation**
-(time-shift + noise injection) reaches much higher accuracy with the same data.
-
-### Future Improvements
-
-#### 1. Depthwise Separable CNN (DS-CNN)
-The current model uses standard `Conv2D` layers. Switching to **Depthwise Separable Convolutions**
-(as used in MobileNet) would reduce multiply-accumulate operations (MACs) by ~8-9x.
-This efficiency gain allows for a deeper network (e.g., 6 layers + residual connections)
-to improve accuracy without increasing inference latency.
-
-#### 2. Pretrained audio model (YAMNet)
-For maximum robustness, consider using YAMNet
-(MobileNet pretrained on AudioSet) as a feature extractor. YAMNet produces
-1024-dim audio embeddings that can be classified with a simple Dense head.
-
 ## Rebuild command
 
 ```bash

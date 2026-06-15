@@ -18,9 +18,6 @@ DEFAULT_NUM_MEL_BINS = 40
 DEFAULT_MEL_LOWER_HZ = 80.0
 DEFAULT_MEL_UPPER_HZ = 7600.0
 
-# Energy gate: minimum RMS for a window to count as "active".
-DEFAULT_RMS_GATE_THRESHOLD = 0.015
-
 # Window / hop sizes in samples.
 DEFAULT_WINDOW_SIZE_SAMPLES = 8_000   # 0.5 s @ 16 kHz
 DEFAULT_HOP_SIZE_SAMPLES = DEFAULT_WINDOW_SIZE_SAMPLES // 2  # 0.25 s
@@ -219,6 +216,7 @@ def train_and_convert_tflite(
     sample_rate: int,
     epochs: int,
     batch_size: int,
+    sample_weight_train: "np.ndarray | None" = None,
 ) -> Tuple[bytes, Dict[str, float], Any]:
     # Loudness standardization stats are derived from the (already gain-augmented)
     # training windows and baked into the graph so on-device code only computes log-RMS.
@@ -234,6 +232,10 @@ def train_and_convert_tflite(
 
     model.summary()
 
+    fit_kwargs: Dict[str, Any] = {}
+    if sample_weight_train is not None:
+        fit_kwargs["sample_weight"] = sample_weight_train
+
     history = model.fit(
         x_train,
         y_train,
@@ -241,6 +243,7 @@ def train_and_convert_tflite(
         epochs=epochs,
         batch_size=batch_size,
         verbose=2,
+        **fit_kwargs,
     )
 
     eval_loss, eval_accuracy = model.evaluate(x_val, y_val, verbose=0)

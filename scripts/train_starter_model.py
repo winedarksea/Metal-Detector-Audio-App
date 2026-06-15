@@ -34,7 +34,6 @@ if TYPE_CHECKING:
 try:
     from .mel_cnn_pipeline import (
         DEFAULT_HOP_SIZE_SAMPLES,
-        DEFAULT_RMS_GATE_THRESHOLD,
         DEFAULT_SAMPLE_RATE_HZ,
         STARTER_MODEL_VERSION,
         DEFAULT_WINDOW_SIZE_SAMPLES,
@@ -44,7 +43,6 @@ try:
 except ImportError:
     from mel_cnn_pipeline import (
         DEFAULT_HOP_SIZE_SAMPLES,
-        DEFAULT_RMS_GATE_THRESHOLD,
         DEFAULT_SAMPLE_RATE_HZ,
         STARTER_MODEL_VERSION,
         DEFAULT_WINDOW_SIZE_SAMPLES,
@@ -59,6 +57,32 @@ except ImportError:
 SUPPORTED_CLASS_LABELS = ("TARGET", "JUNK", "AMBIENT")
 MODEL_OUTPUT_LABELS = SUPPORTED_CLASS_LABELS
 SUPPORTED_PATTERNS = ("SWING", "WIGGLE")
+
+CATEGORY_TO_CLASS_LABEL: Dict[str, str] = {
+    "coin": "TARGET",
+    "jewelry": "TARGET",
+    "trash": "JUNK",
+    "hardware": "JUNK",
+    "ambient": "AMBIENT",
+}
+
+
+def target_name_class_labels(target_name: str) -> set[str]:
+    """Map each pipe-separated category:object:material token's category to its
+    class label, returning the set of distinct class labels referenced."""
+    labels: set[str] = set()
+    for token in target_name.split("|"):
+        category = token.strip().split(":", 1)[0].strip()
+        mapped = CATEGORY_TO_CLASS_LABEL.get(category)
+        if mapped is not None:
+            labels.add(mapped)
+    return labels
+
+
+def is_cross_class_mixed(label_row: "LabelRow") -> bool:
+    """mixed_flag=true AND target_name spans >1 distinct class label (e.g. TARGET+JUNK) --
+    "target near/under junk", as opposed to same-class mixes (multiple coins/nails)."""
+    return label_row.mixed_flag and len(target_name_class_labels(label_row.target_name)) > 1
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +107,7 @@ class AudioSampleRecord:
     class_label: str
     mixed_flag: bool
     include_in_training: bool
+    cross_class_mixed: bool
 
 
 # ---------------------------------------------------------------------------
@@ -112,12 +137,6 @@ def parse_cli_args() -> argparse.Namespace:
     parser.add_argument("--hop-size", type=int, default=DEFAULT_HOP_SIZE_SAMPLES,
                         help="Hop between windows in samples (default = window-size / 2).")
     parser.add_argument(
-        "--rms-gate-threshold", type=float, default=DEFAULT_RMS_GATE_THRESHOLD,
-        help="Min RMS for a window to be kept as its file label (TARGET/JUNK). "
-             "Silent windows from non-AMBIENT files are discarded instead of "
-             "being mislabeled.  Set to 0 to disable energy gating.",
-    )
-    parser.add_argument(
         "--synthesize-ambient-noise",
         action=argparse.BooleanOptionalAction, default=True,
         help="Generate synthetic AMBIENT windows for class balancing.",
@@ -130,6 +149,13 @@ def parse_cli_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-mixed", action="store_true",
         help="Exclude all records marked as mixed_flag = True.",
+    )
+    parser.add_argument(
+        "--mixed-sample-weight", type=float, default=0.2,
+        help="Per-window sample_weight for 'cross-class-mixed' windows (target_name spans "
+             "both a TARGET category like coin/jewelry and a JUNK category like "
+             "trash/hardware, mixed_flag=true). Still trained on, but contributes less to "
+             "the loss than clean windows (weight 1.0). Set to 1.0 to disable.",
     )
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
@@ -315,6 +341,7 @@ def build_audio_sample_records(
             sample_id=sample_id, wav_path=wav_path, pattern=pattern,
             class_label=label_row.class_label, mixed_flag=label_row.mixed_flag,
             include_in_training=label_row.include_in_training,
+            cross_class_mixed=is_cross_class_mixed(label_row),
         ))
 
     for sid, row in labels_by_id.items():
@@ -374,23 +401,33 @@ def create_training_windows(
     sample_rate: int,
     window_size: int,
     hop_size: int,
-    rms_gate_threshold: float,
-) -> Tuple[np.ndarray, np.ndarray, Dict[str, int], Dict[str, int], Dict[str, int]]:
-    """Slide windows and label them.  For TARGET/JUNK files, windows below
-    *rms_gate_threshold* are silently discarded (not mislabeled as AMBIENT).
+    mixed_sample_weight: float = 0.2,
+) -> Tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray,
+    Dict[str, int], Dict[str, int], Dict[str, int],
+]:
+    """Slide windows and label them.
 
-    Returns (x, y, kept_class_counts, skipped_class_counts, excluded_class_counts).
+    Windows from "cross-class-mixed" records (mixed_flag=true and target_name spans both
+    a TARGET category and a JUNK category, e.g. "target near/under junk") get
+    *mixed_sample_weight* instead of 1.0 so they still contribute to the loss but less
+    than clean windows.
+
+    Returns (x, y, sample_weights, cross_class_mixed_mask, kept_class_counts,
+    excluded_class_counts, cross_class_mixed_window_counts).
     """
     import numpy as np
 
     features: List[np.ndarray] = []
     labels: List[int] = []
+    weights: List[float] = []
+    cross_class_mixed_flags: List[bool] = []
     kept_counts = {c: 0 for c in labels_to_index}
-    skipped_counts = {c: 0 for c in labels_to_index}
     excluded_counts = {
         c: 0 for c in SUPPORTED_CLASS_LABELS
         if c not in labels_to_index
     }
+    cross_class_mixed_window_counts = {c: 0 for c in labels_to_index}
 
     for record in sample_records:
         if not record.include_in_training:
@@ -413,29 +450,30 @@ def create_training_windows(
                 tail[: len(window)] = window
                 window = tail
 
-            rms = float(np.sqrt(np.mean(window ** 2)))
-
-            # Energy gate: discard silent windows from non-AMBIENT files.
-            if rms_gate_threshold > 0 and record.class_label != "AMBIENT":
-                if rms < rms_gate_threshold:
-                    skipped_counts[record.class_label] += 1
-                    continue
-
             # Fixed-scale: WAV samples already converted with /32768.0 — no per-window
             # peak normalization so amplitude information is preserved for the model.
             features.append(window.astype(np.float32))
             labels.append(labels_to_index[record.class_label])
             kept_counts[record.class_label] += 1
+            if record.cross_class_mixed:
+                weights.append(mixed_sample_weight)
+                cross_class_mixed_flags.append(True)
+                cross_class_mixed_window_counts[record.class_label] += 1
+            else:
+                weights.append(1.0)
+                cross_class_mixed_flags.append(False)
 
     if not features:
-        raise ValueError("No training windows produced; check include_in_training and RMS gate")
+        raise ValueError("No training windows produced; check include_in_training")
 
     return (
         np.stack(features),
         np.array(labels, dtype=np.int64),
+        np.array(weights, dtype=np.float32),
+        np.array(cross_class_mixed_flags, dtype=bool),
         kept_counts,
-        skipped_counts,
         excluded_counts,
+        cross_class_mixed_window_counts,
     )
 
 
@@ -512,7 +550,9 @@ def synthesize_ambient_noise_windows(
 # Data augmentation helpers
 # ---------------------------------------------------------------------------
 
-def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
+def augment_training_data(
+    x: np.ndarray, y: np.ndarray, weights: np.ndarray, mask: np.ndarray, seed: int = 42
+):
     """Augmentation: time-shift, low-level additive noise, and random gain attenuation.
 
     Gain augmentation is essential for the loudness-invariant model: the spectral branch
@@ -523,11 +563,15 @@ def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
     Additive noise is generated at 25-40 dB SNR relative to each source window. Using an
     absolute full-scale noise amplitude can overwhelm quiet detector recordings after PCM
     samples are correctly scaled to [-1, 1].
+
+    Each augmented copy of a window inherits that window's *weights*/*mask* entry
+    unchanged, so the returned arrays stay index-aligned with ``aug_x``/``aug_y``.
     """
     import numpy as np
 
     rng = np.random.default_rng(seed)
     aug_x, aug_y = [x], [y]
+    aug_weights, aug_mask = [weights], [mask]
     window_size = x.shape[1]
 
     for i in range(x.shape[0]):
@@ -536,6 +580,8 @@ def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
         shifted = np.roll(x[i], shift)
         aug_x.append(shifted[np.newaxis, :])
         aug_y.append(np.array([y[i]], dtype=y.dtype))
+        aug_weights.append(np.array([weights[i]], dtype=weights.dtype))
+        aug_mask.append(np.array([mask[i]], dtype=mask.dtype))
 
         # Signal-relative Gaussian noise preserves the detector response while varying the
         # background. At 25-40 dB SNR, noise RMS is roughly 1-6% of source-window RMS.
@@ -548,6 +594,8 @@ def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
         )
         aug_x.append(noisy[np.newaxis, :])
         aug_y.append(np.array([y[i]], dtype=y.dtype))
+        aug_weights.append(np.array([weights[i]], dtype=weights.dtype))
+        aug_mask.append(np.array([mask[i]], dtype=mask.dtype))
 
         # Random gain attenuation in [-20 dB, 0 dB]. Attenuation-only avoids clipping;
         # the peak-norm spectral branch is unaffected, only the loudness scalar shifts.
@@ -555,8 +603,15 @@ def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
         attenuated = (x[i] * gain).astype(np.float32)
         aug_x.append(attenuated[np.newaxis, :])
         aug_y.append(np.array([y[i]], dtype=y.dtype))
+        aug_weights.append(np.array([weights[i]], dtype=weights.dtype))
+        aug_mask.append(np.array([mask[i]], dtype=mask.dtype))
 
-    return np.concatenate(aug_x, axis=0), np.concatenate(aug_y, axis=0)
+    return (
+        np.concatenate(aug_x, axis=0),
+        np.concatenate(aug_y, axis=0),
+        np.concatenate(aug_weights, axis=0),
+        np.concatenate(aug_mask, axis=0),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -604,13 +659,13 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
     # ---- full training ----
     import numpy as np
 
-    x_all, y_all, kept, skipped, excluded = create_training_windows(
+    x_all, y_all, sample_weights, cross_class_mixed_mask, kept, excluded, cross_class_mixed_window_counts = create_training_windows(
         sample_records=sample_records,
         labels_to_index=labels_to_index,
         sample_rate=args.sample_rate,
         window_size=args.window_size,
         hop_size=args.hop_size,
-        rms_gate_threshold=args.rms_gate_threshold,
+        mixed_sample_weight=args.mixed_sample_weight,
     )
     training_file_count = sum(
         record.include_in_training and record.class_label in labels_to_index
@@ -627,7 +682,6 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
     )
 
     print(f"Output windows kept: {kept}")
-    print(f"Output windows skipped (energy gate): {skipped}")
     print(f"Excluded non-output classes: {excluded}")
     print(f"Ambient windows from files: {ambient_file_windows.shape[0]}")
 
@@ -642,15 +696,23 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
         ambient_labels = np.full(synth_count, labels_to_index["AMBIENT"], dtype=np.int64)
         x_all = np.concatenate([x_all, ambient_windows], axis=0)
         y_all = np.concatenate([y_all, ambient_labels], axis=0)
+        sample_weights = np.concatenate(
+            [sample_weights, np.ones(synth_count, dtype=np.float32)], axis=0
+        )
+        cross_class_mixed_mask = np.concatenate(
+            [cross_class_mixed_mask, np.zeros(synth_count, dtype=bool)], axis=0
+        )
         kept["AMBIENT"] += synth_count
 
-    # Augmentation (triples effective dataset size with time-shift + noise)
-    x_aug, y_aug = augment_training_data(x_all, y_all)
+    # Augmentation (quadruples effective dataset size with time-shift + noise + gain)
+    x_aug, y_aug, w_aug, mask_aug = augment_training_data(
+        x_all, y_all, sample_weights, cross_class_mixed_mask
+    )
     print(f"After augmentation: {x_aug.shape[0]} windows (from {x_all.shape[0]})")
 
     # Shuffle
     perm = np.random.default_rng(42).permutation(x_aug.shape[0])
-    x_aug, y_aug = x_aug[perm], y_aug[perm]
+    x_aug, y_aug, w_aug, mask_aug = x_aug[perm], y_aug[perm], w_aug[perm], mask_aug[perm]
 
     tflite_bytes, numeric_metrics, _trained_model = train_and_convert_tflite(
         x_train=x_aug, y_train=y_aug,
@@ -660,6 +722,7 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
         sample_rate=args.sample_rate,
         epochs=args.epochs,
         batch_size=args.batch_size,
+        sample_weight_train=w_aug,
     )
     recommended_threshold = 0.55
     threshold_metrics = {
@@ -696,9 +759,9 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
             "epochs": args.epochs,
             "batch_size": args.batch_size,
             "exclude_mixed_records": bool(args.no_mixed),
-            "energy_gate_rms_threshold": args.rms_gate_threshold,
+            "mixed_sample_weight": float(args.mixed_sample_weight),
+            "cross_class_mixed_window_counts": cross_class_mixed_window_counts,
             "class_window_counts": kept,
-            "skipped_silent_windows": skipped,
             "excluded_class_file_counts": excluded,
             "ambient_window_count_from_files": int(ambient_file_windows.shape[0]),
             "synthetic_ambient_window_count": synth_count,
@@ -723,8 +786,9 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
             "waveform_tflite": args.model_output.name,
         },
         "class_window_counts": kept,
-        "skipped_silent_windows": skipped,
         "excluded_class_file_counts": excluded,
+        "mixed_sample_weight": float(args.mixed_sample_weight),
+        "cross_class_mixed_window_counts": cross_class_mixed_window_counts,
         "ambient_window_count_from_files": int(ambient_file_windows.shape[0]),
         "synthetic_ambient_window_count": synth_count,
         "recommended_threshold": recommended_threshold,

@@ -315,6 +315,13 @@ def main() -> int:
         "--no-mixed", action="store_true",
         help="Exclude all records marked as mixed_flag = True.",
     )
+    parser.add_argument(
+        "--mixed-sample-weight", type=float, default=0.2,
+        help="Per-window sample_weight for 'cross-class-mixed' windows (target_name spans "
+             "both a TARGET category like coin/jewelry and a JUNK category like "
+             "trash/hardware, mixed_flag=true). Still trained on, but contributes less to "
+             "the loss than clean windows (weight 1.0). Set to 1.0 to disable.",
+    )
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=32)
     args = parser.parse_args()
@@ -340,13 +347,13 @@ def main() -> int:
     label_order = list(MODEL_OUTPUT_LABELS)
     labels_to_index = {label: i for i, label in enumerate(label_order)}
 
-    x_all, y_all, kept, skipped, excluded = create_training_windows(
+    x_all, y_all, sample_weights, cross_class_mixed_mask, kept, excluded, cross_class_mixed_window_counts = create_training_windows(
         sample_records=sample_records,
         labels_to_index=labels_to_index,
         sample_rate=DEFAULT_SAMPLE_RATE_HZ,
         window_size=DEFAULT_WINDOW_SIZE_SAMPLES,
         hop_size=DEFAULT_WINDOW_SIZE_SAMPLES // 2,
-        rms_gate_threshold=0.015,
+        mixed_sample_weight=args.mixed_sample_weight,
     )
     training_file_count = sum(
         record.include_in_training and record.class_label in labels_to_index
@@ -366,15 +373,23 @@ def main() -> int:
         ambient_labels = np.full(synth_count, labels_to_index["AMBIENT"], dtype=np.int64)
         x_all = np.concatenate([x_all, ambient_windows], axis=0)
         y_all = np.concatenate([y_all, ambient_labels], axis=0)
+        sample_weights = np.concatenate(
+            [sample_weights, np.ones(synth_count, dtype=np.float32)], axis=0
+        )
+        cross_class_mixed_mask = np.concatenate(
+            [cross_class_mixed_mask, np.zeros(synth_count, dtype=bool)], axis=0
+        )
         kept["AMBIENT"] += synth_count
 
     print(f"Training windows per output class: {kept}")
     print(f"Excluded class counts: {excluded}")
 
     # Augment + shuffle
-    x_aug, y_aug = augment_training_data(x_all, y_all)
+    x_aug, y_aug, w_aug, mask_aug = augment_training_data(
+        x_all, y_all, sample_weights, cross_class_mixed_mask
+    )
     perm = np.random.default_rng(42).permutation(x_aug.shape[0])
-    x_aug, y_aug = x_aug[perm], y_aug[perm]
+    x_aug, y_aug, w_aug, mask_aug = x_aug[perm], y_aug[perm], w_aug[perm], mask_aug[perm]
 
     tflite_bytes, numeric_metrics, full_model = train_and_convert_tflite(
         x_train=x_aug,
@@ -386,6 +401,7 @@ def main() -> int:
         sample_rate=DEFAULT_SAMPLE_RATE_HZ,
         epochs=args.epochs,
         batch_size=args.batch_size,
+        sample_weight_train=w_aug,
     )
     print(
         "Validation: "
@@ -482,6 +498,37 @@ def main() -> int:
         ),
     }
 
+    # "cross-class-mixed" cohort: windows from recordings where target_name spans both a
+    # TARGET category (coin/jewelry) and a JUNK category (trash/hardware) -- "target
+    # near/under junk". cross_class_mixed_mask indexes x_all/y_all/*_pred in their
+    # original (unshuffled) order, same as create_training_windows returned them.
+    cross_class_mixed_count = int(cross_class_mixed_mask.sum())
+    if cross_class_mixed_count > 0:
+        y_mixed = y_all[cross_class_mixed_mask]
+        full_pred_mixed = full_pred[cross_class_mixed_mask]
+        cnn_pred_mixed = cnn_pred[cross_class_mixed_mask]
+        float_tflite_pred_mixed = float_tflite_pred[cross_class_mixed_mask]
+        int8_tflite_pred_mixed = int8_tflite_pred[cross_class_mixed_mask]
+        onnx_pred_mixed = onnx_pred[cross_class_mixed_mask]
+        comparison_metrics["cross_class_mixed"] = {
+            "window_count": cross_class_mixed_count,
+            "full_model": classification_outcome_metrics(full_pred_mixed, y_mixed, label_order),
+            "cnn_keras": summarize_prediction_alignment(
+                full_pred_mixed, cnn_pred_mixed, y_mixed, label_order
+            ),
+            "cnn_tflite_float": summarize_prediction_alignment(
+                full_pred_mixed, float_tflite_pred_mixed, y_mixed, label_order
+            ),
+            "cnn_tflite_int8": summarize_prediction_alignment(
+                full_pred_mixed, int8_tflite_pred_mixed, y_mixed, label_order
+            ),
+            "cnn_onnx": summarize_prediction_alignment(
+                full_pred_mixed, onnx_pred_mixed, y_mixed, label_order
+            ),
+        }
+    else:
+        comparison_metrics["cross_class_mixed"] = {"window_count": 0}
+
     timestamp = datetime.now(timezone.utc).isoformat()
     loudness_mean = float(numeric_metrics["loudness_mean"])
     loudness_std = float(numeric_metrics["loudness_std"])
@@ -552,7 +599,8 @@ def main() -> int:
             "epochs": args.epochs,
             "batch_size": args.batch_size,
             "exclude_mixed_records": bool(args.no_mixed),
-            "energy_gate_rms_threshold": 0.015,
+            "mixed_sample_weight": float(args.mixed_sample_weight),
+            "cross_class_mixed_window_counts": cross_class_mixed_window_counts,
             "class_window_counts": kept,
             "excluded_class_file_counts": excluded,
             "augmented_total_windows": int(x_aug.shape[0]),
@@ -579,6 +627,8 @@ def main() -> int:
         "window_count_after_augmentation": int(x_aug.shape[0]),
         "class_window_counts": kept,
         "excluded_class_file_counts": excluded,
+        "mixed_sample_weight": float(args.mixed_sample_weight),
+        "cross_class_mixed_window_counts": cross_class_mixed_window_counts,
         "metrics": numeric_metrics,
         "artifact_comparison": comparison_metrics,
         "timestamp_utc": timestamp,
@@ -586,11 +636,21 @@ def main() -> int:
 
     print("\nTraining-dataset classification outcomes (not an independent validation set):")
     for artifact_name, artifact_metrics in comparison_metrics.items():
+        if artifact_name == "cross_class_mixed":
+            continue
         print_classification_outcome_summary(
             artifact_name,
             artifact_metrics,
             label_order,
         )
+
+    mixed_metrics = comparison_metrics["cross_class_mixed"]
+    print(f"\nCross-class-mixed cohort ('target near/under junk'): {mixed_metrics['window_count']} windows")
+    if mixed_metrics["window_count"] > 0:
+        for artifact_name in ("full_model", "cnn_keras", "cnn_tflite_float", "cnn_tflite_int8", "cnn_onnx"):
+            print_classification_outcome_summary(
+                f"cross_class_mixed/{artifact_name}", mixed_metrics[artifact_name], label_order
+            )
 
     print("\nDone. Desktop will compute mel spectrogram in Kotlin, feed to ONNX CNN.")
     return 0

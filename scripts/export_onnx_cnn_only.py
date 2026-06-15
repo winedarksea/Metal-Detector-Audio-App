@@ -112,17 +112,111 @@ def write_json(path: Path, content: dict) -> None:
     path.write_text(json.dumps(content, indent=2) + "\n", encoding="utf-8")
 
 
-def summarize_prediction_alignment(reference_predictions, candidate_predictions, labels):
+def classification_outcome_metrics(predictions, labels, label_order):
+    import numpy as np
+
+    predicted_labels = np.argmax(predictions, axis=1)
+    class_count = len(label_order)
+    confusion_matrix = np.zeros((class_count, class_count), dtype=np.int64)
+    for actual_index, predicted_index in zip(labels, predicted_labels):
+        confusion_matrix[int(actual_index), int(predicted_index)] += 1
+
+    per_class = {}
+    for class_index, class_label in enumerate(label_order):
+        true_positive = int(confusion_matrix[class_index, class_index])
+        false_negative = int(confusion_matrix[class_index, :].sum() - true_positive)
+        false_positive = int(confusion_matrix[:, class_index].sum() - true_positive)
+        support = int(confusion_matrix[class_index, :].sum())
+        predicted_count = int(confusion_matrix[:, class_index].sum())
+        precision_denominator = true_positive + false_positive
+        recall_denominator = true_positive + false_negative
+        precision = (
+            true_positive / precision_denominator if precision_denominator else 0.0
+        )
+        recall = true_positive / recall_denominator if recall_denominator else 0.0
+        f1 = (
+            2.0 * precision * recall / (precision + recall)
+            if precision + recall
+            else 0.0
+        )
+        per_class[class_label] = {
+            "precision": float(precision),
+            "recall": float(recall),
+            "f1": float(f1),
+            "support": support,
+            "predicted_count": predicted_count,
+            "true_positive": true_positive,
+            "false_positive": false_positive,
+            "false_negative": false_negative,
+        }
+
+    total = int(confusion_matrix.sum())
+    return {
+        "top1_accuracy": (
+            float(np.trace(confusion_matrix) / total) if total else 0.0
+        ),
+        "balanced_accuracy": float(
+            np.mean([metrics["recall"] for metrics in per_class.values()])
+        ),
+        "macro_f1": float(
+            np.mean([metrics["f1"] for metrics in per_class.values()])
+        ),
+        "confusion_matrix": {
+            actual_label: {
+                predicted_label: int(confusion_matrix[actual_index, predicted_index])
+                for predicted_index, predicted_label in enumerate(label_order)
+            }
+            for actual_index, actual_label in enumerate(label_order)
+        },
+        "per_class": per_class,
+    }
+
+
+def summarize_prediction_alignment(
+    reference_predictions,
+    candidate_predictions,
+    labels,
+    label_order,
+):
     import numpy as np
 
     candidate_top1 = np.argmax(candidate_predictions, axis=1)
     reference_top1 = np.argmax(reference_predictions, axis=1)
     return {
-        "top1_accuracy": float(np.mean(candidate_top1 == labels)),
+        **classification_outcome_metrics(candidate_predictions, labels, label_order),
         "top1_agreement_vs_reference": float(np.mean(candidate_top1 == reference_top1)),
         "max_abs_diff_vs_reference": float(np.max(np.abs(reference_predictions - candidate_predictions))),
         "mean_abs_diff_vs_reference": float(np.mean(np.abs(reference_predictions - candidate_predictions))),
     }
+
+
+def print_classification_outcome_summary(artifact_name, metrics, label_order) -> None:
+    print(
+        f"\n{artifact_name}: accuracy={metrics['top1_accuracy']:.4f}, "
+        f"balanced_accuracy={metrics['balanced_accuracy']:.4f}, "
+        f"macro_f1={metrics['macro_f1']:.4f}"
+    )
+    print("  Per-class outcomes:")
+    for class_label in label_order:
+        class_metrics = metrics["per_class"][class_label]
+        print(
+            f"    {class_label:<7} "
+            f"precision={class_metrics['precision']:.4f} "
+            f"recall={class_metrics['recall']:.4f} "
+            f"f1={class_metrics['f1']:.4f} "
+            f"support={class_metrics['support']} "
+            f"predicted={class_metrics['predicted_count']} "
+            f"FP={class_metrics['false_positive']} "
+            f"FN={class_metrics['false_negative']}"
+        )
+    print("  Confusion matrix (rows=actual, columns=predicted):")
+    print("    actual\\pred " + " ".join(f"{label:>8}" for label in label_order))
+    for actual_label in label_order:
+        row = metrics["confusion_matrix"][actual_label]
+        print(
+            f"    {actual_label:>11} "
+            + " ".join(f"{row[predicted_label]:>8}" for predicted_label in label_order)
+        )
 
 
 def load_onnx_export_dependencies():
@@ -254,6 +348,13 @@ def main() -> int:
         hop_size=DEFAULT_WINDOW_SIZE_SAMPLES // 2,
         rms_gate_threshold=0.015,
     )
+    training_file_count = sum(
+        record.include_in_training and record.class_label in labels_to_index
+        for record in sample_records
+    )
+    print(f"Training source files used: {training_file_count}")
+    print(f"Training windows constructed from source files: {x_all.shape[0]}")
+
     if "AMBIENT" in labels_to_index:
         non_ambient = kept["TARGET"] + kept["JUNK"]
         synth_count = max(1, round(non_ambient * 0.35))
@@ -365,15 +466,20 @@ def main() -> int:
     onnx_diff = np.max(np.abs(full_pred - onnx_pred))
     print(f"ONNX vs full diff:   {onnx_diff:.8f}")
 
-    full_model_accuracy = float(np.mean(np.argmax(full_pred, axis=1) == y_all))
     comparison_metrics = {
-        "full_model": {
-            "top1_accuracy": full_model_accuracy,
-        },
-        "cnn_keras": summarize_prediction_alignment(full_pred, cnn_pred, y_all),
-        "cnn_tflite_float": summarize_prediction_alignment(full_pred, float_tflite_pred, y_all),
-        "cnn_tflite_int8": summarize_prediction_alignment(full_pred, int8_tflite_pred, y_all),
-        "cnn_onnx": summarize_prediction_alignment(full_pred, onnx_pred, y_all),
+        "full_model": classification_outcome_metrics(full_pred, y_all, label_order),
+        "cnn_keras": summarize_prediction_alignment(
+            full_pred, cnn_pred, y_all, label_order
+        ),
+        "cnn_tflite_float": summarize_prediction_alignment(
+            full_pred, float_tflite_pred, y_all, label_order
+        ),
+        "cnn_tflite_int8": summarize_prediction_alignment(
+            full_pred, int8_tflite_pred, y_all, label_order
+        ),
+        "cnn_onnx": summarize_prediction_alignment(
+            full_pred, onnx_pred, y_all, label_order
+        ),
     }
 
     timestamp = datetime.now(timezone.utc).isoformat()
@@ -477,6 +583,14 @@ def main() -> int:
         "artifact_comparison": comparison_metrics,
         "timestamp_utc": timestamp,
     })
+
+    print("\nTraining-dataset classification outcomes (not an independent validation set):")
+    for artifact_name, artifact_metrics in comparison_metrics.items():
+        print_classification_outcome_summary(
+            artifact_name,
+            artifact_metrics,
+            label_order,
+        )
 
     print("\nDone. Desktop will compute mel spectrogram in Kotlin, feed to ONNX CNN.")
     return 0

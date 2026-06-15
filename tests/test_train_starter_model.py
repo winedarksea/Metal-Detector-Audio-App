@@ -1,4 +1,5 @@
 import csv
+import io
 import sys
 import tempfile
 import types
@@ -117,7 +118,7 @@ class TrainStarterModelValidationTest(unittest.TestCase):
             self.assertEqual("SWING", records[0].pattern)
             self.assertEqual("TARGET", records[0].class_label)
 
-    def test_validation_rejects_missing_label_row(self):
+    def test_validation_skips_unlabeled_wav_with_warning(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             assets_dir = root / "assets"
@@ -145,7 +146,7 @@ class TrainStarterModelValidationTest(unittest.TestCase):
                         "class_label": "JUNK",
                         "depth_inches": "",
                         "mixed_flag": "false",
-                        "include_in_training": "true",
+                        "include_in_training": "false",
                         "original_description": "Nail",
                     }
                 )
@@ -154,11 +155,16 @@ class TrainStarterModelValidationTest(unittest.TestCase):
             write_sine_wav(orphan_wav)
             labels = train_starter_model.load_label_rows(labels_csv)
 
-            with self.assertRaises(ValueError):
-                train_starter_model.build_audio_sample_records(
+            warning_output = io.StringIO()
+            with patch("sys.stderr", warning_output):
+                records = train_starter_model.build_audio_sample_records(
                     labels_by_id=labels,
                     wav_files=[orphan_wav],
                 )
+
+            self.assertEqual([], records)
+            self.assertIn("WARNING: Skipping unlabeled WAV 10_sweep.wav", warning_output.getvalue())
+            self.assertIn("cleaned_labels.csv", warning_output.getvalue())
 
     def test_validation_rejects_non_taxonomy_target_name(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -205,6 +211,30 @@ class TrainStarterModelValidationTest(unittest.TestCase):
 
         self.assertEqual((5, 128), windows.shape)
         self.assertGreater(float(abs(windows).sum()), 0.0)
+
+    def test_additive_noise_augmentation_preserves_quiet_signal(self):
+        sample_count = 16_000
+        time_axis = np.arange(sample_count, dtype=np.float32) / sample_count
+        quiet_signal = (0.001 * np.sin(2.0 * np.pi * 50.0 * time_axis)).astype(
+            np.float32
+        )
+
+        augmented, augmented_labels = train_starter_model.augment_training_data(
+            quiet_signal[np.newaxis, :],
+            np.array([0], dtype=np.int64),
+            seed=123,
+        )
+
+        noisy_signal = augmented[2]
+        added_noise = noisy_signal - quiet_signal
+        signal_rms = float(np.sqrt(np.mean(np.square(quiet_signal))))
+        noise_rms = float(np.sqrt(np.mean(np.square(added_noise))))
+        measured_snr_db = 20.0 * np.log10(signal_rms / noise_rms)
+
+        self.assertEqual((4, sample_count), augmented.shape)
+        np.testing.assert_array_equal(np.zeros(4, dtype=np.int64), augmented_labels)
+        self.assertGreaterEqual(measured_snr_db, 24.5)
+        self.assertLessEqual(measured_snr_db, 40.5)
 
 
 if __name__ == "__main__":

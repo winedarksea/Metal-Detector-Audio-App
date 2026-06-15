@@ -293,9 +293,13 @@ def build_audio_sample_records(
 
         label_row = labels_by_id.get(sample_id)
         if label_row is None:
-            raise ValueError(
-                f"Missing label row for sample_id={sample_id} ({wav_path.name})"
+            print(
+                "WARNING: Skipping unlabeled WAV "
+                f"{wav_path.name} (sample_id={sample_id}). "
+                "Add its label to cleaned_labels.csv to include it.",
+                file=sys.stderr,
             )
+            continue
 
         pattern = label_row.pattern
         if not pattern:
@@ -515,6 +519,10 @@ def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
     is peak-normalized (gain cancels), so attenuated copies share the same scaled
     spectrogram but a different log-RMS loudness scalar.  This decorrelates loudness from
     class so the model can't learn "TARGET just happened to be recorded louder."
+
+    Additive noise is generated at 25-40 dB SNR relative to each source window. Using an
+    absolute full-scale noise amplitude can overwhelm quiet detector recordings after PCM
+    samples are correctly scaled to [-1, 1].
     """
     import numpy as np
 
@@ -529,11 +537,13 @@ def augment_training_data(x: np.ndarray, y: np.ndarray, seed: int = 42):
         aug_x.append(shifted[np.newaxis, :])
         aug_y.append(np.array([y[i]], dtype=y.dtype))
 
-        # Additive Gaussian noise (SNR ~25 dB); clip to [-1, 1] to avoid
-        # going out of range without destroying relative amplitude.
-        noise_scale = float(rng.uniform(0.01, 0.04))
+        # Signal-relative Gaussian noise preserves the detector response while varying the
+        # background. At 25-40 dB SNR, noise RMS is roughly 1-6% of source-window RMS.
+        signal_rms = float(np.sqrt(np.mean(np.square(x[i], dtype=np.float32))))
+        snr_db = float(rng.uniform(25.0, 40.0))
+        noise_rms = signal_rms / (10.0 ** (snr_db / 20.0))
         noisy = np.clip(
-            x[i] + rng.normal(0, noise_scale, window_size).astype(np.float32),
+            x[i] + rng.normal(0, noise_rms, window_size).astype(np.float32),
             -1.0, 1.0,
         )
         aug_x.append(noisy[np.newaxis, :])
@@ -602,6 +612,12 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
         hop_size=args.hop_size,
         rms_gate_threshold=args.rms_gate_threshold,
     )
+    training_file_count = sum(
+        record.include_in_training and record.class_label in labels_to_index
+        for record in sample_records
+    )
+    print(f"Training source files used: {training_file_count}")
+    print(f"Training windows constructed from source files: {x_all.shape[0]}")
 
     ambient_file_windows = collect_negative_ambient_windows(
         sample_records=sample_records,

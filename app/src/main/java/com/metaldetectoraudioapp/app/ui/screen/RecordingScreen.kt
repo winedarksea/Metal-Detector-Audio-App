@@ -507,7 +507,7 @@ private fun RecordingHintCard(modifier: Modifier = Modifier) {
                 "If several objects share one signal, add a label for each, but keep separate recordings for separate objects where you can."
             )
             RecordingHintBullet(
-                "Use consistent detector settings. The recommended mode is All Metal Mode with minimal filtering"
+                "Use consistent detector settings. The recommended mode is All Metal Mode with minimal processing"
             )
         }
     }

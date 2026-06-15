@@ -169,7 +169,9 @@ def infer_pattern_from_filename(file_name: str) -> str:
         return "SWING"
     if "_wig" in lowered or "_wiggle" in lowered:
         return "WIGGLE"
-    raise ValueError(f"Unable to infer pattern from filename: {file_name}")
+    # Legacy cleaned_labels.csv rows do not carry a pattern. Newer recordings without an
+    # explicit filename marker are standard detector sweeps, so SWING is the safe default.
+    return "SWING"
 
 
 def infer_sample_id_from_filename(file_name: str) -> str:
@@ -328,17 +330,25 @@ def load_wav_as_mono_float32(wav_path: Path, target_sample_rate: int):
     from scipy.io import wavfile
 
     sample_rate, raw = wavfile.read(wav_path)
-    if raw.ndim == 2:
-        raw = raw.mean(axis=1)
-
     if raw.dtype == np.int16:
         audio = raw.astype(np.float32) / 32768.0
     elif raw.dtype == np.int32:
         audio = raw.astype(np.float32) / 2147483648.0
-    elif raw.dtype == np.float32:
-        audio = raw
+    elif raw.dtype == np.uint8:
+        audio = (raw.astype(np.float32) - 128.0) / 128.0
+    elif np.issubdtype(raw.dtype, np.floating):
+        audio = raw.astype(np.float32)
     else:
         audio = raw.astype(np.float32)
+
+    if audio.ndim == 2:
+        # Normalize integer PCM before downmixing. Averaging int16 channels first promotes
+        # them to float64 and previously bypassed the required [-1, 1] scaling.
+        audio = audio.mean(axis=1, dtype=np.float32)
+    elif audio.ndim != 1:
+        raise ValueError(
+            f"Expected mono or multi-channel WAV samples in {wav_path}, got shape {audio.shape}"
+        )
 
     if sample_rate != target_sample_rate:
         duration = len(audio) / sample_rate

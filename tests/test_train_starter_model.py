@@ -1,8 +1,13 @@
 import csv
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from wave import open as wave_open
+
+import numpy as np
 
 from scripts import train_starter_model
 
@@ -17,6 +22,56 @@ def write_sine_wav(path: Path, sample_rate: int = 16000, duration_seconds: float
 
 
 class TrainStarterModelValidationTest(unittest.TestCase):
+    def test_filename_without_pattern_defaults_to_swing(self):
+        self.assertEqual(
+            "SWING",
+            train_starter_model.infer_pattern_from_filename("7.wav"),
+        )
+        self.assertEqual(
+            "SWING",
+            train_starter_model.infer_pattern_from_filename("7_first.wav"),
+        )
+
+    def test_explicit_wiggle_filename_remains_wiggle(self):
+        self.assertEqual(
+            "WIGGLE",
+            train_starter_model.infer_pattern_from_filename("7_wiggle.wav"),
+        )
+
+    def test_stereo_pcm16_is_scaled_before_channels_are_averaged(self):
+        stereo_pcm16 = np.array(
+            [
+                [32767, 32767],
+                [-32768, 0],
+                [16384, -16384],
+            ],
+            dtype=np.int16,
+        )
+        fake_wavfile = types.SimpleNamespace(
+            read=lambda _: (16000, stereo_pcm16)
+        )
+        fake_scipy_io = types.ModuleType("scipy.io")
+        fake_scipy_io.wavfile = fake_wavfile
+        fake_scipy = types.ModuleType("scipy")
+        fake_scipy.io = fake_scipy_io
+
+        with patch.dict(
+            sys.modules,
+            {"scipy": fake_scipy, "scipy.io": fake_scipy_io},
+        ):
+            audio = train_starter_model.load_wav_as_mono_float32(
+                Path("stereo.wav"),
+                target_sample_rate=16000,
+            )
+
+        np.testing.assert_allclose(
+            audio,
+            np.array([32767 / 32768, -0.5, 0.0], dtype=np.float32),
+            rtol=0.0,
+            atol=1e-7,
+        )
+        self.assertEqual(np.float32, audio.dtype)
+
     def test_validation_accepts_consistent_assets(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

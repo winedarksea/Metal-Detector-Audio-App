@@ -315,9 +315,30 @@ def convert_keras_model_to_tflite(
             else:
                 arrays = [representative_inputs.astype("float32", copy=False)]
 
+            if len(arrays) != len(model.inputs):
+                raise ValueError(
+                    "Representative input count does not match model input count: "
+                    f"{len(arrays)} != {len(model.inputs)}"
+                )
+
+            sample_counts = {array.shape[0] for array in arrays}
+            if len(sample_counts) != 1:
+                raise ValueError(
+                    "Representative inputs must contain the same number of samples"
+                )
+
+            input_names = [
+                model_input.name.split(":")[0] for model_input in model.inputs
+            ]
+
             def representative_dataset():
                 for index in range(arrays[0].shape[0]):
-                    yield [arr[index][None, ...] for arr in arrays]
+                    # TFLite may reorder multi-input graphs (for example alphabetically).
+                    # Names preserve the model contract when input ranks differ.
+                    yield {
+                        input_name: array[index][None, ...]
+                        for input_name, array in zip(input_names, arrays)
+                    }
 
             converter.representative_dataset = representative_dataset
 

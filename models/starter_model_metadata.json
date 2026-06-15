@@ -1,6 +1,6 @@
 {
   "model_name": "starter_model",
-  "model_version": "0.4.0",
+  "model_version": "0.5.0",
   "labels": [
     "TARGET",
     "JUNK",
@@ -10,7 +10,18 @@
     "sample_rate_hz": 16000,
     "window_size_samples": 8000,
     "hop_size_samples": 4000,
-    "expects_normalized_audio": true
+    "expects_normalized_audio": false,
+    "preprocessing": {
+      "peak_normalize_window": true,
+      "spectrogram_min_max_scale": true,
+      "loudness_scalar": {
+        "feature": "log_rms",
+        "epsilon": 1e-06,
+        "standardization_mean": -6.565780162811279,
+        "standardization_std": 2.445099353790283,
+        "standardization_in_graph": true
+      }
+    }
   },
   "artifacts": {
     "waveform_tflite": "starter_model.tflite",
@@ -18,13 +29,25 @@
     "accelerator_tflite": "starter_model_cnn_int8.tflite",
     "desktop_onnx": "starter_model_cnn.onnx",
     "accelerator_input": {
-      "kind": "log_mel_spectrogram",
+      "kind": "scaled_log_mel_spectrogram",
       "time_frames": 61,
       "mel_bins": 40,
       "channels": 1,
       "dtype": "int8",
-      "scale": 0.09044861048460007,
-      "zero_point": 25
+      "scale": 0.003921568859368563,
+      "zero_point": -128,
+      "input_index": 1
+    },
+    "accelerator_loudness_input": {
+      "kind": "loudness",
+      "feature": "log_rms",
+      "epsilon": 1e-06,
+      "standardization_mean": -6.565780162811279,
+      "standardization_std": 2.445099353790283,
+      "dtype": "int8",
+      "scale": 0.0408584326505661,
+      "zero_point": 127,
+      "input_index": 0
     },
     "accelerator_output": {
       "dtype": "int8",
@@ -34,22 +57,28 @@
   },
   "inference": {
     "ambient_strategy": "explicit_class",
-    "recommended_threshold": 0.55
+    "recommended_threshold": 0.55,
+    "energy_gate_rms_threshold": 0.015
   },
   "training": {
     "train_and_validation_share_examples": true,
-    "backbone": "mel_cnn",
+    "backbone": "mel_cnn_loudness_invariant",
     "epochs": 20,
     "batch_size": 16,
-    "exclude_mixed_records": false,
-    "energy_gate_rms_threshold": 0.015,
+    "exclude_mixed_records": true,
+    "mixed_sample_weight": 0.2,
+    "cross_class_mixed_window_counts": {
+      "TARGET": 0,
+      "JUNK": 0,
+      "AMBIENT": 0
+    },
     "class_window_counts": {
-      "TARGET": 1557,
-      "JUNK": 550,
-      "AMBIENT": 769
+      "TARGET": 1270,
+      "JUNK": 181,
+      "AMBIENT": 540
     },
     "excluded_class_file_counts": {},
-    "augmented_total_windows": 8628,
+    "augmented_total_windows": 7964,
     "mel_spectrogram": {
       "stft_frame_length": 256,
       "stft_frame_step": 128,
@@ -57,6 +86,10 @@
       "num_mel_bins": 40,
       "lower_edge_hertz": 80.0,
       "upper_edge_hertz": 7600.0
+    },
+    "loudness_standardization": {
+      "mean": -6.565780162811279,
+      "std": 2.445099353790283
     },
     "synthetic_ambient": {
       "enabled": true,
@@ -67,5 +100,5 @@
       ]
     }
   },
-  "timestamp_utc": "2026-04-30T04:43:34.321383+00:00"
+  "timestamp_utc": "2026-06-15T13:56:29.467407+00:00"
 }

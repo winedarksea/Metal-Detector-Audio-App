@@ -219,10 +219,14 @@ class TrainStarterModelValidationTest(unittest.TestCase):
             np.float32
         )
 
-        augmented, augmented_labels = train_starter_model.augment_training_data(
-            quiet_signal[np.newaxis, :],
-            np.array([0], dtype=np.int64),
-            seed=123,
+        augmented, augmented_labels, augmented_weights, augmented_mask = (
+            train_starter_model.augment_training_data(
+                quiet_signal[np.newaxis, :],
+                np.array([0], dtype=np.int64),
+                np.array([1.0], dtype=np.float32),
+                np.array([False], dtype=bool),
+                seed=123,
+            )
         )
 
         noisy_signal = augmented[2]
@@ -233,6 +237,12 @@ class TrainStarterModelValidationTest(unittest.TestCase):
 
         self.assertEqual((4, sample_count), augmented.shape)
         np.testing.assert_array_equal(np.zeros(4, dtype=np.int64), augmented_labels)
+        np.testing.assert_array_equal(
+            np.ones(4, dtype=np.float32), augmented_weights
+        )
+        np.testing.assert_array_equal(
+            np.zeros(4, dtype=bool), augmented_mask
+        )
         self.assertGreaterEqual(measured_snr_db, 24.5)
         self.assertLessEqual(measured_snr_db, 40.5)
 

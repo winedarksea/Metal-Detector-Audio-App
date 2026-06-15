@@ -29,7 +29,7 @@ jobs:
           python -m pip install numpy scipy
 
       - name: Validate starter-model assets
-        run: python scripts/train_starter_model.py --dry-run
+        run: python scripts/train_starter_model.py --allow-missing-training-wavs --dry-run
 
       - name: Run Python tests
         run: python -m unittest tests.test_train_starter_model

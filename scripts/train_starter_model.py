@@ -122,6 +122,12 @@ def parse_cli_args() -> argparse.Namespace:
         help="Exclude all records marked as mixed_target_and_junk = True.",
     )
     parser.add_argument(
+        "--allow-missing-training-wavs",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Do not fail when include_in_training=true rows have no matching WAV files; emit warnings and continue.",
+    )
+    parser.add_argument(
         "--mixed-target-and-junk-sample-weight", "--mixed-sample-weight", type=float, default=0.2,
         help="Per-window sample_weight for mixed_target_and_junk=true windows. "
              "Still trained on, but contributes less to "
@@ -305,6 +311,7 @@ def collect_wav_files(assets_directory: Path) -> List[Path]:
 def build_audio_sample_records(
     labels_by_id: Dict[str, LabelRow],
     wav_files: Iterable[Path],
+    allow_missing_training_wavs: bool = False,
 ) -> List[AudioSampleRecord]:
     records: List[AudioSampleRecord] = []
     seen_training_ids: set = set()
@@ -338,10 +345,23 @@ def build_audio_sample_records(
             include_in_training=label_row.include_in_training,
         ))
 
-    for sid, row in labels_by_id.items():
-        if row.include_in_training and sid not in seen_training_ids:
+    missing_training_wav_sample_ids = sorted(
+        sid for sid, row in labels_by_id.items()
+        if row.include_in_training and sid not in seen_training_ids
+    )
+    if missing_training_wav_sample_ids:
+        if allow_missing_training_wavs:
+            for sid in missing_training_wav_sample_ids:
+                print(
+                    "WARNING: sample_id="
+                    f"{sid} is include_in_training=true but has no WAV file. "
+                    "Skipping this row in the current run.",
+                    file=sys.stderr,
+                )
+        else:
             raise ValueError(
-                f"sample_id={sid} is include_in_training=true but has no WAV file"
+                f"sample_id={missing_training_wav_sample_ids[0]} "
+                "is include_in_training=true but has no WAV file"
             )
     return records
 
@@ -626,7 +646,11 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
         metadata_csv_path=args.assets_dir / "recordings_metadata.csv"
     )
     wav_files = collect_wav_files(args.assets_dir)
-    sample_records = build_audio_sample_records(labels_by_id, wav_files)
+    sample_records = build_audio_sample_records(
+        labels_by_id,
+        wav_files,
+        allow_missing_training_wavs=args.allow_missing_training_wavs,
+    )
 
     if args.no_mixed:
         original_count = len(sample_records)

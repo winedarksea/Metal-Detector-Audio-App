@@ -171,6 +171,47 @@ class TrainStarterModelValidationTest(unittest.TestCase):
             self.assertIn("WARNING: Skipping unlabeled WAV 10_sweep.wav", warning_output.getvalue())
             self.assertIn("cleaned_labels.csv", warning_output.getvalue())
 
+    def test_validation_rejects_missing_training_wav_by_default(self):
+        labels = {
+            "1": train_starter_model.LabelRow(
+                sample_id="1",
+                target_name="coin:dime:cupronickel-clad-copper",
+                class_label="TARGET",
+                mixed_target_and_junk=False,
+                include_in_training=True,
+                pattern="SWING",
+            )
+        }
+
+        with self.assertRaisesRegex(ValueError, "sample_id=1 is include_in_training=true but has no WAV file"):
+            train_starter_model.build_audio_sample_records(labels_by_id=labels, wav_files=[])
+
+    def test_validation_can_allow_missing_training_wav_with_warning(self):
+        labels = {
+            "1": train_starter_model.LabelRow(
+                sample_id="1",
+                target_name="coin:dime:cupronickel-clad-copper",
+                class_label="TARGET",
+                mixed_target_and_junk=False,
+                include_in_training=True,
+                pattern="SWING",
+            )
+        }
+
+        warning_output = io.StringIO()
+        with patch("sys.stderr", warning_output):
+            records = train_starter_model.build_audio_sample_records(
+                labels_by_id=labels,
+                wav_files=[],
+                allow_missing_training_wavs=True,
+            )
+
+        self.assertEqual([], records)
+        self.assertIn(
+            "WARNING: sample_id=1 is include_in_training=true but has no WAV file",
+            warning_output.getvalue(),
+        )
+
     def test_validation_rejects_non_taxonomy_target_name(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

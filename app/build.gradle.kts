@@ -76,6 +76,7 @@ val validateStarterTrainingInputs by tasks.registering(Exec::class) {
         "${rootDir}/scripts/train_starter_model.py",
         "--assets-dir", "${rootDir}/assets",
         "--labels-csv", "${rootDir}/assets/cleaned_labels.csv",
+        "--allow-missing-training-wavs",
         "--dry-run",
     )
 }

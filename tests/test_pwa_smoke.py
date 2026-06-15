@@ -29,6 +29,11 @@ WASM_MAIN_ROOT = (
 MAIN_KT = WASM_MAIN_ROOT / "Main.kt"
 MIC_DEVICES_KT = WASM_MAIN_ROOT / "audio" / "MicDevices.kt"
 MIC_SELECTOR_KT = WASM_MAIN_ROOT / "ui" / "screen" / "MicSelector.kt"
+PHOTO_CAPTURE_PROVIDER_KT = WASM_MAIN_ROOT / "platform" / "WebPhotoCaptureProvider.kt"
+LOCATION_PROVIDER_KT = WASM_MAIN_ROOT / "platform" / "WebLocationProvider.kt"
+RECORDING_VIEW_MODEL_KT = WASM_MAIN_ROOT / "viewmodel" / "WebRecordingViewModel.kt"
+RECORDING_SCREEN_KT = WASM_MAIN_ROOT / "ui" / "screen" / "WebRecordingScreen.kt"
+REVIEW_SCREEN_KT = WASM_MAIN_ROOT / "ui" / "screen" / "WebReviewScreen.kt"
 
 
 def _wasm_kt_files() -> list[Path]:
@@ -151,6 +156,41 @@ class PwaAudioDeviceFlowTest(unittest.TestCase):
         self.assertIn("Modifier.size(36.dp)", source)
         self.assertNotIn("listMicDevices()", source)
         self.assertNotIn("listOutputDevices()", source)
+
+
+class PwaPhotoAndLocationCaptureTest(unittest.TestCase):
+    """Guard optional photo/GPS capture and persistence wiring."""
+
+    def test_photo_capture_normalizes_native_image_selection(self):
+        source = _read(PHOTO_CAPTURE_PROVIDER_KT)
+        self.assertIn("input.accept = 'image/*'", source)
+        self.assertIn("input.capture = 'environment'", source)
+        self.assertIn("var maximumLongEdge = 1600", source)
+        self.assertIn("canvas.toBlob", source)
+        self.assertIn("'image/jpeg', 0.9", source)
+
+    def test_location_capture_is_explicit_high_accuracy_and_uncached(self):
+        provider_source = _read(LOCATION_PROVIDER_KT)
+        screen_source = _read(RECORDING_SCREEN_KT)
+        self.assertIn("navigator.geolocation.getCurrentPosition", provider_source)
+        self.assertIn("enableHighAccuracy: true", provider_source)
+        self.assertIn("maximumAge: 0", provider_source)
+        self.assertIn("timeout: 15000", provider_source)
+        self.assertIn('"Use Current GPS"', screen_source)
+
+    def test_recording_save_persists_optional_photo_and_gps(self):
+        source = _read(RECORDING_VIEW_MODEL_KT)
+        self.assertIn("gpsLatitude = draft.gpsLatitude", source)
+        self.assertIn("gpsLongitude = draft.gpsLongitude", source)
+        self.assertIn("imageBytes = pendingImage?.bytes", source)
+        self.assertIn("imageExtension = pendingImage?.extension", source)
+        self.assertNotIn("gpsLatitude = null,\n                        gpsLongitude = null", source)
+
+    def test_review_displays_saved_photo_and_gps_metadata(self):
+        source = _read(REVIEW_SCREEN_KT)
+        self.assertIn('Photo: ${recording.imageFileName ?: "none"}', source)
+        self.assertIn("recording.gpsLatitude", source)
+        self.assertIn("recording.gpsLongitude", source)
 
 
 if __name__ == "__main__":

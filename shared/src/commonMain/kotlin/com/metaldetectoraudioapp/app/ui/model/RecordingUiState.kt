@@ -12,6 +12,8 @@ data class RecordingUiState(
     val isRecording: Boolean = false,
     val pendingAudio: CapturedRecording? = null,
     val pendingImage: PendingImage? = null,
+    val isPhotoCaptureInProgress: Boolean = false,
+    val isLocationCaptureInProgress: Boolean = false,
     val pendingDurationMs: Long = 0,
     val draft: RecordingDraftUiState = RecordingDraftUiState(),
     val saveResultMessage: String? = null,

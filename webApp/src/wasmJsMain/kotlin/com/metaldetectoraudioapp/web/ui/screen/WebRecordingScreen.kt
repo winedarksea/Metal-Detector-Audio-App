@@ -10,12 +10,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,7 +69,7 @@ fun WebRecordingScreen(
                         }
                         OutlinedButton(
                             onClick = viewModel::clearPendingCapture,
-                            enabled = uiState.pendingAudio != null
+                            enabled = uiState.pendingAudio != null || uiState.pendingImage != null
                         ) {
                             Text("Clear")
                         }
@@ -109,6 +111,75 @@ fun WebRecordingScreen(
                         label = { Text("notes (optional)") },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 3,
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        OutlinedButton(
+                            onClick = viewModel::capturePhoto,
+                            enabled = !uiState.isRecording && !uiState.isPhotoCaptureInProgress,
+                        ) {
+                            Text(
+                                when {
+                                    uiState.isPhotoCaptureInProgress -> "Processing Photo"
+                                    uiState.pendingImage != null -> "Replace Photo"
+                                    else -> "Add Photo"
+                                }
+                            )
+                        }
+                        if (uiState.isPhotoCaptureInProgress) {
+                            CircularProgressIndicator()
+                        }
+                        if (uiState.pendingImage != null) {
+                            TextButton(onClick = viewModel::removePendingPhoto) {
+                                Text("Remove Photo")
+                            }
+                        }
+                    }
+                    uiState.pendingImage?.let { pendingImage ->
+                        Text(
+                            "Photo attached: JPEG, ${formatByteCount(pendingImage.bytes.size)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        OutlinedButton(
+                            onClick = viewModel::captureCurrentLocation,
+                            enabled = !uiState.isLocationCaptureInProgress,
+                        ) {
+                            Text(
+                                if (uiState.isLocationCaptureInProgress) {
+                                    "Finding Location"
+                                } else {
+                                    "Use Current GPS"
+                                }
+                            )
+                        }
+                        if (uiState.isLocationCaptureInProgress) {
+                            CircularProgressIndicator()
+                        }
+                        if (uiState.draft.gpsLatitude != null && uiState.draft.gpsLongitude != null) {
+                            TextButton(onClick = viewModel::clearCurrentLocation) {
+                                Text("Clear GPS")
+                            }
+                        }
+                    }
+                    val gpsLatitude = uiState.draft.gpsLatitude
+                    val gpsLongitude = uiState.draft.gpsLongitude
+                    Text(
+                        text = if (gpsLatitude == null || gpsLongitude == null) {
+                            "GPS: not set"
+                        } else {
+                            "GPS: ${formatCoordinate(gpsLatitude)}, ${formatCoordinate(gpsLongitude)}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
                     )
 
                     Text(
@@ -155,7 +226,12 @@ fun WebRecordingScreen(
                     uiState.errorMessage?.let { err ->
                         Text(err, color = MaterialTheme.colorScheme.error)
                     }
-                    Button(onClick = viewModel::saveRecording, enabled = uiState.pendingAudio != null) {
+                    Button(
+                        onClick = viewModel::saveRecording,
+                        enabled = uiState.pendingAudio != null &&
+                            !uiState.isPhotoCaptureInProgress &&
+                            !uiState.isLocationCaptureInProgress,
+                    ) {
                         Text("Save Recording")
                     }
                 }
@@ -202,3 +278,12 @@ fun WebRecordingScreen(
         }
     }
 }
+
+private fun formatCoordinate(value: Double): String = js("value.toFixed(6)")
+
+private fun formatByteCount(byteCount: Int): String =
+    if (byteCount < 1024) {
+        "$byteCount bytes"
+    } else {
+        "${(byteCount + 512) / 1024} KB"
+    }

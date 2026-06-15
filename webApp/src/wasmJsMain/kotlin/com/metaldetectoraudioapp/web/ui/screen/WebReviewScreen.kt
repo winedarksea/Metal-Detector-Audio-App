@@ -116,6 +116,20 @@ private fun WebRecordingCard(
                 "Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | ${recording.durationMs} ms",
                 style = MaterialTheme.typography.bodyMedium
             )
+            Text(
+                "Photo: ${recording.imageFileName ?: "none"}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            val gpsLatitude = recording.gpsLatitude
+            val gpsLongitude = recording.gpsLongitude
+            Text(
+                text = if (gpsLatitude == null || gpsLongitude == null) {
+                    "GPS: not set"
+                } else {
+                    "GPS: ${formatReviewCoordinate(gpsLatitude)}, ${formatReviewCoordinate(gpsLongitude)}"
+                },
+                style = MaterialTheme.typography.bodySmall,
+            )
 
             WebLabelPickerField(
                 value = targetInput,
@@ -148,3 +162,5 @@ private fun WebRecordingCard(
         }
     }
 }
+
+private fun formatReviewCoordinate(value: Double): String = js("value.toFixed(6)")

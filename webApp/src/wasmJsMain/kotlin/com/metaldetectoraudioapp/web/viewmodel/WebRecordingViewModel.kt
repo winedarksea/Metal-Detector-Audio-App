@@ -7,11 +7,16 @@ import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.recording.RecordingRepository
 import com.metaldetectoraudioapp.app.recording.WavCodec
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.PendingImage
 import com.metaldetectoraudioapp.app.ui.model.RecordingDraftUiState
 import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.RecordingUiState
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.util.Clocks
+import com.metaldetectoraudioapp.web.platform.WebLocationProvider
+import com.metaldetectoraudioapp.web.platform.WebLocationResult
+import com.metaldetectoraudioapp.web.platform.WebPhotoCaptureProvider
+import com.metaldetectoraudioapp.web.platform.WebPhotoCaptureResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,6 +32,8 @@ import kotlinx.coroutines.launch
 class WebRecordingViewModel(
     private val recordingRepository: RecordingRepository,
     private val audioPlayer: AudioPlayer,
+    private val photoCaptureProvider: WebPhotoCaptureProvider,
+    private val locationProvider: WebLocationProvider,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -140,6 +147,107 @@ class WebRecordingViewModel(
     fun updateRecoverySpeed(value: String) = updateDraft(_uiState.value.draft.copy(recoverySpeed = value))
     fun updateStabilizer(value: String) = updateDraft(_uiState.value.draft.copy(stabilizer = value))
 
+    fun capturePhoto() {
+        if (_uiState.value.isRecording || _uiState.value.isPhotoCaptureInProgress) {
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(
+            isPhotoCaptureInProgress = true,
+            saveResultMessage = null,
+            errorMessage = null,
+        )
+        photoCaptureProvider.capturePhoto { result ->
+            when (result) {
+                is WebPhotoCaptureResult.Captured -> {
+                    _uiState.value = _uiState.value.copy(
+                        pendingImage = PendingImage(result.bytes, result.extension),
+                        isPhotoCaptureInProgress = false,
+                        saveResultMessage = "Photo attached",
+                        errorMessage = null,
+                    )
+                }
+                WebPhotoCaptureResult.Cancelled -> {
+                    _uiState.value = _uiState.value.copy(
+                        isPhotoCaptureInProgress = false,
+                        saveResultMessage = "Photo selection cancelled",
+                    )
+                }
+                is WebPhotoCaptureResult.Failed -> {
+                    _uiState.value = _uiState.value.copy(
+                        isPhotoCaptureInProgress = false,
+                        errorMessage = "Photo failed: ${result.message}",
+                    )
+                }
+            }
+        }
+    }
+
+    fun removePendingPhoto() {
+        _uiState.value = _uiState.value.copy(
+            pendingImage = null,
+            saveResultMessage = "Photo removed",
+            errorMessage = null,
+        )
+    }
+
+    fun captureCurrentLocation() {
+        if (_uiState.value.isLocationCaptureInProgress) {
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(
+            isLocationCaptureInProgress = true,
+            saveResultMessage = null,
+            errorMessage = null,
+        )
+        locationProvider.captureCurrentLocation { result ->
+            when (result) {
+                is WebLocationResult.Captured -> {
+                    updateDraft(
+                        _uiState.value.draft.copy(
+                            gpsLatitude = result.latitude,
+                            gpsLongitude = result.longitude,
+                        )
+                    )
+                    _uiState.value = _uiState.value.copy(
+                        isLocationCaptureInProgress = false,
+                        saveResultMessage = "Current GPS location captured",
+                        errorMessage = null,
+                    )
+                }
+                WebLocationResult.PermissionDenied -> setLocationCaptureError(
+                    "Location permission was denied. Allow location in this site's browser settings to retry."
+                )
+                WebLocationResult.Timeout -> setLocationCaptureError(
+                    "Location request timed out. Move to an open area and retry."
+                )
+                WebLocationResult.Unavailable -> setLocationCaptureError(
+                    "Current location is unavailable. Ensure device location services are on and retry."
+                )
+                WebLocationResult.Unsupported -> setLocationCaptureError(
+                    "Location is not supported by this browser."
+                )
+                is WebLocationResult.Failed -> setLocationCaptureError(
+                    "Location failed: ${result.message}"
+                )
+            }
+        }
+    }
+
+    fun clearCurrentLocation() {
+        updateDraft(
+            _uiState.value.draft.copy(
+                gpsLatitude = null,
+                gpsLongitude = null,
+            )
+        )
+        _uiState.value = _uiState.value.copy(
+            saveResultMessage = "GPS location cleared",
+            errorMessage = null,
+        )
+    }
+
     fun saveRecording() {
         val captured = lastCapturedRecording ?: run {
             _uiState.value = _uiState.value.copy(errorMessage = "Record audio before saving")
@@ -155,6 +263,7 @@ class WebRecordingViewModel(
             _uiState.value = _uiState.value.copy(errorMessage = "At least one labeled object is required")
             return
         }
+        val pendingImage = _uiState.value.pendingImage
 
         scope.launch {
             try {
@@ -165,8 +274,8 @@ class WebRecordingViewModel(
                         pattern = draft.pattern,
                         depthInches = draft.depthInches.ifBlank { null },
                         notes = draft.notesInput.ifBlank { null },
-                        gpsLatitude = null,
-                        gpsLongitude = null,
+                        gpsLatitude = draft.gpsLatitude,
+                        gpsLongitude = draft.gpsLongitude,
                         includeInTraining = draft.includeInTraining,
                         soilType = draft.soilType.ifBlank { null },
                         moisture = draft.moisture.ifBlank { null },
@@ -175,8 +284,8 @@ class WebRecordingViewModel(
                         sensitivity = draft.sensitivity.ifBlank { null },
                         recoverySpeed = draft.recoverySpeed.ifBlank { null },
                         stabilizer = draft.stabilizer.ifBlank { null },
-                        imageBytes = null,
-                        imageExtension = null,
+                        imageBytes = pendingImage?.bytes,
+                        imageExtension = pendingImage?.extension,
                     )
                 )
                 lastCapturedRecording = null
@@ -210,6 +319,8 @@ class WebRecordingViewModel(
         pcmSamples.clear()
         _uiState.value = _uiState.value.copy(
             pendingAudio = null,
+            pendingImage = null,
+            isPhotoCaptureInProgress = false,
             pendingDurationMs = 0,
             isPlayingPreview = false,
             saveResultMessage = if (announce) "Cleared unsaved recording" else null,
@@ -219,6 +330,13 @@ class WebRecordingViewModel(
 
     private fun updateDraft(newDraft: RecordingDraftUiState) {
         _uiState.value = _uiState.value.copy(draft = newDraft, errorMessage = null)
+    }
+
+    private fun setLocationCaptureError(message: String) {
+        _uiState.value = _uiState.value.copy(
+            isLocationCaptureInProgress = false,
+            errorMessage = message,
+        )
     }
 
     private fun startDurationTicker() {

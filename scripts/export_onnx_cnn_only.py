@@ -576,8 +576,8 @@ def main() -> int:
     timestamp = datetime.now(timezone.utc).isoformat()
     variant_id = "no_mixed" if args.no_mixed else "standard"
     variant_display_name = (
-        "No Mixed Target and Junk" if args.no_mixed
-        else "Standard (Includes Mixed Target and Junk)"
+        "No Mixed" if args.no_mixed
+        else "Standard"
     )
     loudness_mean = float(numeric_metrics["loudness_mean"])
     loudness_std = float(numeric_metrics["loudness_std"])

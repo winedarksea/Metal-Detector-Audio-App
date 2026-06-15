@@ -44,6 +44,8 @@ import com.metaldetectoraudioapp.web.export.WebZipCodec
 import com.metaldetectoraudioapp.web.inference.WebInferenceControllerFactory
 import com.metaldetectoraudioapp.web.platform.WebFileDownloader
 import com.metaldetectoraudioapp.web.platform.WebFilePicker
+import com.metaldetectoraudioapp.web.platform.BrowserWebLocationProvider
+import com.metaldetectoraudioapp.web.platform.BrowserWebPhotoCaptureProvider
 import com.metaldetectoraudioapp.web.storage.IndexedDbDatasetStore
 import com.metaldetectoraudioapp.web.ui.screen.MicSelector
 import com.metaldetectoraudioapp.web.ui.screen.WebRecordingScreen
@@ -71,6 +73,8 @@ fun main() {
             val audioPlayer: AudioPlayer = remember { WebAudioPlayer() }
             val fileDownloader = remember { WebFileDownloader() }
             val filePicker = remember { WebFilePicker() }
+            val photoCaptureProvider = remember { BrowserWebPhotoCaptureProvider() }
+            val locationProvider = remember { BrowserWebLocationProvider() }
             val recordingRepository = remember { RecordingRepository(store) }
             val bundleManager = remember { DatasetBundleManager(recordingRepository, zipCodec) }
 
@@ -91,7 +95,12 @@ fun main() {
             }
 
             val recordingViewModel = remember {
-                WebRecordingViewModel(recordingRepository, audioPlayer)
+                WebRecordingViewModel(
+                    recordingRepository = recordingRepository,
+                    audioPlayer = audioPlayer,
+                    photoCaptureProvider = photoCaptureProvider,
+                    locationProvider = locationProvider,
+                )
             }
             val reviewViewModel = remember {
                 WebReviewViewModel(recordingRepository, bundleManager, audioPlayer, fileDownloader, filePicker)

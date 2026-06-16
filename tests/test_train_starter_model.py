@@ -301,6 +301,18 @@ class TrainStarterModelValidationTest(unittest.TestCase):
         self.assertEqual((5, 128), windows.shape)
         self.assertGreater(float(abs(windows).sum()), 0.0)
 
+    def test_time_shift_augmentation_zero_fills_instead_of_wrapping(self):
+        window = np.arange(1, 7, dtype=np.float32)
+
+        np.testing.assert_array_equal(
+            np.array([0, 0, 1, 2, 3, 4], dtype=np.float32),
+            train_starter_model.zero_fill_time_shift(window, 2),
+        )
+        np.testing.assert_array_equal(
+            np.array([3, 4, 5, 6, 0, 0], dtype=np.float32),
+            train_starter_model.zero_fill_time_shift(window, -2),
+        )
+
     def test_additive_noise_augmentation_preserves_quiet_signal(self):
         sample_count = 16_000
         time_axis = np.arange(sample_count, dtype=np.float32) / sample_count

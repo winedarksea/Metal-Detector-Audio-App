@@ -563,6 +563,20 @@ def synthesize_ambient_noise_windows(
 # Data augmentation helpers
 # ---------------------------------------------------------------------------
 
+def zero_fill_time_shift(window: np.ndarray, shift: int) -> np.ndarray:
+    """Shift a window without treating audio as circular at the boundaries."""
+    import numpy as np
+
+    shifted = np.zeros_like(window)
+    if shift == 0:
+        shifted[:] = window
+    elif shift > 0:
+        shifted[shift:] = window[:-shift]
+    else:
+        shifted[:shift] = window[-shift:]
+    return shifted
+
+
 def augment_training_data(
     x: np.ndarray, y: np.ndarray, weights: np.ndarray, mask: np.ndarray, seed: int = 42
 ):
@@ -590,7 +604,7 @@ def augment_training_data(
     for i in range(x.shape[0]):
         # Time shift by +/- 10 %
         shift = rng.integers(-window_size // 10, window_size // 10)
-        shifted = np.roll(x[i], shift)
+        shifted = zero_fill_time_shift(x[i], int(shift))
         aug_x.append(shifted[np.newaxis, :])
         aug_y.append(np.array([y[i]], dtype=y.dtype))
         aug_weights.append(np.array([weights[i]], dtype=weights.dtype))

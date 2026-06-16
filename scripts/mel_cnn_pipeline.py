@@ -182,16 +182,19 @@ def _build_classifier_head(spectrogram, loudness, num_classes: int, loudness_mea
     """
     import tensorflow as tf
 
-    spectral = tf.keras.layers.Conv2D(32, (3, 3), activation="relu", padding="same", name="conv1")(spectrogram)
+    spectral = tf.keras.layers.Conv2D(32, (3, 3), padding="same", name="conv1")(spectrogram)
     spectral = tf.keras.layers.BatchNormalization(name="bn1")(spectral)
+    spectral = tf.keras.layers.Activation("relu", name="relu1")(spectral)
     spectral = tf.keras.layers.MaxPooling2D((2, 2), name="pool1")(spectral)
 
-    spectral = tf.keras.layers.Conv2D(64, (3, 3), activation="relu", padding="same", name="conv2")(spectral)
+    spectral = tf.keras.layers.Conv2D(64, (3, 3), padding="same", name="conv2")(spectral)
     spectral = tf.keras.layers.BatchNormalization(name="bn2")(spectral)
+    spectral = tf.keras.layers.Activation("relu", name="relu2")(spectral)
     spectral = tf.keras.layers.MaxPooling2D((2, 2), name="pool2")(spectral)
 
-    spectral = tf.keras.layers.Conv2D(64, (3, 3), activation="relu", padding="same", name="conv3")(spectral)
+    spectral = tf.keras.layers.Conv2D(64, (3, 3), padding="same", name="conv3")(spectral)
     spectral = tf.keras.layers.BatchNormalization(name="bn3")(spectral)
+    spectral = tf.keras.layers.Activation("relu", name="relu3")(spectral)
     spectral = tf.keras.layers.GlobalAveragePooling2D(name="gap")(spectral)
 
     loudness_standardized = tf.keras.layers.Lambda(

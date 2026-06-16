@@ -18,7 +18,7 @@
 - [ ] **Training Data Windows** Investigate the training data flow quality. Current slice logic may select empty windows or windows that don't represent edge cases (chirps falling on window cuts).
 - [ ] Optional chirp crop tool for failed auto-segmentation.
 - [x] **Inference:** Increase the production window to 1.0s with a 0.5s hop and keep runtime framing synchronized through model metadata.
-- [ ] **Model Architecture:** Evaluate **DS-CNN** variants (Depthwise Separable CNN, depthwise temporal convolutions) or YAMNet to replace the current vanilla CNN. Assess multi-resolution features. Test PCEN or a log-mel plus spectral-delta representation. Test replacing linear resampling with anti-aliased polyphase resampling.
+- [ ] **Model Architecture:** Evaluate **DS-CNN** variants (Depthwise Separable CNN, depthwise temporal convolutions) or YAMNet to replace the current vanilla CNN. Assess multi-resolution features. Test PCEN or a log-mel plus spectral-delta representation. Test replacing linear resampling with anti-aliased polyphase resampling. Try using the qat_onnx_models code here.
 - [ ] **Mixed Data** More work needs to be done on deciding how to incorporate mixed signals (junk and target very close to each other or overlapping).
 
 ## On-Device Fine-Tuning - FUTURE EXTENSION

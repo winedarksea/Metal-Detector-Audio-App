@@ -87,6 +87,34 @@ class WebReviewViewModel(
         }
     }
 
+    fun relabelEnvironment(
+        recording: RecordingMetadata,
+        soilType: String,
+        moisture: String,
+        detectorModel: String,
+        searchMode: String,
+        audioProfile: String,
+        sensitivity: String,
+        recoverySpeed: String,
+        stabilizer: String,
+    ) {
+        scope.launch {
+            recordingRepository.updateRecording(
+                recording.copy(
+                    soilType = soilType.ifBlank { null },
+                    moisture = moisture.ifBlank { null },
+                    detectorModel = detectorModel.ifBlank { null },
+                    searchMode = searchMode.ifBlank { null },
+                    audioProfile = audioProfile.ifBlank { null },
+                    sensitivity = sensitivity.ifBlank { null },
+                    recoverySpeed = recoverySpeed.ifBlank { null },
+                    stabilizer = stabilizer.ifBlank { null },
+                )
+            )
+            refresh()
+        }
+    }
+
     fun delete(recordingId: String) {
         scope.launch {
             recordingRepository.deleteRecording(recordingId)

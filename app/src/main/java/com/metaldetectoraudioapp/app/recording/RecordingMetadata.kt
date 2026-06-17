@@ -21,6 +21,7 @@ data class RecordingMetadata(
     val moisture: String? = null,
     val detectorModel: String? = null,
     val searchMode: String? = null,
+    val audioProfile: String? = null,
     val sensitivity: String? = null,
     val recoverySpeed: String? = null,
     val stabilizer: String? = null,
@@ -53,6 +54,7 @@ data class RecordingMetadata(
             .put("moisture", moisture ?: JSONObject.NULL)
             .put("detector_model", detectorModel ?: JSONObject.NULL)
             .put("search_mode", searchMode ?: JSONObject.NULL)
+            .put("audio_profile", audioProfile ?: JSONObject.NULL)
             .put("sensitivity", sensitivity ?: JSONObject.NULL)
             .put("recovery_speed", recoverySpeed ?: JSONObject.NULL)
             .put("stabilizer", stabilizer ?: JSONObject.NULL)
@@ -105,6 +107,7 @@ data class RecordingMetadata(
                 moisture = json.optString("moisture").takeIf { it.isNotBlank() && it != "null" },
                 detectorModel = json.optString("detector_model").takeIf { it.isNotBlank() && it != "null" },
                 searchMode = json.optString("search_mode").takeIf { it.isNotBlank() && it != "null" },
+                audioProfile = json.optString("audio_profile").takeIf { it.isNotBlank() && it != "null" },
                 sensitivity = json.optString("sensitivity").takeIf { it.isNotBlank() && it != "null" },
                 recoverySpeed = json.optString("recovery_speed").takeIf { it.isNotBlank() && it != "null" },
                 stabilizer = json.optString("stabilizer").takeIf { it.isNotBlank() && it != "null" },

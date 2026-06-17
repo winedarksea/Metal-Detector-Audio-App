@@ -82,6 +82,7 @@ class RecordingRepositoryTest {
                 includeInTraining = false,
                 detectorModel = "minelab manticore",
                 searchMode = "field",
+                audioProfile = "2-tone",
                 sensitivity = "23",
                 recoverySpeed = "4",
                 stabilizer = "5",
@@ -93,6 +94,13 @@ class RecordingRepositoryTest {
         assertEquals(1, recordings.size)
         assertEquals(2, recordings.first().targetNames.size)
         assertTrue(recordings.first().mixedTargetAndJunk)
+        assertEquals("2-tone", recordings.first().audioProfile)
+        assertEquals("23", recordings.first().sensitivity)
+        assertEquals("4", recordings.first().recoverySpeed)
+        assertEquals("5", recordings.first().stabilizer)
+
+        repository.updateRecording(saved.copy(audioProfile = "pitch / vco"))
+        assertEquals("pitch / vco", repository.listRecordings().first().audioProfile)
 
         val csvLines = repository.metadataFile().readLines().filter { it.isNotBlank() }
         assertEquals(3, csvLines.size) // header + 2 target rows

@@ -30,8 +30,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.metaldetectoraudioapp.app.ui.model.AUDIO_PROFILE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.RECOVERY_SPEED_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SENSITIVITY_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.STABILIZER_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.screen.AudioTrimmer
 import com.metaldetectoraudioapp.app.ui.screen.RecordingHintCard
@@ -283,8 +287,16 @@ fun WebRecordingScreen(
                     AdaptiveDetectorFields(
                         detectorModel = uiState.draft.detectorModel,
                         searchMode = uiState.draft.searchMode,
+                        audioProfile = uiState.draft.audioProfile,
+                        sensitivity = uiState.draft.sensitivity,
+                        recoverySpeed = uiState.draft.recoverySpeed,
+                        stabilizer = uiState.draft.stabilizer,
                         onDetectorModelChange = viewModel::updateDetectorModel,
                         onSearchModeChange = viewModel::updateSearchMode,
+                        onAudioProfileChange = viewModel::updateAudioProfile,
+                        onSensitivityChange = viewModel::updateSensitivity,
+                        onRecoverySpeedChange = viewModel::updateRecoverySpeed,
+                        onStabilizerChange = viewModel::updateStabilizer,
                     )
                 }
             }
@@ -308,29 +320,77 @@ private fun WrappingActionRow(content: @Composable FlowRowScope.() -> Unit) {
 private fun AdaptiveDetectorFields(
     detectorModel: String,
     searchMode: String,
+    audioProfile: String,
+    sensitivity: String,
+    recoverySpeed: String,
+    stabilizer: String,
     onDetectorModelChange: (String) -> Unit,
     onSearchModeChange: (String) -> Unit,
+    onAudioProfileChange: (String) -> Unit,
+    onSensitivityChange: (String) -> Unit,
+    onRecoverySpeedChange: (String) -> Unit,
+    onStabilizerChange: (String) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         if (maxWidth >= 720.dp) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-            ) {
-                WebSuggestiveTextField(
-                    label = "detector_model",
-                    value = detectorModel,
-                    suggestions = DETECTOR_MODEL_OPTIONS,
-                    onValueChange = onDetectorModelChange,
-                    modifier = Modifier.weight(1f),
-                )
-                WebSuggestiveTextField(
-                    label = "search_mode",
-                    value = searchMode,
-                    suggestions = SEARCH_MODE_OPTIONS,
-                    onValueChange = onSearchModeChange,
-                    modifier = Modifier.weight(1f),
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    WebSuggestiveTextField(
+                        label = "detector_model",
+                        value = detectorModel,
+                        suggestions = DETECTOR_MODEL_OPTIONS,
+                        onValueChange = onDetectorModelChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                    WebSuggestiveTextField(
+                        label = "search_mode",
+                        value = searchMode,
+                        suggestions = SEARCH_MODE_OPTIONS,
+                        onValueChange = onSearchModeChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    WebSuggestiveTextField(
+                        label = "audio_profile",
+                        value = audioProfile,
+                        suggestions = AUDIO_PROFILE_OPTIONS,
+                        onValueChange = onAudioProfileChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                    WebSuggestiveTextField(
+                        label = "sensitivity",
+                        value = sensitivity,
+                        suggestions = SENSITIVITY_OPTIONS,
+                        onValueChange = onSensitivityChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    WebSuggestiveTextField(
+                        label = "recovery_speed",
+                        value = recoverySpeed,
+                        suggestions = RECOVERY_SPEED_OPTIONS,
+                        onValueChange = onRecoverySpeedChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                    WebSuggestiveTextField(
+                        label = "stabilizer",
+                        value = stabilizer,
+                        suggestions = STABILIZER_OPTIONS,
+                        onValueChange = onStabilizerChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -346,6 +406,34 @@ private fun AdaptiveDetectorFields(
                     value = searchMode,
                     suggestions = SEARCH_MODE_OPTIONS,
                     onValueChange = onSearchModeChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                WebSuggestiveTextField(
+                    label = "audio_profile",
+                    value = audioProfile,
+                    suggestions = AUDIO_PROFILE_OPTIONS,
+                    onValueChange = onAudioProfileChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                WebSuggestiveTextField(
+                    label = "sensitivity",
+                    value = sensitivity,
+                    suggestions = SENSITIVITY_OPTIONS,
+                    onValueChange = onSensitivityChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                WebSuggestiveTextField(
+                    label = "recovery_speed",
+                    value = recoverySpeed,
+                    suggestions = RECOVERY_SPEED_OPTIONS,
+                    onValueChange = onRecoverySpeedChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                WebSuggestiveTextField(
+                    label = "stabilizer",
+                    value = stabilizer,
+                    suggestions = STABILIZER_OPTIONS,
+                    onValueChange = onStabilizerChange,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

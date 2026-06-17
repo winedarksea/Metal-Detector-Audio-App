@@ -30,10 +30,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
+import com.metaldetectoraudioapp.app.ui.model.AUDIO_PROFILE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.RECOVERY_SPEED_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SENSITIVITY_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.STABILIZER_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import com.metaldetectoraudioapp.app.ui.screen.LabelPickerField
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
@@ -47,9 +51,6 @@ private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
 )
 private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
-private val SENSITIVITY_OPTIONS = (15..30).map { it.toString() }
-private val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
-private val STABILIZER_OPTIONS = (1..10).map { it.toString() }
 
 @Composable
 fun DesktopReviewScreen(
@@ -133,6 +134,7 @@ fun DesktopReviewScreen(
                     moist,
                     detectorModel,
                     searchMode,
+                    audioProfile,
                     sensitivity,
                     recovery,
                     stabilizer,
@@ -143,6 +145,7 @@ fun DesktopReviewScreen(
                         moisture = moist,
                         detectorModel = detectorModel,
                         searchMode = searchMode,
+                        audioProfile = audioProfile,
                         sensitivity = sensitivity,
                         recoverySpeed = recovery,
                         stabilizer = stabilizer,
@@ -167,6 +170,7 @@ private fun DesktopRecordingReviewCard(
         moisture: String,
         detectorModel: String,
         searchMode: String,
+        audioProfile: String,
         sensitivity: String,
         recoverySpeed: String,
         stabilizer: String,
@@ -200,6 +204,9 @@ private fun DesktopRecordingReviewCard(
     }
     var searchModeInput by remember(recording.recordingId) {
         mutableStateOf(recording.searchMode.orEmpty())
+    }
+    var audioProfileInput by remember(recording.recordingId) {
+        mutableStateOf(recording.audioProfile.orEmpty())
     }
     var sensitivityInput by remember(recording.recordingId) {
         mutableStateOf(recording.sensitivity.orEmpty())
@@ -300,6 +307,14 @@ private fun DesktopRecordingReviewCard(
             )
 
             ReviewSuggestiveTextField(
+                label = "audio_profile",
+                value = audioProfileInput,
+                suggestions = AUDIO_PROFILE_OPTIONS,
+                onValueChange = { audioProfileInput = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ReviewSuggestiveTextField(
                 label = "sensitivity",
                 value = sensitivityInput,
                 suggestions = SENSITIVITY_OPTIONS,
@@ -329,6 +344,7 @@ private fun DesktopRecordingReviewCard(
                     moistureInput,
                     detectorModelInput,
                     searchModeInput,
+                    audioProfileInput,
                     sensitivityInput,
                     recoverySpeedInput,
                     stabilizerInput,

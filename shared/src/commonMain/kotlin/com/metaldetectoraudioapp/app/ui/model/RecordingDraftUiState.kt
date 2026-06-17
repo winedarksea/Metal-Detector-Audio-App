@@ -12,6 +12,7 @@ data class RecordingDraftUiState(
     val moisture: String = "",
     val detectorModel: String = DEFAULT_DETECTOR_MODEL,
     val searchMode: String = DEFAULT_SEARCH_MODE,
+    val audioProfile: String = "",
     val sensitivity: String = "23",
     val recoverySpeed: String = "4",
     val stabilizer: String = "5",

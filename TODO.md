@@ -27,3 +27,17 @@
 - [ ] Checkpoint current model before each training run.
 - [ ] Show epoch/loss progress and allow safe cancel.
 - [ ] Post-train compare: previous vs new metrics; user chooses keep or revert.
+
+## Shared Social Website
+- [ ] Users can upload their audio to servers. Expected infrastructure: Cloudflare Workers + Cloudflare R2 + Cloudflare D1 with an emphasis on lightweight storage, compute, and networking. Everything should be constructed to be as minimal as possible in usage of cloud services (full quality audio should still be kept though, but likely with a max upload of 10 seconds) with the client device doing as much heavy lifting as possible.
+- [ ] Users can authenicate with Google/Apple/etc or anonymously (no site managed logins)
+- [ ] Users can upload their data with a selection of private location (default, no location shown to others), a simple text string (needs cleaning to prevent spam, URLs), or full exact location (if recorded). Behind the scenes, full location always uploaded if present, but not visible to users if marked private.
+- [ ] Users on upload can select from "unconfirmed", "confirmed", and "high quality labels for uncertain labels, certain labels, and for certain labels with perceived high quality recordings respectively
+- [ ] Logged in users can upvote or flag recordings. Flags would include bad audio quality, incorrect identification, bad image, and other bad data reports.
+- [ ] Users have three main views in this social website. They can see their own uploads (if logged in), they can explore all uploads by metadata, and they can play a "game".
+- [ ] The game is a flashcard style game (multiple choice). It also shows them the detector settings used for recording. Results are tracked, audio that has low accuracy of prediction here is viewable in the admin UI, to help suggest items which may have low quality.
+- [ ] Ideally UI would clearly show audio, and user's volume level (if accessible) so users aren't flagging bad data just because they have their volumn turned down off.
+- [ ] Logged in Users can get points for uploaded data (primary point earner), upvotes on their data, and 
+- [ ] Policy should clearly state that users must upload their own content and are giving permission for the data to be shared and used for model training.
+- [ ] Social/Explore UI should clearly state when a user is offline (as the rest of the PWA works fine offline, but this part doesn't).
+- [ ] Internal facing dashboard to access and review uploads to use for training the improved model. Admin here would also be able to delete, edit the metadata, and trim the audio of recordings.

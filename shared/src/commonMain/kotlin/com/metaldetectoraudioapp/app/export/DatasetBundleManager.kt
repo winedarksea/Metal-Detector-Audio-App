@@ -79,6 +79,7 @@ class DatasetBundleManager(
                     moisture = metadata.moisture,
                     detectorModel = metadata.detectorModel,
                     searchMode = metadata.searchMode,
+                    audioProfile = metadata.audioProfile,
                     sensitivity = metadata.sensitivity,
                     recoverySpeed = metadata.recoverySpeed,
                     stabilizer = metadata.stabilizer,

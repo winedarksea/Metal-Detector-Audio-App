@@ -65,6 +65,7 @@ class RecordingRepository(
             moisture = labelDraft.moisture,
             detectorModel = labelDraft.detectorModel,
             searchMode = labelDraft.searchMode,
+            audioProfile = labelDraft.audioProfile,
             sensitivity = labelDraft.sensitivity,
             recoverySpeed = labelDraft.recoverySpeed,
             stabilizer = labelDraft.stabilizer,

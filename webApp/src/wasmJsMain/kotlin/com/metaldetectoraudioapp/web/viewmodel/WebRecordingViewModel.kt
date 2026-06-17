@@ -165,6 +165,7 @@ class WebRecordingViewModel(
     fun updateMoisture(value: String) = updateDraft(_uiState.value.draft.copy(moisture = value))
     fun updateDetectorModel(value: String) = updateDraft(_uiState.value.draft.copy(detectorModel = value))
     fun updateSearchMode(value: String) = updateDraft(_uiState.value.draft.copy(searchMode = value))
+    fun updateAudioProfile(value: String) = updateDraft(_uiState.value.draft.copy(audioProfile = value))
     fun updateSensitivity(value: String) = updateDraft(_uiState.value.draft.copy(sensitivity = value))
     fun updateRecoverySpeed(value: String) = updateDraft(_uiState.value.draft.copy(recoverySpeed = value))
     fun updateStabilizer(value: String) = updateDraft(_uiState.value.draft.copy(stabilizer = value))
@@ -310,6 +311,7 @@ class WebRecordingViewModel(
                         moisture = draft.moisture.ifBlank { null },
                         detectorModel = draft.detectorModel.ifBlank { null },
                         searchMode = draft.searchMode.ifBlank { null },
+                        audioProfile = draft.audioProfile.ifBlank { null },
                         sensitivity = draft.sensitivity.ifBlank { null },
                         recoverySpeed = draft.recoverySpeed.ifBlank { null },
                         stabilizer = draft.stabilizer.ifBlank { null },

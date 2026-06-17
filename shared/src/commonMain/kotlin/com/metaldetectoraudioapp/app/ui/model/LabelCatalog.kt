@@ -197,11 +197,14 @@ private fun parseCsvRows(raw: String): List<List<String>> {
 enum class DetectorModelOption(val wireValue: String) {
     MINELAB_MANTICORE("minelab manticore"),
     MINELAB_EQUINOX_900("minelab equinox 900"),
+    MINELAB_EQUINOX_800("minelab equinox 800"),
     MINELAB_VANQUISH("minelab vanquish"),
     XP_DEUS_II("xp deus II"),
     GARRETT_AT("garrett at"),
     GARRETT_APEX("garrett apex"),
     GARRETT_ACE("garrett ace"),
+    NOKTA_LEGEND("nokta legend"),
+    NOKTA_SIMPLEX("nokta simplex"),
 }
 
 val DETECTOR_MODEL_OPTIONS = DetectorModelOption.entries.map { it.wireValue }
@@ -214,11 +217,27 @@ enum class SearchModeOption(val wireValue: String) {
     ALL_TERRAIN_HIGH_CONDUCTIVITY("All Terrain High Conductivity"),
     BEACH("Beach"),
     GOLD("Gold"),
+    PARK("Park"),
 }
 
 val SEARCH_MODE_OPTIONS = SearchModeOption.entries.map { it.wireValue }
 
 val DEFAULT_SEARCH_MODE = SearchModeOption.ALL_METAL_MODE.wireValue
+
+enum class AudioProfileOption(val wireValue: String) {
+    PITCH_VCO("pitch / vco"),
+    TWO_TONE("2-tone"),
+    THREE_OR_FIVE_TONE("3-tone / 5-tone"),
+    MULTI_OR_FULL_TONES("multi-tone / full tones"),
+}
+
+val AUDIO_PROFILE_OPTIONS = AudioProfileOption.entries.map { it.wireValue }
+
+val SENSITIVITY_OPTIONS = (15..30).map { it.toString() }
+
+val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
+
+val STABILIZER_OPTIONS = (1..10).map { it.toString() }
 
 // Parses a raw label string (wire format) into a list of LabelEntry objects.
 // Accepts comma, semicolon, or pipe as multi-target delimiters.

@@ -40,10 +40,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.ReviewViewModel
+import com.metaldetectoraudioapp.app.ui.model.AUDIO_PROFILE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.RECOVERY_SPEED_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SENSITIVITY_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.STABILIZER_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
 
@@ -51,9 +55,6 @@ private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
 )
 private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
-private val SENSITIVITY_OPTIONS = (15..30).map { it.toString() }
-private val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
-private val STABILIZER_OPTIONS = (1..10).map { it.toString() }
 
 @Composable
 fun ReviewScreen(
@@ -145,13 +146,14 @@ fun ReviewScreen(
                 onToggleInclude = { viewModel.toggleIncludeInTraining(recording, it) },
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
-                onRelabelEnvironment = { soil, moist, detectorModel, searchMode, sensitivity, recovery, stabilizer ->
+                onRelabelEnvironment = { soil, moist, detectorModel, searchMode, audioProfile, sensitivity, recovery, stabilizer ->
                     viewModel.relabelEnvironment(
                         recording = recording,
                         soilType = soil,
                         moisture = moist,
                         detectorModel = detectorModel,
                         searchMode = searchMode,
+                        audioProfile = audioProfile,
                         sensitivity = sensitivity,
                         recoverySpeed = recovery,
                         stabilizer = stabilizer,
@@ -176,6 +178,7 @@ private fun RecordingReviewCard(
         moisture: String,
         detectorModel: String,
         searchMode: String,
+        audioProfile: String,
         sensitivity: String,
         recoverySpeed: String,
         stabilizer: String,
@@ -209,6 +212,9 @@ private fun RecordingReviewCard(
     }
     var searchModeInput by remember(recording.recordingId) {
         mutableStateOf(recording.searchMode.orEmpty())
+    }
+    var audioProfileInput by remember(recording.recordingId) {
+        mutableStateOf(recording.audioProfile.orEmpty())
     }
     var sensitivityInput by remember(recording.recordingId) {
         mutableStateOf(recording.sensitivity.orEmpty())
@@ -276,6 +282,8 @@ private fun RecordingReviewCard(
                         onDetectorModelChange = { detectorModelInput = it },
                         searchModeInput = searchModeInput,
                         onSearchModeChange = { searchModeInput = it },
+                        audioProfileInput = audioProfileInput,
+                        onAudioProfileChange = { audioProfileInput = it },
                         sensitivityInput = sensitivityInput,
                         onSensitivityChange = { sensitivityInput = it },
                         recoverySpeedInput = recoverySpeedInput,
@@ -285,7 +293,7 @@ private fun RecordingReviewCard(
                         onApplyEnvironment = {
                             onRelabelEnvironment(
                                 soilTypeInput, moistureInput, detectorModelInput,
-                                searchModeInput, sensitivityInput, recoverySpeedInput, stabilizerInput
+                                searchModeInput, audioProfileInput, sensitivityInput, recoverySpeedInput, stabilizerInput
                             )
                         },
                         showTitle = true,
@@ -315,6 +323,8 @@ private fun RecordingReviewCard(
                     onDetectorModelChange = { detectorModelInput = it },
                     searchModeInput = searchModeInput,
                     onSearchModeChange = { searchModeInput = it },
+                    audioProfileInput = audioProfileInput,
+                    onAudioProfileChange = { audioProfileInput = it },
                     sensitivityInput = sensitivityInput,
                     onSensitivityChange = { sensitivityInput = it },
                     recoverySpeedInput = recoverySpeedInput,
@@ -324,7 +334,7 @@ private fun RecordingReviewCard(
                     onApplyEnvironment = {
                         onRelabelEnvironment(
                             soilTypeInput, moistureInput, detectorModelInput,
-                            searchModeInput, sensitivityInput, recoverySpeedInput, stabilizerInput
+                            searchModeInput, audioProfileInput, sensitivityInput, recoverySpeedInput, stabilizerInput
                         )
                     }
                 )
@@ -389,6 +399,8 @@ private fun RecordingEnvironmentSection(
     onDetectorModelChange: (String) -> Unit,
     searchModeInput: String,
     onSearchModeChange: (String) -> Unit,
+    audioProfileInput: String,
+    onAudioProfileChange: (String) -> Unit,
     sensitivityInput: String,
     onSensitivityChange: (String) -> Unit,
     recoverySpeedInput: String,
@@ -433,6 +445,13 @@ private fun RecordingEnvironmentSection(
             value = searchModeInput,
             suggestions = SEARCH_MODE_OPTIONS,
             onValueChange = onSearchModeChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        ReviewSuggestiveTextField(
+            label = "audio_profile",
+            value = audioProfileInput,
+            suggestions = AUDIO_PROFILE_OPTIONS,
+            onValueChange = onAudioProfileChange,
             modifier = Modifier.fillMaxWidth()
         )
         ReviewSuggestiveTextField(

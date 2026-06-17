@@ -4,6 +4,7 @@ import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -57,6 +58,12 @@ class RecordingObjectLabelTest {
             includeInTraining = true,
             createdEpochMs = 1L,
             durationMs = 1_000L,
+            detectorModel = "minelab manticore",
+            searchMode = "All Metal Mode",
+            audioProfile = "multi-tone / full tones",
+            sensitivity = "23",
+            recoverySpeed = "4",
+            stabilizer = "5",
         )
 
         val csv = RecordingMetadataCsvCodec.serialize(listOf(metadata))
@@ -65,6 +72,10 @@ class RecordingObjectLabelTest {
         assertTrue(csv.contains("label_class"))
         assertTrue(csv.contains("mixed_target_and_junk"))
         assertEquals(metadata.objectLabels, parsed.objectLabels)
+        assertEquals("multi-tone / full tones", parsed.audioProfile)
+        assertEquals("23", parsed.sensitivity)
+        assertEquals("4", parsed.recoverySpeed)
+        assertEquals("5", parsed.stabilizer)
         assertEquals(ClassLabel.TARGET, parsed.classLabel)
         assertTrue(parsed.mixedTargetAndJunk)
     }
@@ -79,6 +90,7 @@ class RecordingObjectLabelTest {
         val parsed = RecordingMetadataCsvCodec.parse(legacyCsv).single()
 
         assertEquals(ClassLabel.AMBIENT, parsed.classLabel)
+        assertNull(parsed.audioProfile)
         assertFalse(parsed.mixedTargetAndJunk)
     }
 }

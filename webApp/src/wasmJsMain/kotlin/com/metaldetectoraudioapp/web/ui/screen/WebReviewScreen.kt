@@ -27,11 +27,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
+import com.metaldetectoraudioapp.app.ui.model.AUDIO_PROFILE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.RECOVERY_SPEED_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SENSITIVITY_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.STABILIZER_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.web.viewmodel.WebReviewViewModel
+
+private val SOIL_TYPE_OPTIONS = listOf(
+    "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
+)
+private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
 
 @Composable
 fun WebReviewScreen(
@@ -76,6 +87,19 @@ fun WebReviewScreen(
                 onToggleInclude = { viewModel.toggleIncludeInTraining(recording, it) },
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
+                onRelabelEnvironment = { soil, moisture, detectorModel, searchMode, audioProfile, sensitivity, recoverySpeed, stabilizer ->
+                    viewModel.relabelEnvironment(
+                        recording = recording,
+                        soilType = soil,
+                        moisture = moisture,
+                        detectorModel = detectorModel,
+                        searchMode = searchMode,
+                        audioProfile = audioProfile,
+                        sensitivity = sensitivity,
+                        recoverySpeed = recoverySpeed,
+                        stabilizer = stabilizer,
+                    )
+                },
                 onDelete = { viewModel.delete(recording.recordingId) },
             )
         }
@@ -90,6 +114,16 @@ private fun WebRecordingCard(
     onToggleInclude: (Boolean) -> Unit,
     onRelabelTargets: (String) -> Unit,
     onRelabelNotes: (String) -> Unit,
+    onRelabelEnvironment: (
+        soilType: String,
+        moisture: String,
+        detectorModel: String,
+        searchMode: String,
+        audioProfile: String,
+        sensitivity: String,
+        recoverySpeed: String,
+        stabilizer: String,
+    ) -> Unit,
     onDelete: () -> Unit,
 ) {
     var targetInput by remember(recording.recordingId) {
@@ -107,6 +141,30 @@ private fun WebRecordingCard(
     }
     var notesInput by remember(recording.recordingId) {
         mutableStateOf(recording.notes.orEmpty())
+    }
+    var soilTypeInput by remember(recording.recordingId) {
+        mutableStateOf(recording.soilType.orEmpty())
+    }
+    var moistureInput by remember(recording.recordingId) {
+        mutableStateOf(recording.moisture.orEmpty())
+    }
+    var detectorModelInput by remember(recording.recordingId) {
+        mutableStateOf(recording.detectorModel.orEmpty())
+    }
+    var searchModeInput by remember(recording.recordingId) {
+        mutableStateOf(recording.searchMode.orEmpty())
+    }
+    var audioProfileInput by remember(recording.recordingId) {
+        mutableStateOf(recording.audioProfile.orEmpty())
+    }
+    var sensitivityInput by remember(recording.recordingId) {
+        mutableStateOf(recording.sensitivity.orEmpty())
+    }
+    var recoverySpeedInput by remember(recording.recordingId) {
+        mutableStateOf(recording.recoverySpeed.orEmpty())
+    }
+    var stabilizerInput by remember(recording.recordingId) {
+        mutableStateOf(recording.stabilizer.orEmpty())
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -158,6 +216,91 @@ private fun WebRecordingCard(
                     onCheckedChange = onToggleInclude
                 )
                 Text("include_in_training", style = MaterialTheme.typography.labelLarge)
+            }
+
+            WebSuggestiveTextField(
+                label = "soil_type",
+                value = soilTypeInput,
+                suggestions = SOIL_TYPE_OPTIONS,
+                onValueChange = { soilTypeInput = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Text("moisture", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                MOISTURE_OPTIONS.forEach { option ->
+                    FilterChip(
+                        selected = moistureInput == option,
+                        onClick = { moistureInput = if (moistureInput == option) "" else option },
+                        label = { Text(option) },
+                    )
+                }
+            }
+
+            WebSuggestiveTextField(
+                label = "detector_model",
+                value = detectorModelInput,
+                suggestions = DETECTOR_MODEL_OPTIONS,
+                onValueChange = { detectorModelInput = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text("Custom detector model values are allowed.", style = MaterialTheme.typography.bodySmall)
+
+            WebSuggestiveTextField(
+                label = "search_mode",
+                value = searchModeInput,
+                suggestions = SEARCH_MODE_OPTIONS,
+                onValueChange = { searchModeInput = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            WebSuggestiveTextField(
+                label = "audio_profile",
+                value = audioProfileInput,
+                suggestions = AUDIO_PROFILE_OPTIONS,
+                onValueChange = { audioProfileInput = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            WebSuggestiveTextField(
+                label = "sensitivity",
+                value = sensitivityInput,
+                suggestions = SENSITIVITY_OPTIONS,
+                onValueChange = { sensitivityInput = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            WebSuggestiveTextField(
+                label = "recovery_speed",
+                value = recoverySpeedInput,
+                suggestions = RECOVERY_SPEED_OPTIONS,
+                onValueChange = { recoverySpeedInput = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            WebSuggestiveTextField(
+                label = "stabilizer",
+                value = stabilizerInput,
+                suggestions = STABILIZER_OPTIONS,
+                onValueChange = { stabilizerInput = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            FilledTonalButton(
+                onClick = {
+                    onRelabelEnvironment(
+                        soilTypeInput,
+                        moistureInput,
+                        detectorModelInput,
+                        searchModeInput,
+                        audioProfileInput,
+                        sensitivityInput,
+                        recoverySpeedInput,
+                        stabilizerInput,
+                    )
+                },
+            ) {
+                Text("Apply Environment")
             }
         }
     }

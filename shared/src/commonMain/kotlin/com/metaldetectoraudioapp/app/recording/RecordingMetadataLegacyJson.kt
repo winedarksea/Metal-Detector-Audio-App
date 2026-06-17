@@ -56,6 +56,7 @@ object RecordingMetadataLegacyJson {
             moisture = obj.optString("moisture"),
             detectorModel = obj.optString("detector_model"),
             searchMode = obj.optString("search_mode"),
+            audioProfile = obj.optString("audio_profile"),
             sensitivity = obj.optString("sensitivity"),
             recoverySpeed = obj.optString("recovery_speed"),
             stabilizer = obj.optString("stabilizer"),

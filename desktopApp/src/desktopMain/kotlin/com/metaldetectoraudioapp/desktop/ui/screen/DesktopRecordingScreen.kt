@@ -35,9 +35,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import com.metaldetectoraudioapp.app.ui.model.AUDIO_PROFILE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.RECOVERY_SPEED_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SENSITIVITY_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.STABILIZER_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.screen.AudioTrimmer
 import com.metaldetectoraudioapp.app.ui.screen.LabelPickerField
@@ -53,9 +57,6 @@ private val SOIL_TYPE_OPTIONS = listOf(
     "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
 )
 private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
-private val SENSITIVITY_OPTIONS = (15..30).map { it.toString() }
-private val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
-private val STABILIZER_OPTIONS = (1..10).map { it.toString() }
 
 @Composable
 fun DesktopRecordingScreen(
@@ -306,6 +307,14 @@ fun DesktopRecordingScreen(
                         value = uiState.draft.searchMode,
                         suggestions = SEARCH_MODE_OPTIONS,
                         onValueChange = viewModel::updateSearchMode,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    SuggestiveTextField(
+                        label = "audio_profile",
+                        value = uiState.draft.audioProfile,
+                        suggestions = AUDIO_PROFILE_OPTIONS,
+                        onValueChange = viewModel::updateAudioProfile,
                         modifier = Modifier.fillMaxWidth()
                     )
 

@@ -19,6 +19,7 @@ data class RecordingMetadata(
     val moisture: String? = null,
     val detectorModel: String? = null,
     val searchMode: String? = null,
+    val audioProfile: String? = null,
     val sensitivity: String? = null,
     val recoverySpeed: String? = null,
     val stabilizer: String? = null,

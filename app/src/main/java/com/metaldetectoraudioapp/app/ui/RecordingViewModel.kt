@@ -168,6 +168,10 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         updateDraft(_uiState.value.draft.copy(searchMode = value))
     }
 
+    fun updateAudioProfile(value: String) {
+        updateDraft(_uiState.value.draft.copy(audioProfile = value))
+    }
+
     fun updateSensitivity(value: String) {
         updateDraft(_uiState.value.draft.copy(sensitivity = value))
     }
@@ -343,6 +347,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                     moisture = draft.moisture.ifBlank { null },
                     detectorModel = draft.detectorModel.ifBlank { null },
                     searchMode = draft.searchMode.ifBlank { null },
+                    audioProfile = draft.audioProfile.ifBlank { null },
                     sensitivity = draft.sensitivity.ifBlank { null },
                     recoverySpeed = draft.recoverySpeed.ifBlank { null },
                     stabilizer = draft.stabilizer.ifBlank { null },

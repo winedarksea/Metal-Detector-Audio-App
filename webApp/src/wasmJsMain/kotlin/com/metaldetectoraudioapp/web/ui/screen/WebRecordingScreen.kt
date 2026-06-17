@@ -1,7 +1,11 @@
 package com.metaldetectoraudioapp.web.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,11 +14,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,7 +30,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
@@ -42,18 +47,18 @@ fun WebRecordingScreen(
 
     LazyColumn(
         modifier = Modifier.padding(contentPadding),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
             RecordingHintCard()
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
                     MicSelector(modifier = Modifier.fillMaxWidth())
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    WrappingActionRow {
                         Button(onClick = viewModel::startRecording, enabled = !uiState.isRecording) {
                             Text("Start")
                         }
@@ -64,13 +69,13 @@ fun WebRecordingScreen(
                             onClick = {
                                 if (uiState.isPlayingPreview) viewModel.stopPreview() else viewModel.playPreview()
                             },
-                            enabled = uiState.pendingAudio != null
+                            enabled = uiState.pendingAudio != null,
                         ) {
                             Text(if (uiState.isPlayingPreview) "Stop Preview" else "Play Preview")
                         }
                         OutlinedButton(
                             onClick = viewModel::clearPendingCapture,
-                            enabled = uiState.pendingAudio != null || uiState.pendingImage != null
+                            enabled = uiState.pendingAudio != null || uiState.pendingImage != null,
                         ) {
                             Text("Clear")
                         }
@@ -82,16 +87,16 @@ fun WebRecordingScreen(
                             trimStartMs = uiState.trimStartMs,
                             trimEndMs = uiState.trimEndMs,
                             onTrimChange = viewModel::updateTrim,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
                                 "Trim ${uiState.trimStartMs}–${uiState.trimEndMs} ms (${uiState.trimEndMs - uiState.trimStartMs} ms kept)",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
                             )
                             TextButton(onClick = viewModel::resetTrim, enabled = uiState.isTrimmed) {
                                 Text("Reset")
@@ -100,11 +105,11 @@ fun WebRecordingScreen(
                     }
                     Text(
                         "Duration: ${uiState.pendingDurationMs} ms",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
                         "Microphone access is requested when the app opens. Tap the detector coil against a target during recording.",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
@@ -137,24 +142,18 @@ fun WebRecordingScreen(
                         maxLines = 3,
                     )
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    ) {
+                    HorizontalDivider()
+
+                    WrappingActionRow {
                         OutlinedButton(
                             onClick = viewModel::capturePhoto,
                             enabled = !uiState.isRecording && !uiState.isPhotoCaptureInProgress,
                         ) {
-                            Text(
-                                when {
-                                    uiState.isPhotoCaptureInProgress -> "Processing Photo"
-                                    uiState.pendingImage != null -> "Replace Photo"
-                                    else -> "Add Photo"
-                                }
-                            )
-                        }
-                        if (uiState.isPhotoCaptureInProgress) {
-                            CircularProgressIndicator()
+                            if (uiState.isPhotoCaptureInProgress) {
+                                LoadingButtonContent("Processing Photo")
+                            } else {
+                                Text(if (uiState.pendingImage != null) "Replace Photo" else "Add Photo")
+                            }
                         }
                         if (uiState.pendingImage != null) {
                             TextButton(onClick = viewModel::removePendingPhoto) {
@@ -170,24 +169,16 @@ fun WebRecordingScreen(
                         )
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    ) {
+                    WrappingActionRow {
                         OutlinedButton(
                             onClick = viewModel::captureCurrentLocation,
                             enabled = !uiState.isLocationCaptureInProgress,
                         ) {
-                            Text(
-                                if (uiState.isLocationCaptureInProgress) {
-                                    "Finding Location"
-                                } else {
-                                    "Use Current GPS"
-                                }
-                            )
-                        }
-                        if (uiState.isLocationCaptureInProgress) {
-                            CircularProgressIndicator()
+                            if (uiState.isLocationCaptureInProgress) {
+                                LoadingButtonContent("Finding Location")
+                            } else {
+                                Text("Use Current GPS")
+                            }
                         }
                         if (uiState.draft.gpsLatitude != null && uiState.draft.gpsLongitude != null) {
                             TextButton(onClick = viewModel::clearCurrentLocation) {
@@ -206,6 +197,8 @@ fun WebRecordingScreen(
                         style = MaterialTheme.typography.bodySmall,
                     )
 
+                    HorizontalDivider()
+
                     Text(
                         "Each object needs a TARGET or JUNK label. Use AMBIENT only when no " +
                             "identifiable object is present. Keep all sounds within the same " +
@@ -215,12 +208,12 @@ fun WebRecordingScreen(
                     )
 
                     Text("pattern", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    WrappingActionRow {
                         SweepPattern.entries.forEach { pattern ->
                             FilterChip(
                                 selected = uiState.draft.pattern == pattern,
                                 onClick = { viewModel.updatePattern(pattern) },
-                                label = { Text(pattern.name) }
+                                label = { Text(pattern.name) },
                             )
                         }
                     }
@@ -232,9 +225,11 @@ fun WebRecordingScreen(
                         Text(
                             "mixed_target_and_junk: true",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = MaterialTheme.colorScheme.secondary,
                         )
                     }
+
+                    HorizontalDivider()
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
@@ -245,10 +240,10 @@ fun WebRecordingScreen(
                     }
 
                     uiState.saveResultMessage?.let { msg ->
-                        Text(msg, color = MaterialTheme.colorScheme.primary)
+                        WebStatusBanner(message = msg, isError = false)
                     }
                     uiState.errorMessage?.let { err ->
-                        Text(err, color = MaterialTheme.colorScheme.error)
+                        WebStatusBanner(message = err, isError = true)
                     }
                     Button(
                         onClick = viewModel::saveRecording,
@@ -263,7 +258,7 @@ fun WebRecordingScreen(
         }
 
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Text("Environment (optional)", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(
@@ -274,30 +269,85 @@ fun WebRecordingScreen(
                         singleLine = true,
                     )
                     Text("moisture", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    WrappingActionRow {
                         listOf("dry", "moist", "wet").forEach { option ->
                             FilterChip(
                                 selected = uiState.draft.moisture == option,
-                                onClick = { viewModel.updateMoisture(if (uiState.draft.moisture == option) "" else option) },
-                                label = { Text(option) }
+                                onClick = {
+                                    viewModel.updateMoisture(if (uiState.draft.moisture == option) "" else option)
+                                },
+                                label = { Text(option) },
                             )
                         }
                     }
-                    WebSuggestiveTextField(
-                        label = "detector_model",
-                        value = uiState.draft.detectorModel,
-                        suggestions = DETECTOR_MODEL_OPTIONS,
-                        onValueChange = viewModel::updateDetectorModel,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    WebSuggestiveTextField(
-                        label = "search_mode",
-                        value = uiState.draft.searchMode,
-                        suggestions = SEARCH_MODE_OPTIONS,
-                        onValueChange = viewModel::updateSearchMode,
-                        modifier = Modifier.fillMaxWidth(),
+                    AdaptiveDetectorFields(
+                        detectorModel = uiState.draft.detectorModel,
+                        searchMode = uiState.draft.searchMode,
+                        onDetectorModelChange = viewModel::updateDetectorModel,
+                        onSearchModeChange = viewModel::updateSearchMode,
                     )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WrappingActionRow(content: @Composable FlowRowScope.() -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        itemVerticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+@Composable
+private fun AdaptiveDetectorFields(
+    detectorModel: String,
+    searchMode: String,
+    onDetectorModelChange: (String) -> Unit,
+    onSearchModeChange: (String) -> Unit,
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        if (maxWidth >= 720.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            ) {
+                WebSuggestiveTextField(
+                    label = "detector_model",
+                    value = detectorModel,
+                    suggestions = DETECTOR_MODEL_OPTIONS,
+                    onValueChange = onDetectorModelChange,
+                    modifier = Modifier.weight(1f),
+                )
+                WebSuggestiveTextField(
+                    label = "search_mode",
+                    value = searchMode,
+                    suggestions = SEARCH_MODE_OPTIONS,
+                    onValueChange = onSearchModeChange,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                WebSuggestiveTextField(
+                    label = "detector_model",
+                    value = detectorModel,
+                    suggestions = DETECTOR_MODEL_OPTIONS,
+                    onValueChange = onDetectorModelChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                WebSuggestiveTextField(
+                    label = "search_mode",
+                    value = searchMode,
+                    suggestions = SEARCH_MODE_OPTIONS,
+                    onValueChange = onSearchModeChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

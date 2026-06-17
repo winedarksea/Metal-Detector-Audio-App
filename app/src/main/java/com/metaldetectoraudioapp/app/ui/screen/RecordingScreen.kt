@@ -196,12 +196,34 @@ fun RecordingScreen(
                             )
                         }
                     }
-                    if (uiState.isRecording || uiState.pendingAudioFile != null) {
+                    if (uiState.isRecording) {
                         WaveformCanvas(waveformPoints = uiState.waveformPoints)
                         LinearProgressIndicator(
                             progress = { uiState.rmsLevel.coerceIn(0f, 1f) },
                             modifier = Modifier.fillMaxWidth()
                         )
+                    } else if (uiState.pendingAudioFile != null) {
+                        AudioTrimmer(
+                            envelope = uiState.clipEnvelope,
+                            durationMs = uiState.pendingDurationMs,
+                            trimStartMs = uiState.trimStartMs,
+                            trimEndMs = uiState.trimEndMs,
+                            onTrimChange = viewModel::updateTrim,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Trim ${uiState.trimStartMs}–${uiState.trimEndMs} ms (${uiState.trimEndMs - uiState.trimStartMs} ms kept)",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            TextButton(onClick = viewModel::resetTrim, enabled = uiState.isTrimmed) {
+                                Text("Reset")
+                            }
+                        }
                     }
                     Text(
                         "Duration: ${uiState.pendingDurationMs} ms",

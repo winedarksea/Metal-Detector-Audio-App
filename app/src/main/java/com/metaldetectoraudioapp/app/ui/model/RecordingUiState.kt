@@ -13,4 +13,14 @@ data class RecordingUiState(
     val isPlayingPreview: Boolean = false,
     val waveformPoints: List<Float> = emptyList(),
     val rmsLevel: Float = 0f,
-)
+    /** Static amplitude waveform of the captured clip, 0..1, for the trim control. */
+    val clipEnvelope: List<Float> = emptyList(),
+    /** Selected trim bounds; [trimEndMs] is set to the full duration when a clip is captured. */
+    val trimStartMs: Long = 0,
+    val trimEndMs: Long = 0,
+) {
+    /** True when the user has trimmed away part of the captured clip. */
+    val isTrimmed: Boolean
+        get() = pendingDurationMs > 0 &&
+            (trimStartMs > 0 || (trimEndMs in 1 until pendingDurationMs))
+}

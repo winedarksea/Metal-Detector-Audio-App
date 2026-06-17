@@ -78,7 +78,7 @@ fun WebLabelPickerField(
                     val nameSuggestions = suggestions.namesByObject[entry.obj] ?: emptyList()
                     val materialSuggestions = suggestions.materialsByObject[entry.obj] ?: emptyList()
 
-                    WebDropdownField(
+                    WebSuggestiveTextField(
                         label = "Object",
                         value = entry.obj,
                         suggestions = suggestions.objects,
@@ -93,14 +93,14 @@ fun WebLabelPickerField(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    WebDropdownField(
+                    WebSuggestiveTextField(
                         label = "Name",
                         value = entry.name,
                         suggestions = nameSuggestions,
                         onValueChange = { updateEntry(index, entry.copy(name = it)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    WebDropdownField(
+                    WebSuggestiveTextField(
                         label = "Material",
                         value = entry.material,
                         suggestions = materialSuggestions,
@@ -128,7 +128,7 @@ fun WebLabelPickerField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun WebDropdownField(
+internal fun WebSuggestiveTextField(
     label: String,
     value: String,
     suggestions: List<String>,

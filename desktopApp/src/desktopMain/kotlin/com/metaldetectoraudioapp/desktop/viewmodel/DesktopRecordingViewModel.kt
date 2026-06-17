@@ -1,6 +1,7 @@
 package com.metaldetectoraudioapp.desktop.viewmodel
 
 import com.metaldetectoraudioapp.app.audio.AudioPlayer
+import com.metaldetectoraudioapp.app.recording.AudioTrim
 import com.metaldetectoraudioapp.app.recording.CapturedRecording
 import com.metaldetectoraudioapp.app.recording.RecordingLabelDraft
 import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
@@ -65,12 +66,27 @@ class DesktopRecordingViewModel(
         stopDurationTicker()
         val captured = recordingSession.stop()
         lastCapturedRecording = captured
+        val envelope = captured?.let { AudioTrim.clipEnvelope(it.wavBytes) } ?: emptyList()
         _uiState.value = _uiState.value.copy(
             isRecording = false,
             pendingAudio = captured,
             pendingDurationMs = captured?.durationMs ?: 0,
+            clipEnvelope = envelope,
+            trimStartMs = 0,
+            trimEndMs = captured?.durationMs ?: 0,
             saveResultMessage = null,
             errorMessage = if (captured == null) "No recording available" else null
+        )
+    }
+
+    fun updateTrim(startMs: Long, endMs: Long) {
+        _uiState.value = _uiState.value.copy(trimStartMs = startMs, trimEndMs = endMs)
+    }
+
+    fun resetTrim() {
+        _uiState.value = _uiState.value.copy(
+            trimStartMs = 0,
+            trimEndMs = _uiState.value.pendingDurationMs,
         )
     }
 
@@ -79,11 +95,17 @@ class DesktopRecordingViewModel(
     }
 
     fun playPreview() {
-        val captured = _uiState.value.pendingAudio ?: return
+        val state = _uiState.value
+        val captured = state.pendingAudio ?: return
         stopPreview()
+        val bytes = if (state.isTrimmed) {
+            AudioTrim.trimWav(captured.wavBytes, state.trimStartMs, state.trimEndMs)
+        } else {
+            captured.wavBytes
+        }
         playbackJob = scope.launch {
             _uiState.value = _uiState.value.copy(isPlayingPreview = true)
-            audioPlayer.play(captured.wavBytes)
+            audioPlayer.play(bytes)
             _uiState.value = _uiState.value.copy(isPlayingPreview = false)
         }
     }
@@ -194,11 +216,18 @@ class DesktopRecordingViewModel(
             return
         }
 
-        val pendingImage = _uiState.value.pendingImage
+        val state = _uiState.value
+        val recordingToSave = if (state.isTrimmed) {
+            val trimmed = AudioTrim.trimWav(captured.wavBytes, state.trimStartMs, state.trimEndMs)
+            CapturedRecording(wavBytes = trimmed, durationMs = AudioTrim.durationMs(trimmed))
+        } else {
+            captured
+        }
+        val pendingImage = state.pendingImage
         scope.launch {
             try {
                 val metadata = recordingRepository.saveCapturedRecording(
-                    capturedRecording = captured,
+                    capturedRecording = recordingToSave,
                     labelDraft = RecordingLabelDraft(
                         objectLabels = objectLabels,
                         pattern = draft.pattern,
@@ -262,6 +291,9 @@ class DesktopRecordingViewModel(
             pendingAudio = null,
             pendingImage = null,
             pendingDurationMs = 0,
+            clipEnvelope = emptyList(),
+            trimStartMs = 0,
+            trimEndMs = 0,
             isPlayingPreview = false,
             saveResultMessage = if (announce) "Cleared unsaved recording" else null,
             errorMessage = null,

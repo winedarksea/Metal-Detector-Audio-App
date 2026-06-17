@@ -9,7 +9,9 @@ import com.metaldetectoraudioapp.app.AppContainerProvider
 import com.metaldetectoraudioapp.app.audio.source.AudioDeviceManager
 import com.metaldetectoraudioapp.app.recording.AudioPlaybackController
 import com.metaldetectoraudioapp.app.recording.AudioRecordingSession
+import com.metaldetectoraudioapp.app.recording.AudioTrim
 import com.metaldetectoraudioapp.app.recording.CapturedRecording
+import com.metaldetectoraudioapp.app.recording.WavCodec
 import com.metaldetectoraudioapp.app.recording.RecordingLabelDraft
 import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.recording.RecordingLocationProvider
@@ -38,6 +40,9 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private var lastCapturedRecording: CapturedRecording? = null
     private var recordingStartEpochMs: Long = 0L
     private var durationTickerJob: Job? = null
+
+    /** Temp WAV holding the trimmed preview clip, recreated on each trimmed playback. */
+    private var previewTrimFile: File? = null
 
     private val audioDeviceManager = AudioDeviceManager(application.applicationContext)
     val inputDevices: StateFlow<List<AudioDeviceInfo>> = audioDeviceManager.inputDevices
@@ -95,13 +100,31 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         lastCapturedRecording = captured
 
         val updatedDraft = withAutoLocationIfAvailable(_uiState.value.draft)
+        val envelope = captured?.tempAudioFile
+            ?.let { runCatching { it.readBytes() }.getOrNull() }
+            ?.let { AudioTrim.clipEnvelope(it) }
+            ?: emptyList()
         _uiState.value = _uiState.value.copy(
             isRecording = false,
             pendingAudioFile = captured?.tempAudioFile,
             pendingDurationMs = captured?.durationMs ?: 0,
+            clipEnvelope = envelope,
+            trimStartMs = 0,
+            trimEndMs = captured?.durationMs ?: 0,
             draft = updatedDraft,
             saveResultMessage = null,
             errorMessage = if (captured == null) "No recording available" else null
+        )
+    }
+
+    fun updateTrim(startMs: Long, endMs: Long) {
+        _uiState.value = _uiState.value.copy(trimStartMs = startMs, trimEndMs = endMs)
+    }
+
+    fun resetTrim() {
+        _uiState.value = _uiState.value.copy(
+            trimStartMs = 0,
+            trimEndMs = _uiState.value.pendingDurationMs,
         )
     }
 
@@ -223,8 +246,17 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun playPreview() {
-        val file = _uiState.value.pendingAudioFile ?: return
-        playbackController.play(file) {
+        val state = _uiState.value
+        val file = state.pendingAudioFile ?: return
+        val toPlay = if (state.isTrimmed) {
+            trimmedTempFile(file, state.trimStartMs, state.trimEndMs) ?: run {
+                _uiState.value = _uiState.value.copy(errorMessage = "Unable to preview trimmed audio")
+                return
+            }
+        } else {
+            file
+        }
+        playbackController.play(toPlay) {
             _uiState.value = _uiState.value.copy(isPlayingPreview = false)
         }
         _uiState.value = _uiState.value.copy(isPlayingPreview = true)
@@ -233,6 +265,18 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     fun stopPreview() {
         playbackController.stop()
         _uiState.value = _uiState.value.copy(isPlayingPreview = false)
+    }
+
+    /** Write [source] trimmed to `[startMs, endMs)` to a fresh temp WAV, replacing any prior one. */
+    private fun trimmedTempFile(source: File, startMs: Long, endMs: Long): File? {
+        val bytes = runCatching { source.readBytes() }.getOrNull() ?: return null
+        val trimmed = AudioTrim.trimWav(bytes, startMs, endMs)
+        val cacheDir = getApplication<Application>().cacheDir
+        val temp = File(cacheDir, "preview_trim_${System.currentTimeMillis()}.wav")
+        if (runCatching { temp.writeBytes(trimmed) }.isFailure) return null
+        previewTrimFile?.delete()
+        previewTrimFile = temp
+        return temp
     }
 
     fun saveRecording() {
@@ -263,9 +307,30 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
+        val state = _uiState.value
+        val recordingToSave: CapturedRecording = if (state.isTrimmed) {
+            val bytes = runCatching { captured.tempAudioFile.readBytes() }.getOrNull()
+            if (bytes == null) {
+                _uiState.value = state.copy(errorMessage = "Unable to read recording for trimming")
+                return
+            }
+            val trimmed = AudioTrim.trimWav(bytes, state.trimStartMs, state.trimEndMs)
+            val trimmedFile = File(
+                getApplication<Application>().cacheDir,
+                "save_trim_${System.currentTimeMillis()}.wav",
+            )
+            if (runCatching { trimmedFile.writeBytes(trimmed) }.isFailure) {
+                _uiState.value = state.copy(errorMessage = "Unable to save trimmed audio")
+                return
+            }
+            CapturedRecording(trimmedFile, AudioTrim.durationMs(trimmed))
+        } else {
+            captured
+        }
+
         viewModelScope.launch {
             val metadata = recordingRepository.saveCapturedRecording(
-                capturedRecording = captured,
+                capturedRecording = recordingToSave,
                 labelDraft = RecordingLabelDraft(
                     objectLabels = objectLabels,
                     pattern = draft.pattern,
@@ -284,6 +349,12 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                     imageTempFile = _uiState.value.pendingImageFile,
                 )
             )
+
+            // The repository moved the (possibly trimmed) file that was saved; clean up the
+            // untrimmed original and any trim-preview temp left behind.
+            if (state.isTrimmed) captured.tempAudioFile.delete()
+            previewTrimFile?.delete()
+            previewTrimFile = null
 
             lastCapturedRecording = null
             _uiState.value = RecordingUiState(
@@ -334,12 +405,18 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         lastCapturedRecording = null
         recordingStartEpochMs = 0L
 
+        previewTrimFile?.delete()
+        previewTrimFile = null
+
         _uiState.value.pendingAudioFile?.delete()
         replacePendingImage(null)
 
         _uiState.value = _uiState.value.copy(
             pendingAudioFile = null,
             pendingDurationMs = 0,
+            clipEnvelope = emptyList(),
+            trimStartMs = 0,
+            trimEndMs = 0,
             isPlayingPreview = false,
             saveResultMessage = if (announce) "Cleared unsaved recording" else null,
             errorMessage = null,

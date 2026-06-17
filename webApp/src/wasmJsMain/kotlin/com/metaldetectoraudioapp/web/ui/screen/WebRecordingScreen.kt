@@ -28,6 +28,7 @@ import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
+import com.metaldetectoraudioapp.app.ui.screen.AudioTrimmer
 import com.metaldetectoraudioapp.app.ui.screen.RecordingHintCard
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.web.viewmodel.WebRecordingViewModel
@@ -72,6 +73,29 @@ fun WebRecordingScreen(
                             enabled = uiState.pendingAudio != null || uiState.pendingImage != null
                         ) {
                             Text("Clear")
+                        }
+                    }
+                    if (uiState.pendingAudio != null && !uiState.isRecording) {
+                        AudioTrimmer(
+                            envelope = uiState.clipEnvelope,
+                            durationMs = uiState.pendingDurationMs,
+                            trimStartMs = uiState.trimStartMs,
+                            trimEndMs = uiState.trimEndMs,
+                            onTrimChange = viewModel::updateTrim,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Trim ${uiState.trimStartMs}–${uiState.trimEndMs} ms (${uiState.trimEndMs - uiState.trimStartMs} ms kept)",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            TextButton(onClick = viewModel::resetTrim, enabled = uiState.isTrimmed) {
+                                Text("Reset")
+                            }
                         }
                     }
                     Text(
@@ -259,14 +283,14 @@ fun WebRecordingScreen(
                             )
                         }
                     }
-                    WebDropdownField(
+                    WebSuggestiveTextField(
                         label = "detector_model",
                         value = uiState.draft.detectorModel,
                         suggestions = DETECTOR_MODEL_OPTIONS,
                         onValueChange = viewModel::updateDetectorModel,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    WebDropdownField(
+                    WebSuggestiveTextField(
                         label = "search_mode",
                         value = uiState.draft.searchMode,
                         suggestions = SEARCH_MODE_OPTIONS,

@@ -36,6 +36,7 @@ try:
         train_and_convert_tflite,
     )
     from .train_starter_model import (
+        AMBIENT_NOISE_PROFILE_NAMES,
         MODEL_OUTPUT_LABELS,
         augment_training_data,
         build_audio_sample_records,
@@ -58,6 +59,7 @@ except ImportError:
         train_and_convert_tflite,
     )
     from train_starter_model import (
+        AMBIENT_NOISE_PROFILE_NAMES,
         MODEL_OUTPUT_LABELS,
         augment_training_data,
         build_audio_sample_records,
@@ -414,6 +416,7 @@ def main() -> int:
             synth_count,
             DEFAULT_WINDOW_SIZE_SAMPLES,
             42,
+            sample_rate=DEFAULT_SAMPLE_RATE_HZ,
         )
         ambient_labels = np.full(synth_count, labels_to_index["AMBIENT"], dtype=np.int64)
         x_all = np.concatenate([x_all, ambient_windows], axis=0)
@@ -663,7 +666,7 @@ def main() -> int:
             "synthetic_ambient": {
                 "enabled": True,
                 "ratio": 0.35,
-                "noise_types": ["white", "brownian"],
+                "noise_types": AMBIENT_NOISE_PROFILE_NAMES,
             },
         },
         "timestamp_utc": timestamp,

@@ -1,7 +1,7 @@
 {
   "model_name": "starter_model",
   "model_variant_id": "no_mixed",
-  "model_variant_display_name": "No Mixed Target and Junk",
+  "model_variant_display_name": "No Mixed",
   "model_version": "0.5.0",
   "labels": [
     "TARGET",
@@ -19,8 +19,8 @@
       "loudness_scalar": {
         "feature": "log_rms",
         "epsilon": 1e-06,
-        "standardization_mean": -6.62376070022583,
-        "standardization_std": 2.3847122192382812,
+        "standardization_mean": -6.958666801452637,
+        "standardization_std": 2.5493719577789307,
         "standardization_in_graph": true
       }
     }
@@ -44,10 +44,10 @@
       "kind": "loudness",
       "feature": "log_rms",
       "epsilon": 1e-06,
-      "standardization_mean": -6.62376070022583,
-      "standardization_std": 2.3847122192382812,
+      "standardization_mean": -6.958666801452637,
+      "standardization_std": 2.5493719577789307,
       "dtype": "int8",
-      "scale": 0.040334608405828476,
+      "scale": 0.054178472608327866,
       "zero_point": 127,
       "input_index": 0
     },
@@ -90,17 +90,19 @@
       "upper_edge_hertz": 7600.0
     },
     "loudness_standardization": {
-      "mean": -6.62376070022583,
-      "std": 2.3847122192382812
+      "mean": -6.958666801452637,
+      "std": 2.5493719577789307
     },
     "synthetic_ambient": {
       "enabled": true,
       "ratio": 0.35,
       "noise_types": [
-        "white",
-        "brownian"
+        "band_limited_white_brown",
+        "band_limited_pink_brown",
+        "lfo_modulated_noise",
+        "silence_or_dropout"
       ]
     }
   },
-  "timestamp_utc": "2026-06-15T16:23:03.914081+00:00"
+  "timestamp_utc": "2026-06-17T05:00:47.910419+00:00"
 }

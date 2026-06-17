@@ -39,6 +39,10 @@ try:
         mel_spectrogram_metadata,
         train_and_convert_tflite,
     )
+    from .synthetic_ambient import (
+        AMBIENT_NOISE_PROFILE_NAMES,
+        synthesize_ambient_noise_windows,
+    )
 except ImportError:
     from mel_cnn_pipeline import (
         DEFAULT_HOP_SIZE_SAMPLES,
@@ -47,6 +51,10 @@ except ImportError:
         DEFAULT_WINDOW_SIZE_SAMPLES,
         mel_spectrogram_metadata,
         train_and_convert_tflite,
+    )
+    from synthetic_ambient import (
+        AMBIENT_NOISE_PROFILE_NAMES,
+        synthesize_ambient_noise_windows,
     )
 
 # ---------------------------------------------------------------------------
@@ -525,41 +533,6 @@ def collect_negative_ambient_windows(
 
 
 # ---------------------------------------------------------------------------
-# Synthetic ambient noise
-# ---------------------------------------------------------------------------
-
-def synthesize_ambient_noise_windows(
-    target_count: int,
-    window_size: int,
-    random_seed: int,
-):
-    import numpy as np
-
-    if target_count <= 0:
-        return np.zeros((0, window_size), dtype=np.float32)
-
-    rng = np.random.default_rng(random_seed)
-    windows = np.zeros((target_count, window_size), dtype=np.float32)
-
-    for i in range(target_count):
-        white = rng.normal(0.0, 1.0, window_size).astype(np.float32)
-        brown = np.cumsum(rng.normal(0.0, 0.08, window_size)).astype(np.float32)
-
-        w = float(rng.uniform(0.35, 0.8))
-        mixed = w * white + (1.0 - w) * brown
-
-        # Scale to a realistic ambient RMS (0.05–0.15 of full scale) so the model
-        # sees amplitude as a useful feature; peak normalization would destroy this.
-        target_rms = float(rng.uniform(0.05, 0.15))
-        rms = float(np.sqrt(np.mean(mixed ** 2)))
-        if rms > 1e-8:
-            mixed = mixed * (target_rms / rms)
-        windows[i] = np.clip(mixed, -1.0, 1.0).astype(np.float32)
-
-    return windows
-
-
-# ---------------------------------------------------------------------------
 # Data augmentation helpers
 # ---------------------------------------------------------------------------
 
@@ -722,7 +695,7 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
         non_ambient = kept["TARGET"] + kept["JUNK"]
         synth_count = max(1, round(non_ambient * args.ambient_noise_ratio))
         ambient_windows = synthesize_ambient_noise_windows(
-            synth_count, args.window_size, args.ambient_noise_seed,
+            synth_count, args.window_size, args.ambient_noise_seed, sample_rate=args.sample_rate,
         )
         ambient_labels = np.full(synth_count, labels_to_index["AMBIENT"], dtype=np.int64)
         x_all = np.concatenate([x_all, ambient_windows], axis=0)
@@ -808,7 +781,7 @@ def run_training_pipeline(args: argparse.Namespace) -> int:
             "synthetic_ambient": {
                 "enabled": bool(args.synthesize_ambient_noise),
                 "ratio": float(args.ambient_noise_ratio),
-                "noise_types": ["white", "brownian"],
+                "noise_types": AMBIENT_NOISE_PROFILE_NAMES,
             },
         },
         "timestamp_utc": timestamp,

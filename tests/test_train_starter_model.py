@@ -10,6 +10,10 @@ from wave import open as wave_open
 
 import numpy as np
 
+from scripts.synthetic_ambient import (
+    AMBIENT_NOISE_PROFILE_NAMES,
+    fft_bandpass_filter,
+)
 from scripts import train_starter_model
 from scripts import mel_cnn_pipeline
 
@@ -299,7 +303,84 @@ class TrainStarterModelValidationTest(unittest.TestCase):
         )
 
         self.assertEqual((5, 128), windows.shape)
+        self.assertEqual(np.float32, windows.dtype)
+        self.assertTrue(np.all(np.isfinite(windows)))
+        self.assertLessEqual(float(np.max(windows)), 1.0)
+        self.assertGreaterEqual(float(np.min(windows)), -1.0)
         self.assertGreater(float(abs(windows).sum()), 0.0)
+
+    def test_synthesize_ambient_noise_windows_is_deterministic(self):
+        first = train_starter_model.synthesize_ambient_noise_windows(
+            target_count=10,
+            window_size=1024,
+            random_seed=123,
+        )
+        second = train_starter_model.synthesize_ambient_noise_windows(
+            target_count=10,
+            window_size=1024,
+            random_seed=123,
+        )
+
+        np.testing.assert_array_equal(first, second)
+
+    def test_synthesize_ambient_noise_windows_includes_silence_or_dropout(self):
+        windows = train_starter_model.synthesize_ambient_noise_windows(
+            target_count=25,
+            window_size=16000,
+            random_seed=123,
+        )
+        near_zero_fraction_by_window = np.mean(np.abs(windows) < 1e-5, axis=1)
+
+        self.assertGreater(float(np.max(near_zero_fraction_by_window)), 0.05)
+
+    def test_synthesize_ambient_noise_windows_keeps_non_silent_rms_realistic(self):
+        windows = train_starter_model.synthesize_ambient_noise_windows(
+            target_count=25,
+            window_size=16000,
+            random_seed=123,
+        )
+        rms = np.sqrt(np.mean(np.square(windows), axis=1))
+        non_silent_rms = rms[rms > 1e-4]
+
+        self.assertGreater(non_silent_rms.size, 0)
+        self.assertGreaterEqual(float(np.min(non_silent_rms)), 0.02)
+        self.assertLessEqual(float(np.max(non_silent_rms)), 0.16)
+
+    def test_synthesize_ambient_noise_windows_stays_diffuse_not_tonal(self):
+        windows = train_starter_model.synthesize_ambient_noise_windows(
+            target_count=25,
+            window_size=16000,
+            random_seed=123,
+        )
+
+        for window in windows:
+            if float(np.sqrt(np.mean(np.square(window)))) <= 1e-4:
+                continue
+            spectrum = np.abs(np.fft.rfft(window))
+            spectrum[0] = 0.0
+            self.assertLess(float(np.max(spectrum) / np.sum(spectrum)), 0.01)
+
+    def test_synthetic_ambient_profiles_exclude_emi_hum_static_by_default(self):
+        self.assertNotIn("emi_hum_static", AMBIENT_NOISE_PROFILE_NAMES)
+
+    def test_fft_bandpass_filter_attenuates_out_of_band_energy(self):
+        sample_rate = 16000
+        time_axis = np.arange(sample_rate, dtype=np.float32) / sample_rate
+        low_tone = np.sin(2.0 * np.pi * 50.0 * time_axis)
+        passband_tone = np.sin(2.0 * np.pi * 1000.0 * time_axis)
+        high_tone = np.sin(2.0 * np.pi * 6000.0 * time_axis)
+        mixed = (low_tone + passband_tone + high_tone).astype(np.float32)
+
+        filtered = fft_bandpass_filter(mixed, sample_rate)
+        spectrum = np.abs(np.fft.rfft(filtered))
+        frequencies = np.fft.rfftfreq(filtered.size, d=1.0 / sample_rate)
+
+        low_energy = float(spectrum[np.argmin(np.abs(frequencies - 50.0))])
+        passband_energy = float(spectrum[np.argmin(np.abs(frequencies - 1000.0))])
+        high_energy = float(spectrum[np.argmin(np.abs(frequencies - 6000.0))])
+
+        self.assertLess(low_energy, passband_energy * 0.01)
+        self.assertLess(high_energy, passband_energy * 0.01)
 
     def test_time_shift_augmentation_zero_fills_instead_of_wrapping(self):
         window = np.arange(1, 7, dtype=np.float32)

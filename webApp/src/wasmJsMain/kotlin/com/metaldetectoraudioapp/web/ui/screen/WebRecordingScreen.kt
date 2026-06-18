@@ -150,14 +150,26 @@ fun WebRecordingScreen(
                     HorizontalDivider()
 
                     WrappingActionRow {
+                        val photoButtonLabel = if (uiState.pendingImage != null) "Replace" else "Add"
+                        val photoButtonsEnabled = !uiState.isRecording && !uiState.isPhotoCaptureInProgress
                         OutlinedButton(
-                            onClick = viewModel::capturePhoto,
-                            enabled = !uiState.isRecording && !uiState.isPhotoCaptureInProgress,
+                            onClick = { viewModel.capturePhoto(useCamera = true) },
+                            enabled = photoButtonsEnabled,
                         ) {
                             if (uiState.isPhotoCaptureInProgress) {
                                 LoadingButtonContent("Processing Photo")
                             } else {
-                                Text(if (uiState.pendingImage != null) "Replace Photo" else "Add Photo")
+                                Text("$photoButtonLabel Photo: Camera")
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.capturePhoto(useCamera = false) },
+                            enabled = photoButtonsEnabled,
+                        ) {
+                            if (uiState.isPhotoCaptureInProgress) {
+                                LoadingButtonContent("Processing Photo")
+                            } else {
+                                Text("$photoButtonLabel Photo: Gallery")
                             }
                         }
                         if (uiState.pendingImage != null) {

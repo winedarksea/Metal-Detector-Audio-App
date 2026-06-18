@@ -1,7 +1,7 @@
 package com.metaldetectoraudioapp.web.platform
 
 interface WebPhotoCaptureProvider {
-    fun capturePhoto(onResult: (WebPhotoCaptureResult) -> Unit)
+    fun capturePhoto(useCamera: Boolean, onResult: (WebPhotoCaptureResult) -> Unit)
 }
 
 sealed interface WebPhotoCaptureResult {
@@ -16,8 +16,8 @@ sealed interface WebPhotoCaptureResult {
 }
 
 class BrowserWebPhotoCaptureProvider : WebPhotoCaptureProvider {
-    override fun capturePhoto(onResult: (WebPhotoCaptureResult) -> Unit) {
-        openPhotoPicker { status, byteCount, message ->
+    override fun capturePhoto(useCamera: Boolean, onResult: (WebPhotoCaptureResult) -> Unit) {
+        openPhotoPicker(useCamera) { status, byteCount, message ->
             val result = when (status) {
                 PHOTO_CAPTURE_STATUS_CAPTURED -> {
                     WebPhotoCaptureResult.Captured(readCapturedPhotoBytes(byteCount))
@@ -54,12 +54,12 @@ private fun clearCapturedPhotoBytes(): Unit =
  * Uses the native camera/library chooser, then normalizes the selection so large phone photos
  * do not consume excessive IndexedDB space or inflate exported training bundles.
  */
-private fun openPhotoPicker(onCompleted: (Int, Int, String) -> Unit) {
+private fun openPhotoPicker(useCamera: Boolean, onCompleted: (Int, Int, String) -> Unit) {
     js("""
         var input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
-        input.capture = 'environment';
+        if (useCamera) input.capture = 'environment';
         input.style.display = 'none';
         document.body.appendChild(input);
 

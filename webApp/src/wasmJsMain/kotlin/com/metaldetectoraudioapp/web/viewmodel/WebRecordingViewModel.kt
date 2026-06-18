@@ -170,7 +170,7 @@ class WebRecordingViewModel(
     fun updateRecoverySpeed(value: String) = updateDraft(_uiState.value.draft.copy(recoverySpeed = value))
     fun updateStabilizer(value: String) = updateDraft(_uiState.value.draft.copy(stabilizer = value))
 
-    fun capturePhoto() {
+    fun capturePhoto(useCamera: Boolean) {
         if (_uiState.value.isRecording || _uiState.value.isPhotoCaptureInProgress) {
             return
         }
@@ -180,7 +180,7 @@ class WebRecordingViewModel(
             saveResultMessage = null,
             errorMessage = null,
         )
-        photoCaptureProvider.capturePhoto { result ->
+        photoCaptureProvider.capturePhoto(useCamera) { result ->
             when (result) {
                 is WebPhotoCaptureResult.Captured -> {
                     _uiState.value = _uiState.value.copy(

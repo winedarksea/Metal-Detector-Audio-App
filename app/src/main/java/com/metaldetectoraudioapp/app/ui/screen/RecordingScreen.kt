@@ -527,7 +527,7 @@ private fun RecordingHintCard(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text(
-                "Tips for good training data",
+                "Tips for good data",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )

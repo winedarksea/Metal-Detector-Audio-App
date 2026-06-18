@@ -35,6 +35,7 @@ import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.RECOVERY_SPEED_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SENSITIVITY_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SOIL_TYPE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.STABILIZER_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.screen.AudioTrimmer
@@ -265,12 +266,12 @@ fun WebRecordingScreen(
             OutlinedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     Text("Environment (optional)", style = MaterialTheme.typography.titleMedium)
-                    OutlinedTextField(
+                    WebSuggestiveTextField(
+                        label = "soil_type",
                         value = uiState.draft.soilType,
+                        suggestions = SOIL_TYPE_OPTIONS,
                         onValueChange = viewModel::updateSoilType,
-                        label = { Text("soil_type") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
                     )
                     Text("moisture", style = MaterialTheme.typography.labelLarge)
                     WrappingActionRow {

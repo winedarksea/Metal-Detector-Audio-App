@@ -79,6 +79,15 @@ class RecordingRepository(
     suspend fun readAudioBytes(metadata: RecordingMetadata): ByteArray? =
         store.readAudio(metadata.audioFileName)
 
+    suspend fun saveAudioAndUpdateDuration(
+        metadata: RecordingMetadata,
+        trimmedBytes: ByteArray,
+        newDurationMs: Long,
+    ) {
+        store.saveAudio(metadata.audioFileName, trimmedBytes)
+        updateRecording(metadata.copy(durationMs = newDurationMs))
+    }
+
     suspend fun readImageBytes(metadata: RecordingMetadata): ByteArray? =
         metadata.imageFileName?.let { store.readImage(it) }
 

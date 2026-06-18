@@ -2,6 +2,7 @@ package com.metaldetectoraudioapp.desktop.viewmodel
 
 import com.metaldetectoraudioapp.app.audio.AudioPlayer
 import com.metaldetectoraudioapp.app.export.DatasetBundleManager
+import com.metaldetectoraudioapp.app.recording.AudioTrim
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.recording.RecordingRepository
@@ -123,6 +124,57 @@ class DesktopReviewViewModel(
     fun delete(recordingId: String) {
         scope.launch {
             recordingRepository.deleteRecording(recordingId)
+            refresh()
+        }
+    }
+
+    fun openTrimEditor(recording: RecordingMetadata) {
+        scope.launch {
+            val bytes = recordingRepository.readAudioBytes(recording) ?: return@launch
+            val envelope = AudioTrim.clipEnvelope(bytes)
+            val duration = AudioTrim.durationMs(bytes)
+            _uiState.value = _uiState.value.copy(
+                trimEditId = recording.recordingId,
+                trimEnvelope = envelope,
+                trimStartMs = 0L,
+                trimEndMs = duration,
+                trimFullDurationMs = duration,
+            )
+        }
+    }
+
+    fun updateTrim(startMs: Long, endMs: Long) {
+        _uiState.value = _uiState.value.copy(trimStartMs = startMs, trimEndMs = endMs)
+    }
+
+    fun resetTrim() {
+        _uiState.value = _uiState.value.copy(
+            trimStartMs = 0L,
+            trimEndMs = _uiState.value.trimFullDurationMs,
+        )
+    }
+
+    fun closeTrimEditor() {
+        _uiState.value = _uiState.value.copy(
+            trimEditId = null,
+            trimEnvelope = emptyList(),
+            trimStartMs = 0L,
+            trimEndMs = 0L,
+            trimFullDurationMs = 0L,
+        )
+    }
+
+    fun saveTrim(recording: RecordingMetadata) {
+        val state = _uiState.value
+        scope.launch {
+            val bytes = recordingRepository.readAudioBytes(recording) ?: run {
+                _uiState.value = state.copy(errorMessage = "Audio file missing: ${recording.audioFileName}")
+                return@launch
+            }
+            val trimmed = AudioTrim.trimWav(bytes, state.trimStartMs, state.trimEndMs)
+            val newDuration = AudioTrim.durationMs(trimmed)
+            recordingRepository.saveAudioAndUpdateDuration(recording, trimmed, newDuration)
+            closeTrimEditor()
             refresh()
         }
     }

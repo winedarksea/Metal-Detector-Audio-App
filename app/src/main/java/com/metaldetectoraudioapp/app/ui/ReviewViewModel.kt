@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.metaldetectoraudioapp.app.AppContainerProvider
 import com.metaldetectoraudioapp.app.recording.AudioPlaybackController
+import com.metaldetectoraudioapp.app.recording.AudioTrim
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
@@ -104,6 +105,62 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
 
     fun delete(recordingId: String) {
         recordingRepository.deleteRecording(recordingId)
+        refresh()
+    }
+
+    fun openTrimEditor(recording: RecordingMetadata) {
+        val file = recordingRepository.resolveAudioFile(recording) ?: return
+        val bytes = runCatching { file.readBytes() }.getOrNull() ?: return
+        val envelope = AudioTrim.clipEnvelope(bytes)
+        val duration = AudioTrim.durationMs(bytes)
+        _uiState.value = _uiState.value.copy(
+            trimEditId = recording.recordingId,
+            trimEnvelope = envelope,
+            trimStartMs = 0L,
+            trimEndMs = duration,
+            trimFullDurationMs = duration,
+        )
+    }
+
+    fun updateTrim(startMs: Long, endMs: Long) {
+        _uiState.value = _uiState.value.copy(trimStartMs = startMs, trimEndMs = endMs)
+    }
+
+    fun resetTrim() {
+        _uiState.value = _uiState.value.copy(
+            trimStartMs = 0L,
+            trimEndMs = _uiState.value.trimFullDurationMs,
+        )
+    }
+
+    fun closeTrimEditor() {
+        _uiState.value = _uiState.value.copy(
+            trimEditId = null,
+            trimEnvelope = emptyList(),
+            trimStartMs = 0L,
+            trimEndMs = 0L,
+            trimFullDurationMs = 0L,
+        )
+    }
+
+    fun saveTrim(recording: RecordingMetadata) {
+        val state = _uiState.value
+        val file = recordingRepository.resolveAudioFile(recording) ?: run {
+            _uiState.value = state.copy(errorMessage = "Audio file missing: ${recording.audioFileName}")
+            return
+        }
+        val bytes = runCatching { file.readBytes() }.getOrNull() ?: run {
+            _uiState.value = state.copy(errorMessage = "Unable to read audio for trimming")
+            return
+        }
+        val trimmed = AudioTrim.trimWav(bytes, state.trimStartMs, state.trimEndMs)
+        if (runCatching { file.writeBytes(trimmed) }.isFailure) {
+            _uiState.value = state.copy(errorMessage = "Unable to save trimmed audio")
+            return
+        }
+        val newDuration = AudioTrim.durationMs(trimmed)
+        recordingRepository.updateRecording(recording.copy(durationMs = newDuration))
+        closeTrimEditor()
         refresh()
     }
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.ui.model.AUDIO_PROFILE_OPTIONS
+import com.metaldetectoraudioapp.app.ui.screen.AudioTrimmer
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
@@ -125,7 +127,18 @@ fun DesktopReviewScreen(
             DesktopRecordingReviewCard(
                 recording = recording,
                 isPlaying = uiState.selectedPlayingId == recording.recordingId,
+                isTrimEditorOpen = uiState.trimEditId == recording.recordingId,
+                trimEnvelope = uiState.trimEnvelope,
+                trimStartMs = uiState.trimStartMs,
+                trimEndMs = uiState.trimEndMs,
+                trimFullDurationMs = uiState.trimFullDurationMs,
+                isTrimmed = uiState.isTrimmed,
                 onPlay = { viewModel.playOrStop(recording) },
+                onOpenTrimEditor = { viewModel.openTrimEditor(recording) },
+                onUpdateTrim = viewModel::updateTrim,
+                onResetTrim = viewModel::resetTrim,
+                onCloseTrimEditor = viewModel::closeTrimEditor,
+                onSaveTrim = { viewModel.saveTrim(recording) },
                 onToggleInclude = { viewModel.toggleIncludeInTraining(recording, it) },
                 onRelabelTargets = { viewModel.relabelTargetNames(recording, it) },
                 onRelabelNotes = { viewModel.relabelNotes(recording, it) },
@@ -161,7 +174,18 @@ fun DesktopReviewScreen(
 private fun DesktopRecordingReviewCard(
     recording: RecordingMetadata,
     isPlaying: Boolean,
+    isTrimEditorOpen: Boolean,
+    trimEnvelope: List<Float>,
+    trimStartMs: Long,
+    trimEndMs: Long,
+    trimFullDurationMs: Long,
+    isTrimmed: Boolean,
     onPlay: () -> Unit,
+    onOpenTrimEditor: () -> Unit,
+    onUpdateTrim: (Long, Long) -> Unit,
+    onResetTrim: () -> Unit,
+    onCloseTrimEditor: () -> Unit,
+    onSaveTrim: () -> Unit,
     onToggleInclude: (Boolean) -> Unit,
     onRelabelTargets: (String) -> Unit,
     onRelabelNotes: (String) -> Unit,
@@ -259,6 +283,28 @@ private fun DesktopRecordingReviewCard(
                 }
                 OutlinedButton(onClick = onDelete) {
                     Text("Delete")
+                }
+                if (!isTrimEditorOpen) {
+                    OutlinedButton(onClick = onOpenTrimEditor) { Text("Trim") }
+                }
+            }
+            if (isTrimEditorOpen) {
+                AudioTrimmer(
+                    envelope = trimEnvelope,
+                    durationMs = trimFullDurationMs,
+                    trimStartMs = trimStartMs,
+                    trimEndMs = trimEndMs,
+                    onTrimChange = onUpdateTrim,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "$trimStartMs – $trimEndMs ms  (${trimFullDurationMs} ms total)",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    TextButton(onClick = onResetTrim, enabled = isTrimmed) { Text("Reset") }
+                    TextButton(onClick = onCloseTrimEditor) { Text("Cancel") }
+                    FilledTonalButton(onClick = onSaveTrim) { Text("Save Trim") }
                 }
             }
 

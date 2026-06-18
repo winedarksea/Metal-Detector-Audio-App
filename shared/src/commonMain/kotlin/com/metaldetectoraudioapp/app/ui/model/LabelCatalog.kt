@@ -239,6 +239,12 @@ val RECOVERY_SPEED_OPTIONS = (1..8).map { it.toString() }
 
 val STABILIZER_OPTIONS = (1..10).map { it.toString() }
 
+val SOIL_TYPE_OPTIONS = listOf(
+    "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
+)
+
+val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
+
 // Parses a raw label string (wire format) into a list of LabelEntry objects.
 // Accepts comma, semicolon, or pipe as multi-target delimiters.
 fun parseLabelEntries(raw: String): List<LabelEntry> {

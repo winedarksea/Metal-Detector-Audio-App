@@ -136,7 +136,11 @@ internal fun WebSuggestiveTextField(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val filtered = suggestions.filter { it.startsWith(value, ignoreCase = true) }
+    val filtered = if (value.isEmpty() || suggestions.any { it.equals(value, ignoreCase = true) }) {
+        suggestions
+    } else {
+        suggestions.filter { it.startsWith(value, ignoreCase = true) }
+    }
 
     ExposedDropdownMenuBox(
         expanded = expanded && filtered.isNotEmpty(),

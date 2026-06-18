@@ -2,6 +2,17 @@ package com.metaldetectoraudioapp.app.ui.model
 
 import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 
+data class EnvironmentCache(
+    val detectorModel: String = "",
+    val searchMode: String = "",
+    val audioProfile: String = "",
+    val sensitivity: String = "",
+    val recoverySpeed: String = "",
+    val stabilizer: String = "",
+    val soilType: String = "",
+    val moisture: String = "",
+)
+
 data class ReviewUiState(
     val recordings: List<RecordingMetadata> = emptyList(),
     val selectedPlayingId: String? = null,
@@ -12,6 +23,7 @@ data class ReviewUiState(
     val trimStartMs: Long = 0L,
     val trimEndMs: Long = 0L,
     val trimFullDurationMs: Long = 0L,
+    val environmentCache: EnvironmentCache = EnvironmentCache(),
 ) {
     val isTrimmed: Boolean
         get() = trimFullDurationMs > 0 && (trimStartMs > 0L || trimEndMs < trimFullDurationMs)

@@ -9,6 +9,7 @@ import com.metaldetectoraudioapp.app.recording.RecordingMetadata
 import com.metaldetectoraudioapp.app.recording.RecordingObjectLabel
 import com.metaldetectoraudioapp.app.recording.RecordingRepository
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.EnvironmentCache
 import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.ReviewUiState
 import kotlinx.coroutines.CoroutineScope
@@ -99,6 +100,18 @@ class WebReviewViewModel(
         recoverySpeed: String,
         stabilizer: String,
     ) {
+        _uiState.value = _uiState.value.copy(
+            environmentCache = EnvironmentCache(
+                detectorModel = detectorModel,
+                searchMode = searchMode,
+                audioProfile = audioProfile,
+                sensitivity = sensitivity,
+                recoverySpeed = recoverySpeed,
+                stabilizer = stabilizer,
+                soilType = soilType,
+                moisture = moisture,
+            )
+        )
         scope.launch {
             recordingRepository.updateRecording(
                 recording.copy(

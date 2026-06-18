@@ -58,18 +58,15 @@ import com.metaldetectoraudioapp.app.ui.RecordingViewModel
 import com.metaldetectoraudioapp.app.ui.model.AUDIO_PROFILE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.MOISTURE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.RECOVERY_SPEED_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SENSITIVITY_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SOIL_TYPE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.STABILIZER_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.ui.theme.DetectionColors
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
-
-private val SOIL_TYPE_OPTIONS = listOf(
-    "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
-)
-private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
 
 @Composable
 fun RecordingScreen(
@@ -467,7 +464,11 @@ private fun SuggestiveTextField(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val filtered = suggestions.filter { it.startsWith(value, ignoreCase = true) }
+    val filtered = if (value.isEmpty() || suggestions.any { it.equals(value, ignoreCase = true) }) {
+        suggestions
+    } else {
+        suggestions.filter { it.startsWith(value, ignoreCase = true) }
+    }
 
     ExposedDropdownMenuBox(
         expanded = expanded && filtered.isNotEmpty(),

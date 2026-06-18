@@ -32,19 +32,17 @@ import com.metaldetectoraudioapp.app.ui.model.AUDIO_PROFILE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.screen.AudioTrimmer
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
 import com.metaldetectoraudioapp.app.ui.model.DETECTOR_MODEL_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.EnvironmentCache
 import com.metaldetectoraudioapp.app.ui.model.LabelEntry
+import com.metaldetectoraudioapp.app.ui.model.MOISTURE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.RECOVERY_SPEED_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SEARCH_MODE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.SENSITIVITY_OPTIONS
+import com.metaldetectoraudioapp.app.ui.model.SOIL_TYPE_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.STABILIZER_OPTIONS
 import com.metaldetectoraudioapp.app.ui.model.serializeLabelEntries
 import com.metaldetectoraudioapp.app.ui.theme.Spacing
 import com.metaldetectoraudioapp.web.viewmodel.WebReviewViewModel
-
-private val SOIL_TYPE_OPTIONS = listOf(
-    "dry-sand", "wet-sand", "clay", "loam", "gravel", "mineralized", "fill", "unknown"
-)
-private val MOISTURE_OPTIONS = listOf("dry", "moist", "wet")
 
 @Composable
 fun WebReviewScreen(
@@ -84,6 +82,7 @@ fun WebReviewScreen(
         items(uiState.recordings, key = { it.recordingId }) { recording ->
             WebRecordingCard(
                 recording = recording,
+                environmentCache = uiState.environmentCache,
                 isPlaying = uiState.selectedPlayingId == recording.recordingId,
                 isTrimEditorOpen = uiState.trimEditId == recording.recordingId,
                 trimEnvelope = uiState.trimEnvelope,
@@ -122,6 +121,7 @@ fun WebReviewScreen(
 @Composable
 private fun WebRecordingCard(
     recording: RecordingMetadata,
+    environmentCache: EnvironmentCache,
     isPlaying: Boolean,
     isTrimEditorOpen: Boolean,
     trimEnvelope: List<Float>,
@@ -167,28 +167,28 @@ private fun WebRecordingCard(
         mutableStateOf(recording.notes.orEmpty())
     }
     var soilTypeInput by remember(recording.recordingId) {
-        mutableStateOf(recording.soilType.orEmpty())
+        mutableStateOf(recording.soilType.orEmpty().ifEmpty { environmentCache.soilType })
     }
     var moistureInput by remember(recording.recordingId) {
-        mutableStateOf(recording.moisture.orEmpty())
+        mutableStateOf(recording.moisture.orEmpty().ifEmpty { environmentCache.moisture })
     }
     var detectorModelInput by remember(recording.recordingId) {
-        mutableStateOf(recording.detectorModel.orEmpty())
+        mutableStateOf(recording.detectorModel.orEmpty().ifEmpty { environmentCache.detectorModel })
     }
     var searchModeInput by remember(recording.recordingId) {
-        mutableStateOf(recording.searchMode.orEmpty())
+        mutableStateOf(recording.searchMode.orEmpty().ifEmpty { environmentCache.searchMode })
     }
     var audioProfileInput by remember(recording.recordingId) {
-        mutableStateOf(recording.audioProfile.orEmpty())
+        mutableStateOf(recording.audioProfile.orEmpty().ifEmpty { environmentCache.audioProfile })
     }
     var sensitivityInput by remember(recording.recordingId) {
-        mutableStateOf(recording.sensitivity.orEmpty())
+        mutableStateOf(recording.sensitivity.orEmpty().ifEmpty { environmentCache.sensitivity })
     }
     var recoverySpeedInput by remember(recording.recordingId) {
-        mutableStateOf(recording.recoverySpeed.orEmpty())
+        mutableStateOf(recording.recoverySpeed.orEmpty().ifEmpty { environmentCache.recoverySpeed })
     }
     var stabilizerInput by remember(recording.recordingId) {
-        mutableStateOf(recording.stabilizer.orEmpty())
+        mutableStateOf(recording.stabilizer.orEmpty().ifEmpty { environmentCache.stabilizer })
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {

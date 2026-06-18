@@ -1,7 +1,10 @@
 package com.metaldetectoraudioapp.app.recording
 
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.LabelConfidence
+import com.metaldetectoraudioapp.app.ui.model.LocationVisibility
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
+import com.metaldetectoraudioapp.app.ui.model.SyncStatus
 
 data class RecordingMetadata(
     val recordingId: String,
@@ -24,6 +27,13 @@ data class RecordingMetadata(
     val recoverySpeed: String? = null,
     val stabilizer: String? = null,
     val imageFileName: String? = null,
+    val labelConfidence: LabelConfidence = LabelConfidence.UNCONFIRMED,
+    val locationVisibility: LocationVisibility = LocationVisibility.PRIVATE,
+    val locationLabel: String? = null,
+    val syncStatus: SyncStatus = SyncStatus.NOT_UPLOADED,
+    val remoteId: String? = null,
+    val syncedAtEpochMs: Long? = null,
+    val authorUserId: String? = null,
 ) {
     init {
         validateRecordingObjectLabels(objectLabels)

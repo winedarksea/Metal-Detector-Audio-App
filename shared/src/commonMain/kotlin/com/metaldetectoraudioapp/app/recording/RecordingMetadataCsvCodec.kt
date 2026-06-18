@@ -1,7 +1,10 @@
 package com.metaldetectoraudioapp.app.recording
 
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.LabelConfidence
+import com.metaldetectoraudioapp.app.ui.model.LocationVisibility
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
+import com.metaldetectoraudioapp.app.ui.model.SyncStatus
 
 object RecordingMetadataCsvCodec {
     private val columns = listOf(
@@ -28,6 +31,13 @@ object RecordingMetadataCsvCodec {
         "recovery_speed",
         "stabilizer",
         "image_file_name",
+        "label_confidence",
+        "location_visibility",
+        "location_label",
+        "sync_status",
+        "remote_id",
+        "synced_at_epoch_ms",
+        "author_user_id",
     )
 
     fun serialize(recordings: List<RecordingMetadata>): String {
@@ -60,6 +70,13 @@ object RecordingMetadataCsvCodec {
                     metadata.recoverySpeed.orEmpty(),
                     metadata.stabilizer.orEmpty(),
                     metadata.imageFileName.orEmpty(),
+                    metadata.labelConfidence.name,
+                    metadata.locationVisibility.name,
+                    metadata.locationLabel.orEmpty(),
+                    metadata.syncStatus.name,
+                    metadata.remoteId.orEmpty(),
+                    metadata.syncedAtEpochMs?.toString().orEmpty(),
+                    metadata.authorUserId.orEmpty(),
                 )
                 builder.append(row.joinToString(",") { escapeCsv(it) }).append('\n')
             }
@@ -124,6 +141,13 @@ object RecordingMetadataCsvCodec {
                 recoverySpeed = blankToNull(valueFor(header, row, "recovery_speed")),
                 stabilizer = blankToNull(valueFor(header, row, "stabilizer")),
                 imageFileName = blankToNull(valueFor(header, row, "image_file_name")),
+                labelConfidence = LabelConfidence.fromWireValue(valueFor(header, row, "label_confidence")),
+                locationVisibility = LocationVisibility.fromWireValue(valueFor(header, row, "location_visibility")),
+                locationLabel = blankToNull(valueFor(header, row, "location_label")),
+                syncStatus = SyncStatus.fromWireValue(valueFor(header, row, "sync_status")),
+                remoteId = blankToNull(valueFor(header, row, "remote_id")),
+                syncedAtEpochMs = valueFor(header, row, "synced_at_epoch_ms").toLongOrNull(),
+                authorUserId = blankToNull(valueFor(header, row, "author_user_id")),
             )
             byRecordingId[recordingId] = metadataRow
         }
@@ -152,6 +176,13 @@ object RecordingMetadataCsvCodec {
                 recoverySpeed = row.recoverySpeed,
                 stabilizer = row.stabilizer,
                 imageFileName = row.imageFileName,
+                labelConfidence = row.labelConfidence,
+                locationVisibility = row.locationVisibility,
+                locationLabel = row.locationLabel,
+                syncStatus = row.syncStatus,
+                remoteId = row.remoteId,
+                syncedAtEpochMs = row.syncedAtEpochMs,
+                authorUserId = row.authorUserId,
             )
         }
     }
@@ -259,5 +290,12 @@ object RecordingMetadataCsvCodec {
         val recoverySpeed: String?,
         val stabilizer: String?,
         val imageFileName: String?,
+        val labelConfidence: LabelConfidence,
+        val locationVisibility: LocationVisibility,
+        val locationLabel: String?,
+        val syncStatus: SyncStatus,
+        val remoteId: String?,
+        val syncedAtEpochMs: Long?,
+        val authorUserId: String?,
     )
 }

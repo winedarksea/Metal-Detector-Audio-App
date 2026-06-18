@@ -22,3 +22,40 @@ enum class SweepPattern {
         }
     }
 }
+
+enum class LabelConfidence {
+    UNCONFIRMED,
+    CONFIRMED,
+    HIGH_QUALITY;
+
+    companion object {
+        fun fromWireValue(value: String): LabelConfidence {
+            return entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: UNCONFIRMED
+        }
+    }
+}
+
+enum class LocationVisibility {
+    PRIVATE,
+    TEXT_LABEL,
+    EXACT;
+
+    companion object {
+        fun fromWireValue(value: String): LocationVisibility {
+            return entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: PRIVATE
+        }
+    }
+}
+
+enum class SyncStatus {
+    NOT_UPLOADED,
+    PENDING,
+    UPLOADED,
+    ERROR;
+
+    companion object {
+        fun fromWireValue(value: String): SyncStatus {
+            return entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: NOT_UPLOADED
+        }
+    }
+}

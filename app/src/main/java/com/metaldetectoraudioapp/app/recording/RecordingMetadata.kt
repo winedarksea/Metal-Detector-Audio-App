@@ -1,7 +1,10 @@
 package com.metaldetectoraudioapp.app.recording
 
 import com.metaldetectoraudioapp.app.ui.model.ClassLabel
+import com.metaldetectoraudioapp.app.ui.model.LabelConfidence
+import com.metaldetectoraudioapp.app.ui.model.LocationVisibility
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
+import com.metaldetectoraudioapp.app.ui.model.SyncStatus
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -26,6 +29,13 @@ data class RecordingMetadata(
     val recoverySpeed: String? = null,
     val stabilizer: String? = null,
     val imageFileName: String? = null,
+    val labelConfidence: LabelConfidence = LabelConfidence.UNCONFIRMED,
+    val locationVisibility: LocationVisibility = LocationVisibility.PRIVATE,
+    val locationLabel: String? = null,
+    val syncStatus: SyncStatus = SyncStatus.NOT_UPLOADED,
+    val remoteId: String? = null,
+    val syncedAtEpochMs: Long? = null,
+    val authorUserId: String? = null,
 ) {
     init {
         validateRecordingObjectLabels(objectLabels)
@@ -59,6 +69,13 @@ data class RecordingMetadata(
             .put("recovery_speed", recoverySpeed ?: JSONObject.NULL)
             .put("stabilizer", stabilizer ?: JSONObject.NULL)
             .put("image_file_name", imageFileName ?: JSONObject.NULL)
+            .put("label_confidence", labelConfidence.name)
+            .put("location_visibility", locationVisibility.name)
+            .put("location_label", locationLabel ?: JSONObject.NULL)
+            .put("sync_status", syncStatus.name)
+            .put("remote_id", remoteId ?: JSONObject.NULL)
+            .put("synced_at_epoch_ms", syncedAtEpochMs ?: JSONObject.NULL)
+            .put("author_user_id", authorUserId ?: JSONObject.NULL)
     }
 
     companion object {
@@ -112,6 +129,13 @@ data class RecordingMetadata(
                 recoverySpeed = json.optString("recovery_speed").takeIf { it.isNotBlank() && it != "null" },
                 stabilizer = json.optString("stabilizer").takeIf { it.isNotBlank() && it != "null" },
                 imageFileName = json.optString("image_file_name").takeIf { it.isNotBlank() && it != "null" },
+                labelConfidence = LabelConfidence.fromWireValue(json.optString("label_confidence")),
+                locationVisibility = LocationVisibility.fromWireValue(json.optString("location_visibility")),
+                locationLabel = json.optString("location_label").takeIf { it.isNotBlank() && it != "null" },
+                syncStatus = SyncStatus.fromWireValue(json.optString("sync_status")),
+                remoteId = json.optString("remote_id").takeIf { it.isNotBlank() && it != "null" },
+                syncedAtEpochMs = if (json.has("synced_at_epoch_ms") && !json.isNull("synced_at_epoch_ms")) json.getLong("synced_at_epoch_ms") else null,
+                authorUserId = json.optString("author_user_id").takeIf { it.isNotBlank() && it != "null" },
             )
         }
     }

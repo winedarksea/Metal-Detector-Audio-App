@@ -300,7 +300,7 @@ def convert_keras_model_to_tflite(
 
         return serving_default.get_concrete_function()
 
-    def configure_converter(converter: Any) -> None:
+    def configure_converter(converter: Any, *, use_named_inputs: bool = True) -> None:
         if optimizations:
             resolved_optimizations = []
             for optimization in optimizations:
@@ -334,14 +334,22 @@ def convert_keras_model_to_tflite(
                 model_input.name.split(":")[0] for model_input in model.inputs
             ]
 
-            def representative_dataset():
-                for index in range(arrays[0].shape[0]):
-                    # TFLite may reorder multi-input graphs (for example alphabetically).
-                    # Names preserve the model contract when input ranks differ.
-                    yield {
-                        input_name: array[index][None, ...]
-                        for input_name, array in zip(input_names, arrays)
-                    }
+            if use_named_inputs:
+                def representative_dataset():
+                    for index in range(arrays[0].shape[0]):
+                        # TFLite may reorder multi-input graphs (for example alphabetically).
+                        # Names preserve the model contract when input ranks differ.
+                        yield {
+                            input_name: array[index][None, ...]
+                            for input_name, array in zip(input_names, arrays)
+                        }
+            else:
+                # from_concrete_functions converters have no SignatureDefs, so named-dict
+                # representative datasets fail with "model has 0 Signatures". Use a
+                # positional list instead; input order follows model.inputs.
+                def representative_dataset():
+                    for index in range(arrays[0].shape[0]):
+                        yield [array[index][None, ...] for array in arrays]
 
             converter.representative_dataset = representative_dataset
 
@@ -354,7 +362,7 @@ def convert_keras_model_to_tflite(
 
     try:
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
-        configure_converter(converter)
+        configure_converter(converter, use_named_inputs=True)
         return converter.convert()
     except TypeError as error:
         # Keras 3 + some TensorFlow builds can fail in from_keras_model() with:
@@ -369,7 +377,8 @@ def convert_keras_model_to_tflite(
             [concrete_function],
             model,
         )
-        configure_converter(converter)
+        # Concrete-function converters lack SignatureDefs; use positional representative data.
+        configure_converter(converter, use_named_inputs=False)
         return converter.convert()
 
 

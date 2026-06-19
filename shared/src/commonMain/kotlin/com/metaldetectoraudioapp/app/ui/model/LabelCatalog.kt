@@ -53,6 +53,7 @@ currency,dime-mercury,silver-900
 currency,nickel,cupronickel
 currency,nickel-buffalo,cupronickel
 currency,penny,copper-plated-zinc
+currency,penny,unknown
 currency,penny-indian-head,bronze
 currency,penny-wheat,bronze
 currency,penny-steel,zinc-plated-steel
@@ -66,11 +67,12 @@ trash,beaver-tail,aluminum
 trash,foil,aluminum
 trash,bottle-cap,steel
 trash,fragment,aluminum
+trash,fragment,unknown
 trash,wire-fragment,copper
 trash,wire-fragment,aluminum
 hardware,nail,steel
+hardware,nail,unknown
 hardware,nail-bent,steel
-hardware,nail-straight,steel
 hardware,screw,steel
 hardware,horseshoe,iron
 hardware,plow-point,steel
@@ -89,6 +91,7 @@ test_fixture,calibration-disc,steel
 test_fixture,calibration-disc,copper
 relic,button,pewter
 relic,button,brass
+relic,button,unknown
 relic,buckle,brass
 relic,buckle,iron
 relic,musket-ball,lead

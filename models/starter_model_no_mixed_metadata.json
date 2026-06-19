@@ -19,8 +19,8 @@
       "loudness_scalar": {
         "feature": "log_rms",
         "epsilon": 1e-06,
-        "standardization_mean": -6.958666801452637,
-        "standardization_std": 2.5493719577789307,
+        "standardization_mean": -6.411694526672363,
+        "standardization_std": 2.877974510192871,
         "standardization_in_graph": true
       }
     }
@@ -44,8 +44,8 @@
       "kind": "loudness",
       "feature": "log_rms",
       "epsilon": 1e-06,
-      "standardization_mean": -6.958666801452637,
-      "standardization_std": 2.5493719577789307,
+      "standardization_mean": -6.411694526672363,
+      "standardization_std": 2.877974510192871,
       "dtype": "int8",
       "scale": 0.054178472608327866,
       "zero_point": 127,
@@ -75,12 +75,12 @@
       "AMBIENT": 0
     },
     "class_window_counts": {
-      "TARGET": 735,
-      "JUNK": 400,
-      "AMBIENT": 592
+      "TARGET": 777,
+      "JUNK": 469,
+      "AMBIENT": 631
     },
     "excluded_class_file_counts": {},
-    "augmented_total_windows": 6908,
+    "augmented_total_windows": 7508,
     "mel_spectrogram": {
       "stft_frame_length": 256,
       "stft_frame_step": 128,
@@ -90,8 +90,8 @@
       "upper_edge_hertz": 7600.0
     },
     "loudness_standardization": {
-      "mean": -6.958666801452637,
-      "std": 2.5493719577789307
+      "mean": -6.411694526672363,
+      "std": 2.877974510192871
     },
     "synthetic_ambient": {
       "enabled": true,
@@ -104,5 +104,5 @@
       ]
     }
   },
-  "timestamp_utc": "2026-06-17T05:00:47.910419+00:00"
+  "timestamp_utc": "2026-06-19T21:27:01.724284+00:00"
 }

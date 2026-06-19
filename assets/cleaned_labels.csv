@@ -14,7 +14,7 @@ sample_id,target_name,class_label,depth_inches,mixed_target_and_junk,include_in_
 12,coin:quarter:cupronickel-clad-copper,TARGET,8,false,true,Quarter at 8
 13,coin:quarter:cupronickel-clad-copper,TARGET,10,false,true,Quarter at 10
 14,coin:quarter:cupronickel-clad-copper,TARGET,12,false,true,Quarter at 12
-15,trash:beaver-tail:aluminum|trash:pull-tab-ring:aluminum|trash:pull-tab:aluminum|trash:beaver-tail:aluminum,JUNK,,false,true,Beavertail and pull tab variants
+15,trash:beaver-tail:aluminum|trash:pull-tab:aluminum|trash:pull-tab:aluminum|trash:beaver-tail:aluminum,JUNK,,false,true,Beavertail and pull tab variants
 16,hardware:nail:steel|coin:dime:cupronickel-clad-copper,TARGET,,true,true,Large nail separation setup
 17,trash:pull-tab:aluminum|coin:dime:cupronickel-clad-copper,TARGET,,true,true,Pull tab separation setup
 18,hardware:nail:steel|hardware:nail:steel|hardware:nail:steel,JUNK,,false,true,Mixed nail cluster setup

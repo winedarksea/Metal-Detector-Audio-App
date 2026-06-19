@@ -3,11 +3,13 @@ package com.metaldetectoraudioapp.app.ui.model
 enum class ClassLabel {
     TARGET,
     JUNK,
-    AMBIENT;
+    AMBIENT,
+    /** UI-only state meaning "no class selected yet". Never persisted to disk; serialized as TARGET. */
+    NONE;
 
     companion object {
         fun fromWireValue(value: String): ClassLabel {
-            return entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: AMBIENT
+            return entries.firstOrNull { it != NONE && it.name.equals(value, ignoreCase = true) } ?: AMBIENT
         }
     }
 }

@@ -18,7 +18,8 @@ object WebInferenceControllerFactory {
         val availableModels = metadataResourceNames.map { resourceName ->
             ModelMetadataJson.parse(fetchText("/app/$resourceName"), resourceName)
         }
-        val metadata = availableModels.first { it.modelVariantId == "standard" }
+        val metadata = availableModels.firstOrNull { it.modelVariantId == "no_mixed" }
+            ?: availableModels.first { it.modelVariantId == "standard" }
         suspend fun createClassifier(
             model: com.metaldetectoraudioapp.app.inference.ModelMetadata
         ): WebOnnxClassifier {

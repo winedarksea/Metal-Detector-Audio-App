@@ -282,7 +282,7 @@ private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
             Text("Confidence: ${(confidence * 100).fmt0d()}%", color = Color.White.copy(alpha = 0.9f))
             if (recentTargetCount > 1) {
                 Text(
-                    "$recentTargetCount hits in last 30 s",
+                    "$recentTargetCount hits in last 15 s",
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 12.sp,
                 )
@@ -322,7 +322,7 @@ private fun RecentDetectionsCard(detections: List<RecentDetection>) {
             modifier = Modifier.padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
-            Text("Recent Detections (last 30 s)", style = MaterialTheme.typography.titleMedium)
+            Text("Recent Detections (last 15 s)", style = MaterialTheme.typography.titleMedium)
             detections.asReversed().forEach { det ->
                 val dotColor = if (det.label == "TARGET") DetectionColors.Target else DetectionColors.Junk
                 Row(

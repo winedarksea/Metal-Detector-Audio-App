@@ -275,4 +275,7 @@ fun parseLabelEntries(raw: String): List<LabelEntry> {
 fun serializeLabelEntries(entries: List<LabelEntry>): String =
     entries
         .filter { it.obj.isNotBlank() || it.name.isNotBlank() || it.material.isNotBlank() }
-        .joinToString("|") { "${it.labelClass.name}@${it.obj}:${it.name}:${it.material}" }
+        .joinToString("|") {
+            val cls = if (it.labelClass == ClassLabel.NONE) ClassLabel.TARGET else it.labelClass
+            "${cls.name}@${it.obj}:${it.name}:${it.material}"
+        }

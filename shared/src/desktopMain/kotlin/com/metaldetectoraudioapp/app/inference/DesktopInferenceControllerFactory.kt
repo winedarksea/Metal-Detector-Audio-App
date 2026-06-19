@@ -22,7 +22,8 @@ object DesktopInferenceControllerFactory {
     ): InferenceController {
         val metadataRepository = DesktopModelMetadataRepository()
         val availableModels = metadataRepository.listAvailableMetadata()
-        val metadata = availableModels.firstOrNull { it.modelVariantId == "standard" }
+        val metadata = availableModels.firstOrNull { it.modelVariantId == "no_mixed" }
+            ?: availableModels.firstOrNull { it.modelVariantId == "standard" }
             ?: availableModels.firstOrNull()
             ?: error("No model metadata resources are available")
 

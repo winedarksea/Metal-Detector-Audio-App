@@ -294,7 +294,15 @@ class DesktopRecordingViewModel(
                 _uiState.value = RecordingUiState(
                     draft = RecordingDraftUiState(
                         includeInTraining = true,
-                        pattern = metadata.pattern
+                        pattern = metadata.pattern,
+                        soilType = draft.soilType,
+                        moisture = draft.moisture,
+                        detectorModel = draft.detectorModel,
+                        searchMode = draft.searchMode,
+                        audioProfile = draft.audioProfile,
+                        sensitivity = draft.sensitivity,
+                        recoverySpeed = draft.recoverySpeed,
+                        stabilizer = draft.stabilizer,
                     ),
                     saveResultMessage = "Saved ${metadata.audioFileName}",
                     pendingAudio = null,

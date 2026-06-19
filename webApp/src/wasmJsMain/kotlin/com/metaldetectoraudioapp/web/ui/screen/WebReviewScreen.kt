@@ -150,6 +150,7 @@ private fun WebRecordingCard(
     ) -> Unit,
     onDelete: () -> Unit,
 ) {
+    var expanded by remember(recording.recordingId) { mutableStateOf(false) }
     var targetInput by remember(recording.recordingId) {
         mutableStateOf(
             serializeLabelEntries(recording.objectLabels.map {
@@ -191,162 +192,178 @@ private fun WebRecordingCard(
         mutableStateOf(recording.stabilizer.orEmpty().ifEmpty { environmentCache.stabilizer })
     }
 
+    val gpsLatitude = recording.gpsLatitude
+    val gpsLongitude = recording.gpsLongitude
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
-            Text(
-                "Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | ${recording.durationMs} ms",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                "Photo: ${recording.imageFileName ?: "none"}",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            val gpsLatitude = recording.gpsLatitude
-            val gpsLongitude = recording.gpsLongitude
-            Text(
-                text = if (gpsLatitude == null || gpsLongitude == null) {
-                    "GPS: not set"
-                } else {
-                    "GPS: ${formatReviewCoordinate(gpsLatitude)}, ${formatReviewCoordinate(gpsLongitude)}"
-                },
-                style = MaterialTheme.typography.bodySmall,
-            )
-
-            WebLabelPickerField(
-                value = targetInput,
-                onValueChange = { targetInput = it },
+            // Summary row — always visible
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-            )
-
-            OutlinedTextField(
-                value = notesInput,
-                onValueChange = { notesInput = it },
-                label = { Text("notes") },
-                modifier = Modifier.fillMaxWidth(),
-                maxLines = 2,
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                FilledTonalButton(onClick = { onRelabelTargets(targetInput) }) { Text("Apply Names") }
-                FilledTonalButton(onClick = { onRelabelNotes(notesInput) }) { Text("Apply Notes") }
-                OutlinedButton(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
-                OutlinedButton(onClick = onDelete) { Text("Delete") }
-                if (!isTrimEditorOpen) {
-                    OutlinedButton(onClick = onOpenTrimEditor) { Text("Trim") }
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "${recording.classLabel.name} | ${recording.pattern.name} | ${recording.durationMs} ms",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(if (expanded) "Collapse" else "Expand")
                 }
             }
-            if (isTrimEditorOpen) {
-                AudioTrimmer(
-                    envelope = trimEnvelope,
-                    durationMs = trimFullDurationMs,
-                    trimStartMs = trimStartMs,
-                    trimEndMs = trimEndMs,
-                    onTrimChange = onUpdateTrim,
-                    modifier = Modifier.fillMaxWidth(),
+
+            if (expanded) {
+                Text(
+                    "Photo: ${recording.imageFileName ?: "none"}",
+                    style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
-                    "$trimStartMs – $trimEndMs ms  (${trimFullDurationMs} ms total)",
-                    style = MaterialTheme.typography.labelMedium,
+                    text = if (gpsLatitude == null || gpsLongitude == null) {
+                        "GPS: not set"
+                    } else {
+                        "GPS: ${formatReviewCoordinate(gpsLatitude)}, ${formatReviewCoordinate(gpsLongitude)}"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
                 )
+
+                WebLabelPickerField(
+                    value = targetInput,
+                    onValueChange = { targetInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                OutlinedTextField(
+                    value = notesInput,
+                    onValueChange = { notesInput = it },
+                    label = { Text("notes") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 2,
+                )
+
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    TextButton(onClick = onResetTrim, enabled = isTrimmed) { Text("Reset") }
-                    TextButton(onClick = onCloseTrimEditor) { Text("Cancel") }
-                    FilledTonalButton(onClick = onSaveTrim) { Text("Save Trim") }
+                    FilledTonalButton(onClick = { onRelabelTargets(targetInput) }) { Text("Apply Names") }
+                    FilledTonalButton(onClick = { onRelabelNotes(notesInput) }) { Text("Apply Notes") }
+                    OutlinedButton(onClick = onPlay) { Text(if (isPlaying) "Stop" else "Play") }
+                    OutlinedButton(onClick = onDelete) { Text("Delete") }
+                    if (!isTrimEditorOpen) {
+                        OutlinedButton(onClick = onOpenTrimEditor) { Text("Trim") }
+                    }
                 }
-            }
+                if (isTrimEditorOpen) {
+                    AudioTrimmer(
+                        envelope = trimEnvelope,
+                        durationMs = trimFullDurationMs,
+                        trimStartMs = trimStartMs,
+                        trimEndMs = trimEndMs,
+                        onTrimChange = onUpdateTrim,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        "$trimStartMs – $trimEndMs ms  (${trimFullDurationMs} ms total)",
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        TextButton(onClick = onResetTrim, enabled = isTrimmed) { Text("Reset") }
+                        TextButton(onClick = onCloseTrimEditor) { Text("Cancel") }
+                        FilledTonalButton(onClick = onSaveTrim) { Text("Save Trim") }
+                    }
+                }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = recording.includeInTraining,
-                    onCheckedChange = onToggleInclude
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = recording.includeInTraining,
+                        onCheckedChange = onToggleInclude
+                    )
+                    Text("include_in_training", style = MaterialTheme.typography.labelLarge)
+                }
+
+                WebSuggestiveTextField(
+                    label = "soil_type",
+                    value = soilTypeInput,
+                    suggestions = SOIL_TYPE_OPTIONS,
+                    onValueChange = { soilTypeInput = it },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                Text("include_in_training", style = MaterialTheme.typography.labelLarge)
-            }
 
-            WebSuggestiveTextField(
-                label = "soil_type",
-                value = soilTypeInput,
-                suggestions = SOIL_TYPE_OPTIONS,
-                onValueChange = { soilTypeInput = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Text("moisture", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                MOISTURE_OPTIONS.forEach { option ->
-                    FilterChip(
-                        selected = moistureInput == option,
-                        onClick = { moistureInput = if (moistureInput == option) "" else option },
-                        label = { Text(option) },
-                    )
+                Text("moisture", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    MOISTURE_OPTIONS.forEach { option ->
+                        FilterChip(
+                            selected = moistureInput == option,
+                            onClick = { moistureInput = if (moistureInput == option) "" else option },
+                            label = { Text(option) },
+                        )
+                    }
                 }
-            }
 
-            WebSuggestiveTextField(
-                label = "detector_model",
-                value = detectorModelInput,
-                suggestions = DETECTOR_MODEL_OPTIONS,
-                onValueChange = { detectorModelInput = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text("Custom detector model values are allowed.", style = MaterialTheme.typography.bodySmall)
+                WebSuggestiveTextField(
+                    label = "detector_model",
+                    value = detectorModelInput,
+                    suggestions = DETECTOR_MODEL_OPTIONS,
+                    onValueChange = { detectorModelInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text("Custom detector model values are allowed.", style = MaterialTheme.typography.bodySmall)
 
-            WebSuggestiveTextField(
-                label = "search_mode",
-                value = searchModeInput,
-                suggestions = SEARCH_MODE_OPTIONS,
-                onValueChange = { searchModeInput = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                WebSuggestiveTextField(
+                    label = "search_mode",
+                    value = searchModeInput,
+                    suggestions = SEARCH_MODE_OPTIONS,
+                    onValueChange = { searchModeInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            WebSuggestiveTextField(
-                label = "audio_profile",
-                value = audioProfileInput,
-                suggestions = AUDIO_PROFILE_OPTIONS,
-                onValueChange = { audioProfileInput = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                WebSuggestiveTextField(
+                    label = "audio_profile",
+                    value = audioProfileInput,
+                    suggestions = AUDIO_PROFILE_OPTIONS,
+                    onValueChange = { audioProfileInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            WebSuggestiveTextField(
-                label = "sensitivity",
-                value = sensitivityInput,
-                suggestions = SENSITIVITY_OPTIONS,
-                onValueChange = { sensitivityInput = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                WebSuggestiveTextField(
+                    label = "sensitivity",
+                    value = sensitivityInput,
+                    suggestions = SENSITIVITY_OPTIONS,
+                    onValueChange = { sensitivityInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            WebSuggestiveTextField(
-                label = "recovery_speed",
-                value = recoverySpeedInput,
-                suggestions = RECOVERY_SPEED_OPTIONS,
-                onValueChange = { recoverySpeedInput = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                WebSuggestiveTextField(
+                    label = "recovery_speed",
+                    value = recoverySpeedInput,
+                    suggestions = RECOVERY_SPEED_OPTIONS,
+                    onValueChange = { recoverySpeedInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            WebSuggestiveTextField(
-                label = "stabilizer",
-                value = stabilizerInput,
-                suggestions = STABILIZER_OPTIONS,
-                onValueChange = { stabilizerInput = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                WebSuggestiveTextField(
+                    label = "stabilizer",
+                    value = stabilizerInput,
+                    suggestions = STABILIZER_OPTIONS,
+                    onValueChange = { stabilizerInput = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            FilledTonalButton(
-                onClick = {
-                    onRelabelEnvironment(
-                        soilTypeInput,
-                        moistureInput,
-                        detectorModelInput,
-                        searchModeInput,
-                        audioProfileInput,
-                        sensitivityInput,
-                        recoverySpeedInput,
-                        stabilizerInput,
-                    )
-                },
-            ) {
-                Text("Apply Environment")
+                FilledTonalButton(
+                    onClick = {
+                        onRelabelEnvironment(
+                            soilTypeInput,
+                            moistureInput,
+                            detectorModelInput,
+                            searchModeInput,
+                            audioProfileInput,
+                            sensitivityInput,
+                            recoverySpeedInput,
+                            stabilizerInput,
+                        )
+                    },
+                ) {
+                    Text("Apply Environment")
+                }
             }
         }
     }

@@ -52,12 +52,13 @@ fun LabelPickerField(
 ) {
     val context = LocalContext.current
     val suggestions = remember(context) { LabelSuggestionConfigLoader.load(context) }
-    var entries by remember { mutableStateOf(parseLabelEntries(value)) }
+    fun uiEntries(v: String) = if (v.isBlank()) listOf(LabelEntry(labelClass = ClassLabel.NONE)) else parseLabelEntries(v)
+    var entries by remember { mutableStateOf(uiEntries(value)) }
 
     LaunchedEffect(value) {
         val serialized = serializeLabelEntries(entries)
         if (serialized != value) {
-            entries = parseLabelEntries(value)
+            entries = uiEntries(value)
         }
     }
 

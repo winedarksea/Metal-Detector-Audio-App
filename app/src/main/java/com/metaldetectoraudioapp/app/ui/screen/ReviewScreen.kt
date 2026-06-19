@@ -209,6 +209,7 @@ private fun RecordingReviewCard(
     ) -> Unit,
     onDelete: () -> Unit
 ) {
+    var expanded by remember(recording.recordingId) { mutableStateOf(false) }
     var targetInput by remember(recording.recordingId) {
         mutableStateOf(
             serializeLabelEntries(recording.objectLabels.map {
@@ -256,33 +257,98 @@ private fun RecordingReviewCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            // Metadata header — always full-width at the top
-            Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
-            Text("ID: ${recording.recordingId}", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                "Class: ${recording.classLabel.name} | Pattern: ${recording.pattern.name} | Duration: ${recording.durationMs} ms",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                "Depth: ${recording.depthInches ?: "N/A"} | " +
-                    "mixed_target_and_junk: ${recording.mixedTargetAndJunk}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text("Image: ${recording.imageFileName ?: "none"}", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                "GPS: ${
-                    if (latitude == null || longitude == null) "N/A"
-                    else "%.6f, %.6f".format(latitude, longitude)
-                }",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            // Summary row — always visible
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(recording.audioFileName, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "${recording.classLabel.name} | ${recording.pattern.name} | ${recording.durationMs} ms",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(if (expanded) "Collapse" else "Expand")
+                }
+            }
 
-            if (isWideScreen) {
+            if (expanded) {
                 HorizontalDivider()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
-                ) {
+                Text("ID: ${recording.recordingId}", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Depth: ${recording.depthInches ?: "N/A"} | mixed: ${recording.mixedTargetAndJunk}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text("Image: ${recording.imageFileName ?: "none"}", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "GPS: ${
+                        if (latitude == null || longitude == null) "N/A"
+                        else "%.6f, %.6f".format(latitude, longitude)
+                    }",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                if (isWideScreen) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
+                    ) {
+                        RecordingMainSection(
+                            recording = recording,
+                            targetInput = targetInput,
+                            onTargetChange = { targetInput = it },
+                            notesInput = notesInput,
+                            onNotesChange = { notesInput = it },
+                            isPlaying = isPlaying,
+                            isTrimEditorOpen = isTrimEditorOpen,
+                            trimEnvelope = trimEnvelope,
+                            trimStartMs = trimStartMs,
+                            trimEndMs = trimEndMs,
+                            trimFullDurationMs = trimFullDurationMs,
+                            isTrimmed = isTrimmed,
+                            onPlay = onPlay,
+                            onOpenTrimEditor = onOpenTrimEditor,
+                            onUpdateTrim = onUpdateTrim,
+                            onResetTrim = onResetTrim,
+                            onCloseTrimEditor = onCloseTrimEditor,
+                            onSaveTrim = onSaveTrim,
+                            onRelabelTargets = onRelabelTargets,
+                            onRelabelNotes = onRelabelNotes,
+                            onToggleInclude = onToggleInclude,
+                            onDelete = onDelete,
+                            modifier = Modifier.weight(2f)
+                        )
+                        RecordingEnvironmentSection(
+                            soilTypeInput = soilTypeInput,
+                            onSoilTypeChange = { soilTypeInput = it },
+                            moistureInput = moistureInput,
+                            onMoistureChange = { moistureInput = it },
+                            detectorModelInput = detectorModelInput,
+                            onDetectorModelChange = { detectorModelInput = it },
+                            searchModeInput = searchModeInput,
+                            onSearchModeChange = { searchModeInput = it },
+                            audioProfileInput = audioProfileInput,
+                            onAudioProfileChange = { audioProfileInput = it },
+                            sensitivityInput = sensitivityInput,
+                            onSensitivityChange = { sensitivityInput = it },
+                            recoverySpeedInput = recoverySpeedInput,
+                            onRecoverySpeedChange = { recoverySpeedInput = it },
+                            stabilizerInput = stabilizerInput,
+                            onStabilizerChange = { stabilizerInput = it },
+                            onApplyEnvironment = {
+                                onRelabelEnvironment(
+                                    soilTypeInput, moistureInput, detectorModelInput,
+                                    searchModeInput, audioProfileInput, sensitivityInput, recoverySpeedInput, stabilizerInput
+                                )
+                            },
+                            showTitle = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                } else {
                     RecordingMainSection(
                         recording = recording,
                         targetInput = targetInput,
@@ -305,8 +371,7 @@ private fun RecordingReviewCard(
                         onRelabelTargets = onRelabelTargets,
                         onRelabelNotes = onRelabelNotes,
                         onToggleInclude = onToggleInclude,
-                        onDelete = onDelete,
-                        modifier = Modifier.weight(2f)
+                        onDelete = onDelete
                     )
                     RecordingEnvironmentSection(
                         soilTypeInput = soilTypeInput,
@@ -330,60 +395,9 @@ private fun RecordingReviewCard(
                                 soilTypeInput, moistureInput, detectorModelInput,
                                 searchModeInput, audioProfileInput, sensitivityInput, recoverySpeedInput, stabilizerInput
                             )
-                        },
-                        showTitle = true,
-                        modifier = Modifier.weight(1f)
+                        }
                     )
                 }
-            } else {
-                RecordingMainSection(
-                    recording = recording,
-                    targetInput = targetInput,
-                    onTargetChange = { targetInput = it },
-                    notesInput = notesInput,
-                    onNotesChange = { notesInput = it },
-                    isPlaying = isPlaying,
-                    isTrimEditorOpen = isTrimEditorOpen,
-                    trimEnvelope = trimEnvelope,
-                    trimStartMs = trimStartMs,
-                    trimEndMs = trimEndMs,
-                    trimFullDurationMs = trimFullDurationMs,
-                    isTrimmed = isTrimmed,
-                    onPlay = onPlay,
-                    onOpenTrimEditor = onOpenTrimEditor,
-                    onUpdateTrim = onUpdateTrim,
-                    onResetTrim = onResetTrim,
-                    onCloseTrimEditor = onCloseTrimEditor,
-                    onSaveTrim = onSaveTrim,
-                    onRelabelTargets = onRelabelTargets,
-                    onRelabelNotes = onRelabelNotes,
-                    onToggleInclude = onToggleInclude,
-                    onDelete = onDelete
-                )
-                RecordingEnvironmentSection(
-                    soilTypeInput = soilTypeInput,
-                    onSoilTypeChange = { soilTypeInput = it },
-                    moistureInput = moistureInput,
-                    onMoistureChange = { moistureInput = it },
-                    detectorModelInput = detectorModelInput,
-                    onDetectorModelChange = { detectorModelInput = it },
-                    searchModeInput = searchModeInput,
-                    onSearchModeChange = { searchModeInput = it },
-                    audioProfileInput = audioProfileInput,
-                    onAudioProfileChange = { audioProfileInput = it },
-                    sensitivityInput = sensitivityInput,
-                    onSensitivityChange = { sensitivityInput = it },
-                    recoverySpeedInput = recoverySpeedInput,
-                    onRecoverySpeedChange = { recoverySpeedInput = it },
-                    stabilizerInput = stabilizerInput,
-                    onStabilizerChange = { stabilizerInput = it },
-                    onApplyEnvironment = {
-                        onRelabelEnvironment(
-                            soilTypeInput, moistureInput, detectorModelInput,
-                            searchModeInput, audioProfileInput, sensitivityInput, recoverySpeedInput, stabilizerInput
-                        )
-                    }
-                )
             }
         }
     }

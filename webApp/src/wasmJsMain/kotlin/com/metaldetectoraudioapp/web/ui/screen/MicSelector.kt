@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,14 +32,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.web.audio.MicDevice
+import com.metaldetectoraudioapp.web.audio.MicSelectionState
 import com.metaldetectoraudioapp.web.audio.WebPassthroughMonitor
 import com.metaldetectoraudioapp.web.audio.listAudioDevices
+import com.metaldetectoraudioapp.web.audio.mediaElementSinkSelectionSupported
 import com.metaldetectoraudioapp.web.audio.outputSelectionSupported
 import com.metaldetectoraudioapp.web.audio.registerDeviceChangeListener
-import com.metaldetectoraudioapp.web.audio.selectedMicDeviceId
 import com.metaldetectoraudioapp.web.audio.selectedOutputDeviceId
 import com.metaldetectoraudioapp.web.audio.selectedPreviewOutputDeviceId
-import com.metaldetectoraudioapp.web.audio.setSelectedMicDeviceId
 import com.metaldetectoraudioapp.web.audio.setSelectedPreviewOutputDeviceId
 import kotlinx.coroutines.launch
 
@@ -47,8 +48,9 @@ private const val DEFAULT_LABEL = "System default"
 /**
  * Microphone input picker for the web app. Mirrors the Android input-device picker styling so it
  * reads as a sibling of the other settings rows (label on the left, a tappable Material 3 chip on
- * the right). The choice is stored globally (see [setSelectedMicDeviceId]) so it governs both the
- * Detect (inference) and Record capture paths.
+ * the right). The choice is stored in the [MicSelectionState] reactive holder (mirrored to the JS
+ * global the capture paths read) so it governs both the Detect (inference) and Record capture
+ * paths, and so a capture-time fallback to the system default can visibly revert the selection.
  *
  * A refresh button re-enumerates on demand (e.g. after plugging in a USB metal-detector adapter),
  * and a `devicechange` listener auto-refreshes on hot-plug. When [passthroughEnabled] is true and
@@ -63,13 +65,16 @@ fun MicSelector(
 ) {
     var devices by remember { mutableStateOf<List<MicDevice>>(emptyList()) }
     var outputs by remember { mutableStateOf<List<MicDevice>>(emptyList()) }
-    var selectedId by remember { mutableStateOf(selectedMicDeviceId()) }
+    // Selected input + status note come from the shared reactive holder so a capture-time fallback to
+    // the system default visibly reverts the dropdown (see MicSelectionState).
+    val selectedId by MicSelectionState.selectedDeviceId.collectAsState()
+    val micStatusNote by MicSelectionState.statusNote.collectAsState()
     var selectedOutId by remember { mutableStateOf(selectedOutputDeviceId()) }
     var selectedPreviewOutId by remember { mutableStateOf(selectedPreviewOutputDeviceId()) }
     val scope = rememberCoroutineScope()
 
-    suspend fun reload() {
-        val snapshot = listAudioDevices()
+    suspend fun reload(activeStream: Boolean = false) {
+        val snapshot = listAudioDevices(useActiveStream = activeStream)
         devices = snapshot.inputDevices
         outputs = snapshot.outputDevices
     }
@@ -89,15 +94,25 @@ fun MicSelector(
             DeviceDropdown(
                 selectedLabel = devices.firstOrNull { it.deviceId == selectedId }?.label ?: DEFAULT_LABEL,
                 devices = devices,
-                onDefault = { selectedId = ""; setSelectedMicDeviceId("") },
-                onSelected = { selectedId = it.deviceId; setSelectedMicDeviceId(it.deviceId) },
+                onDefault = { MicSelectionState.select("", DEFAULT_LABEL) },
+                onSelected = { MicSelectionState.select(it.deviceId, it.label) },
             )
             IconButton(
-                onClick = { scope.launch { reload() } },
+                onClick = { scope.launch { reload(activeStream = true) } },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh audio sources")
             }
+        }
+
+        // Surfaced when capture couldn't open the chosen device and reverted to the system default,
+        // or when the mic failed outright — so the user never assumes a USB device is in use when it isn't.
+        micStatusNote?.let { note ->
+            Text(
+                note,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
 
         if (previewPlaybackEnabled) {
@@ -121,15 +136,16 @@ fun MicSelector(
                     },
                 )
             }
-            if (!outputSelectionSupported()) {
+            if (!mediaElementSinkSelectionSupported()) {
                 Text(
-                    "This browser can only use the system-selected preview output.",
+                    "This browser can't choose the playback output — preview uses the system audio output.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else if (outputs.isEmpty()) {
                 Text(
-                    "No playback devices are currently reported. Preview will use the browser default if available.",
+                    "This browser doesn't list audio outputs — playback follows your device's system " +
+                        "audio output (change it in your Android/OS sound settings).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -154,6 +170,14 @@ fun MicSelector(
                     },
                 )
             }
+            if (outputs.isEmpty()) {
+                Text(
+                    "This browser doesn't list audio outputs — passthrough follows your device's system " +
+                        "audio output (change it in your Android/OS sound settings).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         } else if (passthroughEnabled) {
             Text(
                 "This browser can only use the system-selected audio output. Change the output " +
@@ -170,21 +194,17 @@ fun MicSelector(
             )
         }
 
-        UsbInputDiagnostic(inputs = devices, outputs = outputs)
-    }
-}
-
-/** Best-effort note for a USB connection the browser exposes only as an output. */
-@Composable
-private fun UsbInputDiagnostic(inputs: List<MicDevice>, outputs: List<MicDevice>) {
-    fun List<MicDevice>.hasUsb() = any { it.label.contains("usb", ignoreCase = true) }
-    if (outputs.hasUsb() && !inputs.hasUsb()) {
-        Text(
-            "The browser exposes this USB connection as output-only, so the app cannot record it. " +
-                "Use a USB-C interface or TRRS microphone adapter that Android exposes as an input.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-        )
+        // No fragile label string-matching: if a chosen input can't be opened, capture now falls
+        // back to the default and the status note above says so. When no separate input is listed,
+        // explain the platform limitation honestly and point to the native app for USB.
+        if (devices.size <= 1) {
+            Text(
+                "Don't see a plugged-in USB microphone? Android browsers may not expose USB audio " +
+                    "inputs to web apps — use the native Android app for reliable USB recording.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

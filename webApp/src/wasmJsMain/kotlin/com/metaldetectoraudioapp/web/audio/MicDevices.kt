@@ -63,11 +63,17 @@ suspend fun ensureMicPermission(): Boolean {
 /**
  * Takes one input/output snapshot so a hot-plug refresh cannot combine results
  * from two different calls to `enumerateDevices()`.
+ *
+ * [useActiveStream] is a best-effort aid for the explicit Refresh action: some Android builds only
+ * expose the full input list (e.g. a freshly plugged-in USB mic) while a capture stream is live, so
+ * we briefly hold a default stream open across `enumerateDevices()`. It may not overcome the
+ * platform limitation, and is opt-in so automatic/hot-plug refreshes don't activate the mic.
  */
-suspend fun listAudioDevices(): AudioDeviceSnapshot {
+suspend fun listAudioDevices(useActiveStream: Boolean = false): AudioDeviceSnapshot {
     ensureMicPermission()
     return suspendCancellableCoroutine { cont ->
         enumerateAudioDevicesToGlobals(
+            useActiveStream = if (useActiveStream) 1 else 0,
             onSuccess = { inputCount, outputCount ->
                 if (cont.isActive) {
                     cont.resume(
@@ -127,11 +133,25 @@ private fun completeMicrophonePermissionRequest(grantedValue: Int) {
     waiters.forEach { it(granted) }
 }
 
-/** True if the browser supports choosing an output sink (`AudioContext.setSinkId`). */
+/**
+ * True if the browser can route the live pass-through monitor to a chosen output sink
+ * (`AudioContext.setSinkId`). Narrower support than [mediaElementSinkSelectionSupported].
+ */
 fun outputSelectionSupported(): Boolean = outputSinkSupportedJs() == 1
 
 private fun outputSinkSupportedJs(): Int =
     js("(typeof AudioContext !== 'undefined' && 'setSinkId' in AudioContext.prototype) ? 1 : 0")
+
+/**
+ * True if the browser can route recording playback (`<audio>` elements) to a chosen output sink
+ * (`HTMLMediaElement.setSinkId`). This is the API the preview path actually uses
+ * ([WebAudioPlayer]) and is supported far more broadly than `AudioContext.setSinkId`, so the
+ * recording-playback picker must gate on this rather than [outputSelectionSupported].
+ */
+fun mediaElementSinkSelectionSupported(): Boolean = mediaElementSinkSupportedJs() == 1
+
+private fun mediaElementSinkSupportedJs(): Int =
+    js("(typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype) ? 1 : 0")
 
 // ── JS bridge ───────────────────────────────────────────────────────────────
 
@@ -157,24 +177,39 @@ private fun requestMicPermission(onResult: (Int) -> Unit) {
 }
 
 private fun enumerateAudioDevicesToGlobals(
+    useActiveStream: Int,
     onSuccess: (Int, Int) -> Unit,
     onError: () -> Unit
 ) {
     js("""
         if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) { onError(); return; }
-        navigator.mediaDevices.enumerateDevices().then(function(devices) {
-            window.__micDevices = devices
-                .filter(function(d) { return d.kind === 'audioinput'; })
-                .map(function(d, idx) {
-                    return { deviceId: d.deviceId, label: d.label || ('Microphone ' + (idx + 1)) };
-                });
-            window.__outDevices = devices
-                .filter(function(d) { return d.kind === 'audiooutput'; })
-                .map(function(d, idx) {
-                    return { deviceId: d.deviceId, label: d.label || ('Output ' + (idx + 1)) };
-                });
-            onSuccess(window.__micDevices.length, window.__outDevices.length);
-        }).catch(function(e) { onError(); });
+        function enumerate(after) {
+            navigator.mediaDevices.enumerateDevices().then(function(devices) {
+                window.__micDevices = devices
+                    .filter(function(d) { return d.kind === 'audioinput'; })
+                    .map(function(d, idx) {
+                        return { deviceId: d.deviceId, label: d.label || ('Microphone ' + (idx + 1)) };
+                    });
+                window.__outDevices = devices
+                    .filter(function(d) { return d.kind === 'audiooutput'; })
+                    .map(function(d, idx) {
+                        return { deviceId: d.deviceId, label: d.label || ('Output ' + (idx + 1)) };
+                    });
+                if (after) after();
+                onSuccess(window.__micDevices.length, window.__outDevices.length);
+            }).catch(function(e) { if (after) after(); onError(); });
+        }
+        // Best-effort: enumerate while a capture stream is live (see listAudioDevices). If a capture
+        // is already running we benefit from it directly; otherwise, when explicitly requested, open
+        // a brief default stream across the enumerate call and stop it. Never disturb active capture.
+        var activeStream = window.__recStream || window.__mdInfStream;
+        if (activeStream || useActiveStream !== 1 || !navigator.mediaDevices.getUserMedia) {
+            enumerate(null);
+        } else {
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function(stream) {
+                enumerate(function() { stream.getTracks().forEach(function(t) { t.stop(); }); });
+            }).catch(function() { enumerate(null); });
+        }
     """)
 }
 

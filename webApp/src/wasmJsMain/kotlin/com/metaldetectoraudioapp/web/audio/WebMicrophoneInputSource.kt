@@ -27,7 +27,16 @@ class WebMicrophoneInputSource(
         if (started) return
         started = true
         globalInfSource = this
-        startInfMicJs { ctxRate, count -> onInfChunkGlobal(ctxRate, count) }
+        // Shared device acquisition with the recording path: tries the chosen device, softly falls
+        // back to the system default, and surfaces real failures. This path has no other UI channel,
+        // so fallback/error are routed through MicSelectionState (the MicSelector note is shown on the
+        // Detect screen too) instead of being swallowed by console.error.
+        getUserMediaWithFallback(
+            streamGlobalName = "__mdInfStream",
+            onStream = { buildInfCaptureGraph { ctxRate, count -> onInfChunkGlobal(ctxRate, count) } },
+            onFellBackToDefault = { MicSelectionState.fellBackToDefault() },
+            onError = { message -> MicSelectionState.reportError(message) },
+        )
     }
 
     override fun readPcm16(targetBuffer: ShortArray): Int {
@@ -65,62 +74,53 @@ fun onInfChunkGlobal(ctxRate: Int, count: Int) {
 
 private fun readGlobalInfBufAt(i: Int): Float = js("window.__mdInfBuf[i]")
 
-private fun startInfMicJs(onChunk: (Int, Int) -> Unit) {
+private fun buildInfCaptureGraph(onChunk: (Int, Int) -> Unit) {
     js("""
-        var __mic = {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-            channelCount: 1
-        };
-        if (window.__micDeviceId) __mic.deviceId = { exact: window.__micDeviceId };
-        navigator.mediaDevices.getUserMedia({ audio: __mic, video: false }).then(function(stream) {
-            var ctx = new (window.AudioContext || window.webkitAudioContext)();
-            window.__mdInfCtx = ctx;
-            window.__mdInfStream = stream;
-            // iOS Safari starts the context suspended; resume it within this user gesture.
-            if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
-            var src = ctx.createMediaStreamSource(stream);
+        var stream = window.__mdInfStream;
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        window.__mdInfCtx = ctx;
+        // iOS Safari starts the context suspended; resume it within this user gesture.
+        if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+        var src = ctx.createMediaStreamSource(stream);
 
-            // Speaker pass-through ("monitor") branch: src -> monitorGain -> destination.
-            // Gain defaults to 0 (silent) so it never feeds back unless explicitly enabled.
-            // Kept separate from the silent inference sink below. See WebPassthroughMonitor.
-            var monitorGain = ctx.createGain();
-            monitorGain.gain.value = window.__mdInfPassthroughOn ? 1 : 0;
-            window.__mdInfMonitorGain = monitorGain;
-            src.connect(monitorGain);
-            monitorGain.connect(ctx.destination);
-            if (window.__mdInfSinkId && ctx.setSinkId) {
-                ctx.setSinkId(window.__mdInfSinkId).catch(function() {});
-            }
+        // Speaker pass-through ("monitor") branch: src -> monitorGain -> destination.
+        // Gain defaults to 0 (silent) so it never feeds back unless explicitly enabled.
+        // Kept separate from the silent inference sink below. See WebPassthroughMonitor.
+        var monitorGain = ctx.createGain();
+        monitorGain.gain.value = window.__mdInfPassthroughOn ? 1 : 0;
+        window.__mdInfMonitorGain = monitorGain;
+        src.connect(monitorGain);
+        monitorGain.connect(ctx.destination);
+        if (window.__mdInfSinkId && ctx.setSinkId) {
+            ctx.setSinkId(window.__mdInfSinkId).catch(function() {});
+        }
 
-            function sendChunk(channelData) {
-                window.__mdInfBuf = channelData;
-                onChunk(Math.round(ctx.sampleRate), channelData.length);
-            }
+        function sendChunk(channelData) {
+            window.__mdInfBuf = channelData;
+            onChunk(Math.round(ctx.sampleRate), channelData.length);
+        }
 
-            if (ctx.audioWorklet) {
-                ctx.audioWorklet.addModule('/app/mic-worklet.js').then(function() {
-                    var node = new AudioWorkletNode(ctx, 'mic-processor');
-                    var silentGain = ctx.createGain();
-                    silentGain.gain.value = 0;
-                    window.__mdInfNode = node;
-                    window.__mdInfSilentGain = silentGain;
-                    node.port.onmessage = function(e) { sendChunk(e.data); };
-                    src.connect(node);
-                    node.connect(silentGain);
-                    silentGain.connect(ctx.destination);
-                }).catch(function() { fallback(ctx, src, sendChunk); });
-            } else { fallback(ctx, src, sendChunk); }
+        if (ctx.audioWorklet) {
+            ctx.audioWorklet.addModule('/app/mic-worklet.js').then(function() {
+                var node = new AudioWorkletNode(ctx, 'mic-processor');
+                var silentGain = ctx.createGain();
+                silentGain.gain.value = 0;
+                window.__mdInfNode = node;
+                window.__mdInfSilentGain = silentGain;
+                node.port.onmessage = function(e) { sendChunk(e.data); };
+                src.connect(node);
+                node.connect(silentGain);
+                silentGain.connect(ctx.destination);
+            }).catch(function() { workletFallback(ctx, src, sendChunk); });
+        } else { workletFallback(ctx, src, sendChunk); }
 
-            function fallback(ctx, src, sendChunk) {
-                var proc = ctx.createScriptProcessor(4096, 1, 1);
-                window.__mdInfProc = proc;
-                proc.onaudioprocess = function(e) { sendChunk(e.inputBuffer.getChannelData(0)); };
-                src.connect(proc);
-                proc.connect(ctx.destination);
-            }
-        }).catch(function(e) { console.error('Inference getUserMedia failed:', e); });
+        function workletFallback(ctx, src, sendChunk) {
+            var proc = ctx.createScriptProcessor(4096, 1, 1);
+            window.__mdInfProc = proc;
+            proc.onaudioprocess = function(e) { sendChunk(e.inputBuffer.getChannelData(0)); };
+            src.connect(proc);
+            proc.connect(ctx.destination);
+        }
     """)
 }
 

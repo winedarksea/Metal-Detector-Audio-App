@@ -14,6 +14,8 @@ import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.RecordingUiState
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.util.Clocks
+import com.metaldetectoraudioapp.web.audio.MicSelectionState
+import com.metaldetectoraudioapp.web.audio.getUserMediaWithFallback
 import com.metaldetectoraudioapp.web.audio.selectedPreviewOutputDeviceId
 import com.metaldetectoraudioapp.web.platform.WebLocationProvider
 import com.metaldetectoraudioapp.web.platform.WebLocationResult
@@ -67,6 +69,7 @@ class WebRecordingViewModel(
         startDurationTicker()
         startWebCapture(
             onChunk = { ctxRate, count -> onRecChunkGlobal(ctxRate, count) },
+            onFellBackToDefault = { MicSelectionState.fellBackToDefault() },
             onError = { message -> onCaptureStartFailed(message) },
         )
     }
@@ -421,54 +424,56 @@ private fun readGlobalRecBuf(count: Int): FloatArray {
 
 private fun readRecBufAt(i: Int): Float = js("window.__recBuf[i]")
 
-private fun startWebCapture(onChunk: (Int, Int) -> Unit, onError: (String) -> Unit) {
+private fun startWebCapture(
+    onChunk: (Int, Int) -> Unit,
+    onFellBackToDefault: () -> Unit,
+    onError: (String) -> Unit,
+) {
+    // Device acquisition (with soft USB-style fallback) is shared with the inference path; this path
+    // owns only its capture graph, built once the stream is at window.__recStream.
+    getUserMediaWithFallback(
+        streamGlobalName = "__recStream",
+        onStream = { buildRecCaptureGraph(onChunk) },
+        onFellBackToDefault = onFellBackToDefault,
+        onError = onError,
+    )
+}
+
+private fun buildRecCaptureGraph(onChunk: (Int, Int) -> Unit) {
     js("""
-        var __mic = {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-            channelCount: 1
-        };
-        if (window.__micDeviceId) __mic.deviceId = { exact: window.__micDeviceId };
-        navigator.mediaDevices.getUserMedia({ audio: __mic, video: false }).then(function(stream) {
-            var ctx = new (window.AudioContext || window.webkitAudioContext)();
-            window.__recCtx = ctx;
-            window.__recStream = stream;
-            // iOS Safari starts the context suspended; resume it within this user gesture.
-            if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
-            var src = ctx.createMediaStreamSource(stream);
+        var stream = window.__recStream;
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        window.__recCtx = ctx;
+        // iOS Safari starts the context suspended; resume it within this user gesture.
+        if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+        var src = ctx.createMediaStreamSource(stream);
 
-            function sendChunk(channelData) {
-                window.__recBuf = channelData;
-                onChunk(Math.round(ctx.sampleRate), channelData.length);
-            }
+        function sendChunk(channelData) {
+            window.__recBuf = channelData;
+            onChunk(Math.round(ctx.sampleRate), channelData.length);
+        }
 
-            if (ctx.audioWorklet) {
-                ctx.audioWorklet.addModule('/app/mic-worklet.js').then(function() {
-                    var node = new AudioWorkletNode(ctx, 'mic-processor');
-                    var silentGain = ctx.createGain();
-                    silentGain.gain.value = 0;
-                    window.__recNode = node;
-                    window.__recSilentGain = silentGain;
-                    node.port.onmessage = function(e) { sendChunk(e.data); };
-                    src.connect(node);
-                    node.connect(silentGain);
-                    silentGain.connect(ctx.destination);
-                }).catch(function() { fallback(ctx, src, sendChunk); });
-            } else { fallback(ctx, src, sendChunk); }
+        if (ctx.audioWorklet) {
+            ctx.audioWorklet.addModule('/app/mic-worklet.js').then(function() {
+                var node = new AudioWorkletNode(ctx, 'mic-processor');
+                var silentGain = ctx.createGain();
+                silentGain.gain.value = 0;
+                window.__recNode = node;
+                window.__recSilentGain = silentGain;
+                node.port.onmessage = function(e) { sendChunk(e.data); };
+                src.connect(node);
+                node.connect(silentGain);
+                silentGain.connect(ctx.destination);
+            }).catch(function() { workletFallback(ctx, src, sendChunk); });
+        } else { workletFallback(ctx, src, sendChunk); }
 
-            function fallback(ctx, src, sendChunk) {
-                var proc = ctx.createScriptProcessor(4096, 1, 1);
-                window.__recProc = proc;
-                proc.onaudioprocess = function(e) { sendChunk(e.inputBuffer.getChannelData(0)); };
-                src.connect(proc);
-                proc.connect(ctx.destination);
-            }
-        }).catch(function(e) {
-            var message = (e && e.message) ? e.message : String(e);
-            console.error('Recording getUserMedia failed:', e);
-            onError(message);
-        });
+        function workletFallback(ctx, src, sendChunk) {
+            var proc = ctx.createScriptProcessor(4096, 1, 1);
+            window.__recProc = proc;
+            proc.onaudioprocess = function(e) { sendChunk(e.inputBuffer.getChannelData(0)); };
+            src.connect(proc);
+            proc.connect(ctx.destination);
+        }
     """)
 }
 

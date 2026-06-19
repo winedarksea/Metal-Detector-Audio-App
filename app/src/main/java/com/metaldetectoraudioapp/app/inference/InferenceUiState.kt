@@ -34,7 +34,7 @@ data class InferenceUiState(
     /** Confidence of the TARGET detection that activated the sticky banner. */
     val stickyTargetConfidence: Float = 0f,
 
-    /** Count of TARGET detections observed in the last 30 seconds. */
+    /** Count of TARGET detections observed in the last 15 seconds. */
     val recentTargetCount: Int = 0
 ) {
     companion object {
@@ -42,7 +42,7 @@ data class InferenceUiState(
         const val STICKY_TARGET_DURATION_MS = 5_000L
 
         /** How far back to count recent TARGET detections (ms). */
-        const val RECENT_WINDOW_MS = 30_000L
+        const val RECENT_WINDOW_MS = 15_000L
 
         /** Max entries kept in [recentDetections]. */
         const val MAX_RECENT_DETECTIONS = 20

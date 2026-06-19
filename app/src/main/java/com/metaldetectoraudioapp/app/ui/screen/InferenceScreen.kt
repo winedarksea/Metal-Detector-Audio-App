@@ -232,7 +232,7 @@ fun InferenceScreen(
             }
         }
 
-        // Recent detections log (non-AMBIENT hits in last 30 s).
+        // Recent detections log (non-AMBIENT hits in last 15 s).
         if (uiState.recentDetections.isNotEmpty()) {
             item {
                 RecentDetectionsCard(detections = uiState.recentDetections)
@@ -295,7 +295,7 @@ private fun StickyTargetBanner(confidence: Float, recentTargetCount: Int) {
             )
             if (recentTargetCount > 1) {
                 Text(
-                    "$recentTargetCount hits in last 30 s",
+                    "$recentTargetCount hits in last 15 s",
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 12.sp
                 )
@@ -388,7 +388,7 @@ private fun AcceleratorBadge(accelerator: InferenceAccelerator) {
 private fun RecentDetectionsCard(detections: List<RecentDetection>) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Text("Recent Detections (last 30 s)", style = MaterialTheme.typography.titleMedium)
+            Text("Recent Detections (last 15 s)", style = MaterialTheme.typography.titleMedium)
 
             // Show newest first (reversed).
             detections.asReversed().forEach { det ->

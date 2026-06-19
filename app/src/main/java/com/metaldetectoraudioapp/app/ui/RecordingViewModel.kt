@@ -447,6 +447,8 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
                 targetNameInput = "",
                 depthInches = "",
                 notesInput = "",
+                gpsLatitude = null,
+                gpsLongitude = null,
             ) else _uiState.value.draft
         )
     }

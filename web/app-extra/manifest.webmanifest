@@ -2,6 +2,7 @@
   "name": "Metal Detector Audio",
   "short_name": "DetectorAudio",
   "description": "AI-powered audio classification for metal detecting",
+  "id": "/app/",
   "start_url": "/app/",
   "scope": "/app/",
   "display": "standalone",

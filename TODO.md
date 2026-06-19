@@ -41,3 +41,11 @@
 - [ ] Policy should clearly state that users must upload their own content and are giving permission for the data to be shared and used for model training.
 - [ ] Social/Explore UI should clearly state when a user is offline (as the rest of the PWA works fine offline, but this part doesn't).
 - [ ] Internal facing dashboard to access and review uploads to use for training the improved model. Admin here would also be able to delete, edit the metadata, and trim the audio of recordings.
+
+### Spam Controls for Website
+- [ ] Reject any submission that contains http://, https://, www., or common top-level domains (e.g., .com, .net, .org, .xyz, .info)
+- [ ] Block text containing obvious spam flags (ie investing, contact info like telegram, and anything with @)
+- [ ] Add a visually hidden form (like 'contact info') which if filled, is always dropped
+- [ ] Cap fields at 250 characters
+- [ ] Generally focus the upload on coming from the app only, rigidly conforming to app standardized inputs (like correct date format), or else rejected.
+- [ ] Also assure WAV files are not malicious (anything that doesn't look like standard audio should be discarded)

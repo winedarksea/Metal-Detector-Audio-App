@@ -45,8 +45,26 @@
 
   <script>
     if ('serviceWorker' in navigator) {
+      // If a service worker already controls this page, reload once when a newer
+      // worker takes over. Without this, a returning visitor can stay pinned to a
+      // stale cached app shell across sessions — which suppresses Chrome's install
+      // affordance and ships old code. The guard (controller must already exist)
+      // means the very first install does NOT trigger a reload.
+      if (navigator.serviceWorker.controller) {
+        var reloadingForSwUpdate = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (reloadingForSwUpdate) return;
+          reloadingForSwUpdate = true;
+          window.location.reload();
+        });
+      }
       navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' })
-        .then(function(reg) { console.log('SW registered', reg.scope); })
+        .then(function(reg) {
+          console.log('SW registered', reg.scope);
+          // sw.js is served no-cache, so proactively checking on each load picks up
+          // a new deploy promptly instead of waiting for the browser's ~24h cycle.
+          reg.update();
+        })
         .catch(function(e) { console.warn('SW registration failed', e); });
     }
   </script>

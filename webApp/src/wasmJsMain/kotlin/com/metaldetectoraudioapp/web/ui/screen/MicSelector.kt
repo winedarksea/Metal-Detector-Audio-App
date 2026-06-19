@@ -194,17 +194,6 @@ fun MicSelector(
             )
         }
 
-        // No fragile label string-matching: if a chosen input can't be opened, capture now falls
-        // back to the default and the status note above says so. When no separate input is listed,
-        // explain the platform limitation honestly and point to the native app for USB.
-        if (devices.size <= 1) {
-            Text(
-                "Don't see a plugged-in USB microphone? Android browsers may not expose USB audio " +
-                    "inputs to web apps — use the native Android app for reliable USB recording.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 

@@ -6,6 +6,7 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.Clip
+import javax.sound.sampled.DataLine
 import javax.sound.sampled.LineEvent
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.resume
@@ -17,9 +18,26 @@ class DesktopAudioPlayer : AudioPlayer {
     private var activeClip: Clip? = null
 
     override suspend fun play(wavBytes: ByteArray) {
+        play(wavBytes, outputDevice = null)
+    }
+
+    suspend fun play(wavBytes: ByteArray, outputDevice: DesktopAudioDevice?) {
         withContext(Dispatchers.IO) {
             suspendCancellableCoroutine { cont ->
-                val clip = runCatching { AudioSystem.getClip() }.getOrElse {
+                val audioInputStream = runCatching {
+                    AudioSystem.getAudioInputStream(ByteArrayInputStream(wavBytes))
+                }.getOrElse {
+                    cont.resume(Unit)
+                    return@suspendCancellableCoroutine
+                }
+                val clip = runCatching {
+                    if (outputDevice == null) {
+                        AudioSystem.getClip()
+                    } else {
+                        val info = DataLine.Info(Clip::class.java, audioInputStream.format)
+                        AudioSystem.getMixer(outputDevice.mixerInfo).getLine(info) as Clip
+                    }
+                }.getOrElse {
                     cont.resume(Unit)
                     return@suspendCancellableCoroutine
                 }
@@ -32,7 +50,7 @@ class DesktopAudioPlayer : AudioPlayer {
                 }
 
                 runCatching {
-                    clip.open(AudioSystem.getAudioInputStream(ByteArrayInputStream(wavBytes)))
+                    clip.open(audioInputStream)
                     clip.start()
                 }.onFailure {
                     clip.close()

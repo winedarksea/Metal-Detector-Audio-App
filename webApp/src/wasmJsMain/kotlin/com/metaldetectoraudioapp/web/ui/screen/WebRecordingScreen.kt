@@ -62,7 +62,11 @@ fun WebRecordingScreen(
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
-                    MicSelector(modifier = Modifier.fillMaxWidth())
+                    MicSelector(
+                        modifier = Modifier.fillMaxWidth(),
+                        previewPlaybackEnabled = true,
+                        inputLabel = "Recording Device",
+                    )
                     WrappingActionRow {
                         Button(onClick = viewModel::startRecording, enabled = !uiState.isRecording) {
                             Text("Start")

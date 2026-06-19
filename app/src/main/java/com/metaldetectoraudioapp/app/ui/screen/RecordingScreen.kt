@@ -77,6 +77,7 @@ fun RecordingScreen(
     val inputDevices by viewModel.inputDevices.collectAsStateWithLifecycle()
     val outputDevices by viewModel.outputDevices.collectAsStateWithLifecycle()
     val selectedInputDevice by viewModel.selectedInputDevice.collectAsStateWithLifecycle()
+    val selectedPlaybackOutputDevice by viewModel.selectedPlaybackOutputDevice.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -124,12 +125,25 @@ fun RecordingScreen(
                 Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
                     AudioDevicePicker(
-                        label = "Input Device",
+                        label = "Recording Device",
                         devices = inputDevices,
                         selectedDevice = selectedInputDevice,
                         onDeviceSelected = viewModel::setInputDevice,
                         onRefresh = viewModel::refreshAudioDevices
                     )
+                    AudioDevicePicker(
+                        label = "Playback Device",
+                        devices = outputDevices,
+                        selectedDevice = selectedPlaybackOutputDevice,
+                        onDeviceSelected = viewModel::setPlaybackOutputDevice
+                    )
+                    if (outputDevices.isEmpty()) {
+                        Text(
+                            "No playback devices are currently reported. Preview will use Android's default output if available.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     UsbInputDiagnosticBanner(
                         inputDevices = inputDevices,
                         outputDevices = outputDevices

@@ -61,6 +61,10 @@ fun DesktopRecordingScreen(
     contentPadding: PaddingValues,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val recordingDevices by viewModel.recordingDevices.collectAsState()
+    val playbackDevices by viewModel.playbackDevices.collectAsState()
+    val selectedRecordingDevice by viewModel.selectedRecordingDevice.collectAsState()
+    val selectedPlaybackDevice by viewModel.selectedPlaybackDevice.collectAsState()
     val previewImage = remember(uiState.pendingImage) {
         loadDesktopImageBitmap(uiState.pendingImage?.bytes)
     }
@@ -93,6 +97,29 @@ fun DesktopRecordingScreen(
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Capture", style = MaterialTheme.typography.titleMedium)
+                    DesktopAudioDevicePicker(
+                        label = "Recording Device",
+                        devices = recordingDevices,
+                        selectedDevice = selectedRecordingDevice,
+                        onDeviceSelected = viewModel::setRecordingDevice,
+                        onRefresh = viewModel::refreshAudioDevices,
+                    )
+                    DesktopAudioDevicePicker(
+                        label = "Playback Device",
+                        devices = playbackDevices,
+                        selectedDevice = selectedPlaybackDevice,
+                        onDeviceSelected = viewModel::setPlaybackDevice,
+                    )
+                    if (recordingDevices.isEmpty() || playbackDevices.isEmpty()) {
+                        Text(
+                            buildString {
+                                if (recordingDevices.isEmpty()) append("No recording devices are currently reported. ")
+                                if (playbackDevices.isEmpty()) append("No playback devices are currently reported.")
+                            }.trim(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         Button(onClick = viewModel::startRecording, enabled = !uiState.isRecording) {
                             Text("Start")

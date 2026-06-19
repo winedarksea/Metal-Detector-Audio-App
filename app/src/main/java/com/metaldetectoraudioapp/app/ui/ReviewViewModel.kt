@@ -51,7 +51,7 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
 
-        playbackController.play(file) {
+        playbackController.play(file, preferredOutputDevice = null) {
             _uiState.value = _uiState.value.copy(selectedPlayingId = null)
         }
         _uiState.value = _uiState.value.copy(selectedPlayingId = recording.recordingId)

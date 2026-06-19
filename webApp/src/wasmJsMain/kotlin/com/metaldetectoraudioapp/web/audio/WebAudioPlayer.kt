@@ -10,12 +10,16 @@ class WebAudioPlayer : AudioPlayer {
     private var currentBlobUrl: String? = null
 
     override suspend fun play(wavBytes: ByteArray) {
+        play(wavBytes, playbackDeviceId = null)
+    }
+
+    override suspend fun play(wavBytes: ByteArray, playbackDeviceId: String?) {
         stop()
         val url = createBlobUrl(wavBytes, "audio/wav")
         currentBlobUrl = url
 
         suspendCancellableCoroutine<Unit> { cont ->
-            playAudioElement(url) {
+            playAudioElement(url, playbackDeviceId.orEmpty()) {
                 revokeObjectUrl(url)
                 currentBlobUrl = null
                 if (cont.isActive) cont.resume(Unit)
@@ -31,14 +35,21 @@ class WebAudioPlayer : AudioPlayer {
     }
 }
 
-private fun playAudioElement(url: String, onEnded: () -> Unit) {
+private fun playAudioElement(url: String, playbackDeviceId: String, onEnded: () -> Unit) {
     js("""
         if (window.__mdAudioEl) { window.__mdAudioEl.pause(); }
         var audio = new Audio(url);
         window.__mdAudioEl = audio;
         audio.onended = function() { onEnded(); };
         audio.onerror = function() { onEnded(); };
-        audio.play().catch(function() { onEnded(); });
+        var startPlayback = function() {
+            audio.play().catch(function() { onEnded(); });
+        };
+        if (playbackDeviceId && typeof audio.setSinkId === 'function') {
+            audio.setSinkId(playbackDeviceId).then(startPlayback).catch(startPlayback);
+        } else {
+            startPlayback();
+        }
     """)
 }
 

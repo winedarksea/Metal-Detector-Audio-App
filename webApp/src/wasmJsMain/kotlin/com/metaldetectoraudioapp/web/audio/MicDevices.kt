@@ -31,6 +31,11 @@ fun setSelectedMicDeviceId(deviceId: String): Unit = js("window.__micDeviceId = 
 
 fun selectedOutputDeviceId(): String = js("window.__mdInfSinkId || ''")
 
+fun selectedPreviewOutputDeviceId(): String = js("window.__mdPreviewSinkId || ''")
+
+fun setSelectedPreviewOutputDeviceId(deviceId: String): Unit =
+    js("window.__mdPreviewSinkId = deviceId")
+
 /**
  * Requests microphone permission via a throwaway `getUserMedia` call, immediately
  * stopping the tracks. Calls are coalesced because the app shell and source

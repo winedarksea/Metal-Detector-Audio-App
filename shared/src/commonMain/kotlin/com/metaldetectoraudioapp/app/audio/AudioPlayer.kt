@@ -7,5 +7,8 @@ package com.metaldetectoraudioapp.app.audio
  */
 interface AudioPlayer {
     suspend fun play(wavBytes: ByteArray)
+    suspend fun play(wavBytes: ByteArray, playbackDeviceId: String?) {
+        play(wavBytes)
+    }
     fun stop()
 }

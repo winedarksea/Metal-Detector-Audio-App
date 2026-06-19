@@ -1,5 +1,6 @@
 package com.metaldetectoraudioapp.desktop.audio
 
+import com.metaldetectoraudioapp.app.audio.DesktopAudioDevice
 import com.metaldetectoraudioapp.app.recording.CapturedRecording
 import com.metaldetectoraudioapp.app.recording.WavFileWriter
 import java.io.File
@@ -30,7 +31,7 @@ class DesktopAudioRecordingSession(
     @Volatile
     private var startEpochMs: Long = 0
 
-    fun start(): Boolean {
+    fun start(inputDevice: DesktopAudioDevice? = null): Boolean {
         if (recordingThread?.isAlive == true) {
             return false
         }
@@ -41,7 +42,11 @@ class DesktopAudioRecordingSession(
         val lineInfo = DataLine.Info(TargetDataLine::class.java, audioFormat)
 
         val newLine = runCatching {
-            AudioSystem.getLine(lineInfo) as TargetDataLine
+            if (inputDevice == null) {
+                AudioSystem.getLine(lineInfo) as TargetDataLine
+            } else {
+                AudioSystem.getMixer(inputDevice.mixerInfo).getLine(lineInfo) as TargetDataLine
+            }
         }.getOrElse {
             return false
         }

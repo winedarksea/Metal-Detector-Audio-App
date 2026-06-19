@@ -37,7 +37,9 @@ import com.metaldetectoraudioapp.web.audio.outputSelectionSupported
 import com.metaldetectoraudioapp.web.audio.registerDeviceChangeListener
 import com.metaldetectoraudioapp.web.audio.selectedMicDeviceId
 import com.metaldetectoraudioapp.web.audio.selectedOutputDeviceId
+import com.metaldetectoraudioapp.web.audio.selectedPreviewOutputDeviceId
 import com.metaldetectoraudioapp.web.audio.setSelectedMicDeviceId
+import com.metaldetectoraudioapp.web.audio.setSelectedPreviewOutputDeviceId
 import kotlinx.coroutines.launch
 
 private const val DEFAULT_LABEL = "System default"
@@ -56,11 +58,14 @@ private const val DEFAULT_LABEL = "System default"
 fun MicSelector(
     modifier: Modifier = Modifier,
     passthroughEnabled: Boolean = false,
+    previewPlaybackEnabled: Boolean = false,
+    inputLabel: String = "Microphone",
 ) {
     var devices by remember { mutableStateOf<List<MicDevice>>(emptyList()) }
     var outputs by remember { mutableStateOf<List<MicDevice>>(emptyList()) }
     var selectedId by remember { mutableStateOf(selectedMicDeviceId()) }
     var selectedOutId by remember { mutableStateOf(selectedOutputDeviceId()) }
+    var selectedPreviewOutId by remember { mutableStateOf(selectedPreviewOutputDeviceId()) }
     val scope = rememberCoroutineScope()
 
     suspend fun reload() {
@@ -77,7 +82,7 @@ fun MicSelector(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Microphone",
+                inputLabel,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -92,6 +97,42 @@ fun MicSelector(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh audio sources")
+            }
+        }
+
+        if (previewPlaybackEnabled) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Playback Device",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                DeviceDropdown(
+                    selectedLabel = outputs.firstOrNull { it.deviceId == selectedPreviewOutId }?.label
+                        ?: DEFAULT_LABEL,
+                    devices = outputs,
+                    onDefault = {
+                        selectedPreviewOutId = ""
+                        setSelectedPreviewOutputDeviceId("")
+                    },
+                    onSelected = { requestedDevice ->
+                        selectedPreviewOutId = requestedDevice.deviceId
+                        setSelectedPreviewOutputDeviceId(requestedDevice.deviceId)
+                    },
+                )
+            }
+            if (!outputSelectionSupported()) {
+                Text(
+                    "This browser can only use the system-selected preview output.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (outputs.isEmpty()) {
+                Text(
+                    "No playback devices are currently reported. Preview will use the browser default if available.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 

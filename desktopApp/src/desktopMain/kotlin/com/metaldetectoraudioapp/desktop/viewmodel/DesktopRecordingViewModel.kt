@@ -1,6 +1,8 @@
 package com.metaldetectoraudioapp.desktop.viewmodel
 
-import com.metaldetectoraudioapp.app.audio.AudioPlayer
+import com.metaldetectoraudioapp.app.audio.DesktopAudioDevice
+import com.metaldetectoraudioapp.app.audio.DesktopAudioDeviceManager
+import com.metaldetectoraudioapp.app.audio.DesktopAudioPlayer
 import com.metaldetectoraudioapp.app.recording.AudioTrim
 import com.metaldetectoraudioapp.app.recording.CapturedRecording
 import com.metaldetectoraudioapp.app.recording.RecordingLabelDraft
@@ -28,7 +30,7 @@ import java.io.File
 
 class DesktopRecordingViewModel(
     private val recordingRepository: RecordingRepository,
-    private val audioPlayer: AudioPlayer,
+    private val audioPlayer: DesktopAudioPlayer,
     recordingSessionCacheDirectoryPath: String,
     val datasetDirectoryPath: String,
 ) {
@@ -44,10 +46,45 @@ class DesktopRecordingViewModel(
     private val _uiState = MutableStateFlow(RecordingUiState())
     val uiState: StateFlow<RecordingUiState> = _uiState.asStateFlow()
 
+    private val _recordingDevices = MutableStateFlow<List<DesktopAudioDevice>>(emptyList())
+    val recordingDevices: StateFlow<List<DesktopAudioDevice>> = _recordingDevices.asStateFlow()
+
+    private val _playbackDevices = MutableStateFlow<List<DesktopAudioDevice>>(emptyList())
+    val playbackDevices: StateFlow<List<DesktopAudioDevice>> = _playbackDevices.asStateFlow()
+
+    private val _selectedRecordingDevice = MutableStateFlow<DesktopAudioDevice?>(null)
+    val selectedRecordingDevice: StateFlow<DesktopAudioDevice?> = _selectedRecordingDevice.asStateFlow()
+
+    private val _selectedPlaybackDevice = MutableStateFlow<DesktopAudioDevice?>(null)
+    val selectedPlaybackDevice: StateFlow<DesktopAudioDevice?> = _selectedPlaybackDevice.asStateFlow()
+
+    init {
+        refreshAudioDevices()
+    }
+
+    fun refreshAudioDevices() {
+        _recordingDevices.value = DesktopAudioDeviceManager.listRecordingDevices()
+        _playbackDevices.value = DesktopAudioDeviceManager.listPlaybackDevices()
+        _selectedRecordingDevice.value = _selectedRecordingDevice.value?.takeIf { selected ->
+            _recordingDevices.value.any { it.mixerInfo == selected.mixerInfo }
+        }
+        _selectedPlaybackDevice.value = _selectedPlaybackDevice.value?.takeIf { selected ->
+            _playbackDevices.value.any { it.mixerInfo == selected.mixerInfo }
+        }
+    }
+
+    fun setRecordingDevice(device: DesktopAudioDevice?) {
+        _selectedRecordingDevice.value = device
+    }
+
+    fun setPlaybackDevice(device: DesktopAudioDevice?) {
+        _selectedPlaybackDevice.value = device
+    }
+
     fun startRecording() {
         clearPendingCaptureInternal(announce = false)
 
-        val started = recordingSession.start()
+        val started = recordingSession.start(inputDevice = _selectedRecordingDevice.value)
         if (started) {
             recordingStartEpochMs = System.currentTimeMillis()
             _uiState.value = _uiState.value.copy(
@@ -105,7 +142,7 @@ class DesktopRecordingViewModel(
         }
         playbackJob = scope.launch {
             _uiState.value = _uiState.value.copy(isPlayingPreview = true)
-            audioPlayer.play(bytes)
+            audioPlayer.play(bytes, _selectedPlaybackDevice.value)
             _uiState.value = _uiState.value.copy(isPlayingPreview = false)
         }
     }

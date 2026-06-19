@@ -14,6 +14,7 @@ import com.metaldetectoraudioapp.app.ui.model.parseLabelEntries
 import com.metaldetectoraudioapp.app.ui.model.RecordingUiState
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.util.Clocks
+import com.metaldetectoraudioapp.web.audio.selectedPreviewOutputDeviceId
 import com.metaldetectoraudioapp.web.platform.WebLocationProvider
 import com.metaldetectoraudioapp.web.platform.WebLocationResult
 import com.metaldetectoraudioapp.web.platform.WebPhotoCaptureProvider
@@ -142,7 +143,7 @@ class WebRecordingViewModel(
         }
         playbackJob = scope.launch {
             _uiState.value = _uiState.value.copy(isPlayingPreview = true)
-            audioPlayer.play(bytes)
+            audioPlayer.play(bytes, selectedPreviewOutputDeviceId())
             _uiState.value = _uiState.value.copy(isPlayingPreview = false)
         }
     }

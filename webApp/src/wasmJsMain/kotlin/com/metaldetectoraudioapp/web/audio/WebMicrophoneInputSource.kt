@@ -27,14 +27,17 @@ class WebMicrophoneInputSource(
         if (started) return
         started = true
         globalInfSource = this
-        // Shared device acquisition with the recording path: tries the chosen device, softly falls
-        // back to the system default, and surfaces real failures. This path has no other UI channel,
-        // so fallback/error are routed through MicSelectionState (the MicSelector note is shown on the
-        // Detect screen too) instead of being swallowed by console.error.
-        getUserMediaWithFallback(
+        // Shared device acquisition with the recording path: verifies the chosen device before
+        // building the graph and surfaces failures through the MicSelector on the Detect screen.
+        getUserMediaStrictlyVerified(
             streamGlobalName = "__mdInfStream",
             onStream = { buildInfCaptureGraph { ctxRate, count -> onInfChunkGlobal(ctxRate, count) } },
-            onFellBackToDefault = { MicSelectionState.fellBackToDefault() },
+            onDeviceVerified = { requestedId, actualId ->
+                MicSelectionState.reportVerifiedCapture(requestedId, actualId)
+            },
+            onDeviceRejected = { requestedId, actualId ->
+                MicSelectionState.reportRejectedCapture(requestedId, actualId)
+            },
             onError = { message -> MicSelectionState.reportError(message) },
         )
     }

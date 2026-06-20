@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metaldetectoraudioapp.web.audio.MicDevice
 import com.metaldetectoraudioapp.web.audio.MicSelectionState
+import com.metaldetectoraudioapp.web.audio.MicVerificationStatus
 import com.metaldetectoraudioapp.web.audio.WebPassthroughMonitor
 import com.metaldetectoraudioapp.web.audio.listAudioDevices
 import com.metaldetectoraudioapp.web.audio.mediaElementSinkSelectionSupported
@@ -52,7 +53,7 @@ private const val DEFAULT_LABEL = "System default"
  * reads as a sibling of the other settings rows (label on the left, a tappable Material 3 chip on
  * the right). The choice is stored in the [MicSelectionState] reactive holder (mirrored to the JS
  * global the capture paths read) so it governs both the Detect (inference) and Record capture
- * paths, and so a capture-time fallback to the system default can visibly revert the selection.
+ * paths, and so capture-time verification can visibly reject an unverified browser stream.
  *
  * A refresh button re-enumerates on demand (e.g. after plugging in a USB metal-detector adapter),
  * and a `devicechange` listener auto-refreshes on hot-plug. When [passthroughEnabled] is true and
@@ -67,10 +68,10 @@ fun MicSelector(
 ) {
     var devices by remember { mutableStateOf<List<MicDevice>>(emptyList()) }
     var outputs by remember { mutableStateOf<List<MicDevice>>(emptyList()) }
-    // Selected input + status note come from the shared reactive holder so a capture-time fallback to
-    // the system default visibly reverts the dropdown (see MicSelectionState).
+    // Selected input, status, and capture diagnostics come from the shared reactive holder.
     val selectedId by MicSelectionState.selectedDeviceId.collectAsState()
     val micStatusNote by MicSelectionState.statusNote.collectAsState()
+    val micDiagnostics by MicSelectionState.diagnostics.collectAsState()
     var selectedOutId by remember { mutableStateOf(selectedOutputDeviceId()) }
     var selectedPreviewOutId by remember { mutableStateOf(selectedPreviewOutputDeviceId()) }
     val scope = rememberCoroutineScope()
@@ -107,8 +108,7 @@ fun MicSelector(
             }
         }
 
-        // Surfaced when capture couldn't open the chosen device and reverted to the system default,
-        // or when the mic failed outright — so the user never assumes a USB device is in use when it isn't.
+        // Surfaced when capture can't verify the chosen device or when the mic failed outright.
         micStatusNote?.let { note ->
             Text(
                 note,
@@ -116,6 +116,13 @@ fun MicSelector(
                 color = MaterialTheme.colorScheme.error,
             )
         }
+        MicDiagnosticsPanel(
+            selectedLabel = devices.firstOrNull { it.deviceId == selectedId }?.label
+                ?: micDiagnostics.selectedLabel,
+            requestedDeviceId = micDiagnostics.requestedDeviceId,
+            actualDeviceId = micDiagnostics.actualDeviceId,
+            verificationStatus = micDiagnostics.verificationStatus,
+        )
 
         if (previewPlaybackEnabled) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -243,6 +250,61 @@ fun MicSelector(
 
     }
 }
+
+@Composable
+private fun MicDiagnosticsPanel(
+    selectedLabel: String,
+    requestedDeviceId: String,
+    actualDeviceId: String,
+    verificationStatus: MicVerificationStatus,
+) {
+    val statusText = when (verificationStatus) {
+        MicVerificationStatus.IDLE -> "Idle"
+        MicVerificationStatus.VERIFIED -> "Verified"
+        MicVerificationStatus.UNVERIFIED_DEFAULT -> "Default input"
+        MicVerificationStatus.REJECTED -> "Rejected"
+    }
+    val statusColor = when (verificationStatus) {
+        MicVerificationStatus.REJECTED -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            "Mic: $selectedLabel",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Requested: ${shortDeviceId(requestedDeviceId)} · Actual: ${shortDeviceId(actualDeviceId)}",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "Capture: $statusText",
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall,
+            color = statusColor,
+        )
+    }
+}
+
+private fun shortDeviceId(deviceId: String): String =
+    when {
+        deviceId.isBlank() -> "none"
+        deviceId.length <= 12 -> deviceId
+        else -> "${deviceId.take(6)}...${deviceId.takeLast(4)}"
+    }
 
 @Composable
 private fun DeviceDropdown(

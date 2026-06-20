@@ -2,60 +2,57 @@ package com.metaldetectoraudioapp.web.audio
 
 /**
  * Shared `getUserMedia` entry point for both web capture paths (inference + recording), so the
- * device-constraint and fallback logic lives in exactly one place instead of being duplicated.
+ * device-constraint and verification logic lives in exactly one place instead of being duplicated.
  *
- * Mirrors Android's *soft* `AudioRecord.preferredDevice` behaviour: it tries hard for the selected
- * device (`deviceId: { exact }`), but if the browser can't open it (a common failure for USB audio
- * dongles on Android Chrome) it transparently retries on the system default so capture still works —
- * then reports the fallback so the UI can revert the picker (see [MicSelectionState.fellBackToDefault]).
- * A permission denial is never retried; it is surfaced as a real error.
+ * If the user selected a non-default microphone, capture is strict: the browser must return a track
+ * whose `getSettings().deviceId` matches the requested `deviceId`. Android Chrome can otherwise
+ * silently return the built-in mic for a USB-looking input, which would corrupt field recordings.
  *
  * Kotlin/Wasm interop note: callbacks may only take primitive/`String` params, so the helper resolves
  * the stream into the JS global named by [streamGlobalName] and signals completion via [onStream];
  * each caller then builds its own Web Audio graph from `window[streamGlobalName]`.
  */
-internal fun getUserMediaWithFallback(
+internal fun getUserMediaStrictlyVerified(
     streamGlobalName: String,
     onStream: () -> Unit,
-    onFellBackToDefault: () -> Unit,
+    onDeviceVerified: (String, String) -> Unit,
+    onDeviceRejected: (String, String) -> Unit,
     onError: (String) -> Unit,
 ) {
     js(
         """
-        function store(stream, isRetry) {
-            window[streamGlobalName] = stream;
-            if (isRetry) { onFellBackToDefault(); onStream(); return; }
-            // Verify the track came from the requested device.
-            // Android Chrome can silently fulfil deviceId:{exact} with the wrong (default) device.
-            if (window.__micDeviceId) {
-                var tracks = stream.getAudioTracks();
-                if (tracks.length > 0 && tracks[0].getSettings) {
-                    var actualId = tracks[0].getSettings().deviceId || '';
-                    if (actualId && actualId !== window.__micDeviceId) {
-                        onFellBackToDefault();
-                        onStream();
-                        return;
-                    }
-                }
+        function stopStream(stream) {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+            if (window[streamGlobalName] === stream) window[streamGlobalName] = null;
+        }
+        function store(stream) {
+            var requestedId = window.__micDeviceId || '';
+            var tracks = stream.getAudioTracks();
+            var actualId = '';
+            if (tracks.length > 0 && tracks[0].getSettings) {
+                actualId = tracks[0].getSettings().deviceId || '';
             }
+            if (requestedId && (!actualId || actualId !== requestedId)) {
+                stopStream(stream);
+                onDeviceRejected(requestedId, actualId);
+                onError(
+                    actualId
+                        ? 'Selected microphone could not be verified. Browser returned a different input.'
+                        : 'Selected microphone could not be verified. Browser did not report the captured input.'
+                );
+                return;
+            }
+            window[streamGlobalName] = stream;
+            onDeviceVerified(requestedId, actualId);
             onStream();
         }
-        function attempt(constraints, isRetry) {
+        function attempt(constraints) {
             navigator.mediaDevices.getUserMedia({ audio: constraints, video: false })
-                .then(function(stream) { store(stream, isRetry); })
+                .then(function(stream) { store(stream); })
                 .catch(function(e) {
                     var name = (e && e.name) ? e.name : '';
-                    var deviceUnavailable =
-                        name === 'OverconstrainedError' ||
-                        name === 'NotFoundError' ||
-                        name === 'NotReadableError';
-                    if (!isRetry && window.__micDeviceId && deviceUnavailable) {
-                        // Requested device couldn't be opened — fall back to the system default.
-                        attempt(baseConstraints(), true);
-                    } else {
-                        var msg = (e && e.message) ? e.message : String(e);
-                        onError(name ? (msg + ' (' + name + ')') : msg);
-                    }
+                    var msg = (e && e.message) ? e.message : String(e);
+                    onError(name ? (msg + ' (' + name + ')') : msg);
                 });
         }
         function baseConstraints() {
@@ -71,7 +68,7 @@ internal fun getUserMediaWithFallback(
         } else {
             var first = baseConstraints();
             if (window.__micDeviceId) first.deviceId = { exact: window.__micDeviceId };
-            attempt(first, false);
+            attempt(first);
         }
     """
     )

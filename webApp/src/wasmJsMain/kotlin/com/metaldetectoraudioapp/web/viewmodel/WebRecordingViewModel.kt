@@ -15,7 +15,7 @@ import com.metaldetectoraudioapp.app.ui.model.RecordingUiState
 import com.metaldetectoraudioapp.app.ui.model.SweepPattern
 import com.metaldetectoraudioapp.app.util.Clocks
 import com.metaldetectoraudioapp.web.audio.MicSelectionState
-import com.metaldetectoraudioapp.web.audio.getUserMediaWithFallback
+import com.metaldetectoraudioapp.web.audio.getUserMediaStrictlyVerified
 import com.metaldetectoraudioapp.web.audio.selectedPreviewOutputDeviceId
 import com.metaldetectoraudioapp.web.platform.WebLocationProvider
 import com.metaldetectoraudioapp.web.platform.WebLocationResult
@@ -69,8 +69,16 @@ class WebRecordingViewModel(
         startDurationTicker()
         startWebCapture(
             onChunk = { ctxRate, count -> onRecChunkGlobal(ctxRate, count) },
-            onFellBackToDefault = { MicSelectionState.fellBackToDefault() },
-            onError = { message -> onCaptureStartFailed(message) },
+            onDeviceVerified = { requestedId, actualId ->
+                MicSelectionState.reportVerifiedCapture(requestedId, actualId)
+            },
+            onDeviceRejected = { requestedId, actualId ->
+                MicSelectionState.reportRejectedCapture(requestedId, actualId)
+            },
+            onError = { message ->
+                MicSelectionState.reportError(message)
+                onCaptureStartFailed(message)
+            },
         )
     }
 
@@ -434,15 +442,17 @@ private fun readRecBufAt(i: Int): Float = js("window.__recBuf[i]")
 
 private fun startWebCapture(
     onChunk: (Int, Int) -> Unit,
-    onFellBackToDefault: () -> Unit,
+    onDeviceVerified: (String, String) -> Unit,
+    onDeviceRejected: (String, String) -> Unit,
     onError: (String) -> Unit,
 ) {
-    // Device acquisition (with soft USB-style fallback) is shared with the inference path; this path
+    // Device acquisition and strict verification are shared with the inference path; this path
     // owns only its capture graph, built once the stream is at window.__recStream.
-    getUserMediaWithFallback(
+    getUserMediaStrictlyVerified(
         streamGlobalName = "__recStream",
         onStream = { buildRecCaptureGraph(onChunk) },
-        onFellBackToDefault = onFellBackToDefault,
+        onDeviceVerified = onDeviceVerified,
+        onDeviceRejected = onDeviceRejected,
         onError = onError,
     )
 }

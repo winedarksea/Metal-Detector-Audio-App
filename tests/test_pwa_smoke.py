@@ -28,6 +28,7 @@ WASM_MAIN_ROOT = (
 )
 MAIN_KT = WASM_MAIN_ROOT / "Main.kt"
 MIC_DEVICES_KT = WASM_MAIN_ROOT / "audio" / "MicDevices.kt"
+MIC_CAPTURE_KT = WASM_MAIN_ROOT / "audio" / "MicCapture.kt"
 MIC_SELECTOR_KT = WASM_MAIN_ROOT / "ui" / "screen" / "MicSelector.kt"
 PHOTO_CAPTURE_PROVIDER_KT = WASM_MAIN_ROOT / "platform" / "WebPhotoCaptureProvider.kt"
 LOCATION_PROVIDER_KT = WASM_MAIN_ROOT / "platform" / "WebLocationProvider.kt"
@@ -142,20 +143,41 @@ class PwaAudioDeviceFlowTest(unittest.TestCase):
     def test_microphone_permission_has_one_get_user_media_call_site(self):
         source = _read(MIC_DEVICES_KT)
         self.assertEqual(
-            1,
+            2,
             source.count("navigator.mediaDevices.getUserMedia("),
-            "Device enumeration must share one coalesced permission request; separate input "
-            "and output requests cause duplicate browser prompts.",
+            "Device enumeration should have exactly one coalesced permission request plus the "
+            "explicit refresh stream used to reveal hot-plugged Android USB inputs.",
         )
         self.assertIn("MicrophonePermissionRequestState.REQUESTING", source)
+        self.assertIn("useActiveStream", source)
 
     def test_refresh_uses_one_input_output_snapshot_and_visible_label(self):
         source = _read(MIC_SELECTOR_KT)
-        self.assertIn("listAudioDevices()", source)
+        self.assertIn("listAudioDevices(useActiveStream = activeStream)", source)
         self.assertIn("IconButton(", source)
         self.assertIn("Modifier.size(36.dp)", source)
         self.assertNotIn("listMicDevices()", source)
         self.assertNotIn("listOutputDevices()", source)
+
+    def test_selected_microphone_capture_is_strictly_verified(self):
+        source = _read(MIC_CAPTURE_KT)
+        self.assertIn("first.deviceId = { exact: window.__micDeviceId }", source)
+        self.assertIn("tracks[0].getSettings().deviceId", source)
+        self.assertIn("!actualId || actualId !== requestedId", source)
+        self.assertIn("stopStream(stream)", source)
+        self.assertIn("onDeviceRejected(requestedId, actualId)", source)
+        self.assertNotIn("selectAudioOutput", source)
+        self.assertNotIn("attempt(baseConstraints(), true)", source)
+        self.assertNotIn("onFellBackToDefault", source)
+
+    def test_microphone_selector_shows_capture_diagnostics(self):
+        selector_source = _read(MIC_SELECTOR_KT)
+        state_source = _read(WASM_MAIN_ROOT / "audio" / "MicSelectionState.kt")
+        self.assertIn("MicDiagnosticsPanel", selector_source)
+        self.assertIn("requestedDeviceId", selector_source)
+        self.assertIn("actualDeviceId", selector_source)
+        self.assertIn("MicVerificationStatus.REJECTED", selector_source)
+        self.assertIn("MicCaptureDiagnostics", state_source)
 
 
 class PwaPhotoAndLocationCaptureTest(unittest.TestCase):

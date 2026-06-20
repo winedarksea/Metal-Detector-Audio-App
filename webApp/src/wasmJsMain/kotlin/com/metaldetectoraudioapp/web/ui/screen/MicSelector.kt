@@ -138,7 +138,7 @@ fun MicSelector(
             }
             if (!mediaElementSinkSelectionSupported()) {
                 Text(
-                    "This browser can't choose the playback output — preview uses the system audio output.",
+                    " ",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

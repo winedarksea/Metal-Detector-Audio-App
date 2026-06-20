@@ -116,10 +116,6 @@ fun WebRecordingScreen(
                         "Duration: ${uiState.pendingDurationMs} ms",
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Text(
-                        "Microphone access is requested when the app opens. Tap the detector coil against a target during recording.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
                 }
             }
         }
@@ -221,8 +217,7 @@ fun WebRecordingScreen(
                     HorizontalDivider()
 
                     Text(
-                        "Each object needs a TARGET or JUNK label. Use AMBIENT only when no " +
-                            "identifiable object is present. Keep all sounds within the same " +
+                        "Use AMBIENT only when no identifiable object is present. Keep all sounds within the same " +
                             "1-second window; record sounds farther apart as separate files, " +
                             "and avoid a full second of empty audio in non-ambient recordings.",
                         style = MaterialTheme.typography.bodySmall,

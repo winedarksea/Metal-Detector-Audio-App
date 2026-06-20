@@ -49,7 +49,7 @@ internal fun HardwareAccelerationPreferenceControl(
                 style = MaterialTheme.typography.labelLarge,
             )
             Text(
-                "Disable to use the waveform model on CPU",
+                "Disable to use the model on CPU",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

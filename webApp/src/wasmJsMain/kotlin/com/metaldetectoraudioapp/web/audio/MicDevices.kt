@@ -186,12 +186,12 @@ private fun enumerateAudioDevicesToGlobals(
         function enumerate(after) {
             navigator.mediaDevices.enumerateDevices().then(function(devices) {
                 window.__micDevices = devices
-                    .filter(function(d) { return d.kind === 'audioinput'; })
+                    .filter(function(d) { return d.kind === 'audioinput' && d.deviceId !== 'default'; })
                     .map(function(d, idx) {
                         return { deviceId: d.deviceId, label: d.label || ('Microphone ' + (idx + 1)) };
                     });
                 window.__outDevices = devices
-                    .filter(function(d) { return d.kind === 'audiooutput'; })
+                    .filter(function(d) { return d.kind === 'audiooutput' && d.deviceId !== 'default'; })
                     .map(function(d, idx) {
                         return { deviceId: d.deviceId, label: d.label || ('Output ' + (idx + 1)) };
                     });

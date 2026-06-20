@@ -159,6 +159,13 @@ class PwaAudioDeviceFlowTest(unittest.TestCase):
         self.assertNotIn("listMicDevices()", source)
         self.assertNotIn("listOutputDevices()", source)
 
+    def test_browser_default_devices_are_deduplicated_from_picker_lists(self):
+        source = _read(MIC_DEVICES_KT)
+        self.assertIn("d.kind === 'audioinput' && d.deviceId !== 'default'", source)
+        self.assertIn("d.kind === 'audiooutput' && d.deviceId !== 'default'", source)
+        selector_source = _read(MIC_SELECTOR_KT)
+        self.assertIn('private const val DEFAULT_LABEL = "System default"', selector_source)
+
     def test_selected_microphone_capture_is_strictly_verified(self):
         source = _read(MIC_CAPTURE_KT)
         self.assertIn("first.deviceId = { exact: window.__micDeviceId }", source)

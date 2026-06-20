@@ -38,6 +38,8 @@ import com.metaldetectoraudioapp.web.audio.listAudioDevices
 import com.metaldetectoraudioapp.web.audio.mediaElementSinkSelectionSupported
 import com.metaldetectoraudioapp.web.audio.outputSelectionSupported
 import com.metaldetectoraudioapp.web.audio.registerDeviceChangeListener
+import com.metaldetectoraudioapp.web.audio.selectAudioOutputSupported
+import com.metaldetectoraudioapp.web.audio.selectPlaybackOutputDevice
 import com.metaldetectoraudioapp.web.audio.selectedOutputDeviceId
 import com.metaldetectoraudioapp.web.audio.selectedPreviewOutputDeviceId
 import com.metaldetectoraudioapp.web.audio.setSelectedPreviewOutputDeviceId
@@ -122,33 +124,78 @@ fun MicSelector(
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                DeviceDropdown(
-                    selectedLabel = outputs.firstOrNull { it.deviceId == selectedPreviewOutId }?.label
-                        ?: DEFAULT_LABEL,
-                    devices = outputs,
-                    onDefault = {
-                        selectedPreviewOutId = ""
-                        setSelectedPreviewOutputDeviceId("")
-                    },
-                    onSelected = { requestedDevice ->
-                        selectedPreviewOutId = requestedDevice.deviceId
-                        setSelectedPreviewOutputDeviceId(requestedDevice.deviceId)
-                    },
-                )
+                if (outputs.isEmpty() && selectAudioOutputSupported() && mediaElementSinkSelectionSupported()) {
+                    // Android Chrome: outputs not enumerated yet, but selectAudioOutput shows a native chooser.
+                    // After the user picks a device, it becomes enumerable and the UI switches to the dropdown.
+                    Text(
+                        selectedPreviewOutId.ifEmpty { DEFAULT_LABEL },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .widthIn(max = 180.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                selectPlaybackOutputDevice(
+                                    deviceId = "",
+                                    onSelected = { id ->
+                                        selectedPreviewOutId = id
+                                        setSelectedPreviewOutputDeviceId(id)
+                                    },
+                                    onLabel = { scope.launch { reload() } },
+                                )
+                            }
+                            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                } else if (mediaElementSinkSelectionSupported() || outputs.isNotEmpty()) {
+                    DeviceDropdown(
+                        selectedLabel = outputs.firstOrNull { it.deviceId == selectedPreviewOutId }?.label
+                            ?: DEFAULT_LABEL,
+                        devices = outputs,
+                        onDefault = {
+                            selectedPreviewOutId = ""
+                            setSelectedPreviewOutputDeviceId("")
+                        },
+                        onSelected = { requestedDevice ->
+                            if (selectAudioOutputSupported()) {
+                                selectPlaybackOutputDevice(
+                                    deviceId = requestedDevice.deviceId,
+                                    onSelected = { id ->
+                                        selectedPreviewOutId = id
+                                        setSelectedPreviewOutputDeviceId(id)
+                                    },
+                                    onLabel = {},
+                                )
+                            } else {
+                                selectedPreviewOutId = requestedDevice.deviceId
+                                setSelectedPreviewOutputDeviceId(requestedDevice.deviceId)
+                            }
+                        },
+                    )
+                }
             }
-            if (!mediaElementSinkSelectionSupported()) {
-                Text(
-                    " ",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else if (outputs.isEmpty()) {
-                Text(
-                    "This browser doesn't list audio outputs — playback follows your device's system " +
-                        "audio output (change it in your Android/OS sound settings).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            when {
+                !mediaElementSinkSelectionSupported() && !selectAudioOutputSupported() ->
+                    Text(
+                        "Playback device selection is not supported in this browser.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                outputs.isEmpty() && selectAudioOutputSupported() ->
+                    Text(
+                        "Tap to choose a playback device — the browser will show a picker.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                outputs.isEmpty() ->
+                    Text(
+                        "This browser doesn't list audio outputs — playback follows your device's system " +
+                            "audio output (change it in your Android/OS sound settings).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
             }
         }
 

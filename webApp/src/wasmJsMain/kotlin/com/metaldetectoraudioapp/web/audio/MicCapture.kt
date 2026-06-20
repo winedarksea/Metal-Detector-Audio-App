@@ -24,7 +24,20 @@ internal fun getUserMediaWithFallback(
         """
         function store(stream, isRetry) {
             window[streamGlobalName] = stream;
-            if (isRetry) onFellBackToDefault();
+            if (isRetry) { onFellBackToDefault(); onStream(); return; }
+            // Verify the track came from the requested device.
+            // Android Chrome can silently fulfil deviceId:{exact} with the wrong (default) device.
+            if (window.__micDeviceId) {
+                var tracks = stream.getAudioTracks();
+                if (tracks.length > 0 && tracks[0].getSettings) {
+                    var actualId = tracks[0].getSettings().deviceId || '';
+                    if (actualId && actualId !== window.__micDeviceId) {
+                        onFellBackToDefault();
+                        onStream();
+                        return;
+                    }
+                }
+            }
             onStream();
         }
         function attempt(constraints, isRetry) {

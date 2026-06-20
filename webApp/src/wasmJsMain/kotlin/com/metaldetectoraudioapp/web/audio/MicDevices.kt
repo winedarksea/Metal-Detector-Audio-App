@@ -220,3 +220,47 @@ private fun addDeviceChangeListener(onChange: () -> Unit) {
         }
     """)
 }
+
+/** True if the browser supports the Audio Output Devices API (`selectAudioOutput`). */
+fun selectAudioOutputSupported(): Boolean = selectAudioOutputSupportedJs() == 1
+
+private fun selectAudioOutputSupportedJs(): Int =
+    js("(navigator.mediaDevices && typeof navigator.mediaDevices.selectAudioOutput === 'function') ? 1 : 0")
+
+/**
+ * Permission-and-selection flow for the recording-playback output device, mirroring
+ * [WebPassthroughMonitor.chooseOutputSink] for the `<audio>` element path.
+ *
+ * - [deviceId] non-empty: calls `selectAudioOutput({deviceId})` to confirm/grant permission,
+ *   then calls [onSelected] with the permitted id and [onLabel] with its human-readable label.
+ * - [deviceId] empty: calls `selectAudioOutput()` with no args, showing the browser's full
+ *   output chooser. Same callbacks on success.
+ * - If `selectAudioOutput` is unavailable (desktop Chrome doesn't need the permission step for
+ *   `setSinkId`), calls [onSelected] with [deviceId] and [onLabel] with an empty string directly.
+ * User cancellation is a no-op (neither callback fires).
+ */
+fun selectPlaybackOutputDevice(
+    deviceId: String,
+    onSelected: (String) -> Unit,
+    onLabel: (String) -> Unit,
+) {
+    selectPlaybackOutputDeviceJs(deviceId, onSelected, onLabel)
+}
+
+private fun selectPlaybackOutputDeviceJs(
+    deviceId: String,
+    onSelected: (String) -> Unit,
+    onLabel: (String) -> Unit,
+) {
+    js("""
+        if (navigator.mediaDevices && navigator.mediaDevices.selectAudioOutput) {
+            var opts = deviceId ? { deviceId: deviceId } : undefined;
+            navigator.mediaDevices.selectAudioOutput(opts)
+                .then(function(device) { onSelected(device.deviceId); onLabel(device.label || ''); })
+                .catch(function() { /* user cancelled or permission denied — no-op */ });
+        } else {
+            onSelected(deviceId);
+            onLabel('');
+        }
+    """)
+}
